@@ -1,0 +1,17 @@
+[iommu_overhead]
+runtime = 10
+repeat = 3
+fio_ramp_time = 5
+fio_size = "100%"
+workload_pause = 5
+hugepages = 1024
+
+[[iommu_overhead.workloads]]
+rw = "randread"
+iosize = 4096
+iodepths = [1, 2, 4, 8, 16, 32]
+
+[[iommu_overhead.workloads]]
+rw = "read"
+iosize = 131072
+iodepths = [1, 2, 4, 8, 16, 32]
