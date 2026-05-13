@@ -1,0 +1,29 @@
+[cijoe.workflow]
+fail_fast=true
+
+[xnvme.driver]
+prefix = "PCI_BLACKLIST=0000:01:00.0"
+
+[[devices]]
+pci_addr = "0000:4a:00.0"
+
+[[devices]]
+pci_addr = "0000:4b:00.0"
+
+[[devices]]
+pci_addr = "0000:4c:00.0"
+
+[[devices]]
+pci_addr = "0000:4d:00.0"
+
+[[devices]]
+pci_addr = "0000:61:00.0"
+
+[[devices]]
+pci_addr = "0000:62:00.0"
+
+[[devices]]
+pci_addr = "0000:63:00.0"
+
+[[devices]]
+pci_addr = "0000:64:00.0"
