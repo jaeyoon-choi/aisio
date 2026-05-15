@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>uPCIe IOMMU Overhead</title>
+<title>{{ datasets[0].label if datasets else "IOMMU Overhead" }}</title>
 <style>
 :root {
   --bg: #ffffff;
@@ -167,13 +167,13 @@ tbody tr:hover {
 <body>
 <main>
 <section class="hero">
-<h1>uPCIe IOMMU Overhead</h1>
+<h1>{{ datasets[0].label if datasets else "IOMMU Overhead" }}</h1>
 
 <p>
-This report compares an IOMMU-off <code>uio_pci_generic</code> run against an
-IOMMU-on <code>vfio-pci</code> run. Throughput is collected with
-<code>xnvmeperf</code> and <code>fio</code>; latency is collected from
-<code>fio</code>.
+This report compares an IOMMU-off run against an IOMMU-on run. The uPCIe
+path uses <code>uio_pci_generic</code> and <code>vfio-pci</code>; the kernel
+NVMe 4KB-page path uses raw <code>fio</code> through the <code>nvme</code>
+driver.
 </p>
 </section>
 
@@ -183,6 +183,13 @@ IOMMU-on <code>vfio-pci</code> run. Throughput is collected with
 <section class="panel summary-panel">
 <h2>Summary</h2>
 <div class="table-wrap">
+{% macro pct(value) -%}
+{% if value is none %}N/A{% else %}{{ "%.2f"|format(value) }}{% endif %}
+{%- endmacro %}
+{% set first = datasets[0].data[0] if datasets and datasets[0].data else none %}
+{% set is_kernel = first and first.uio.driver == "nvme" and first.vfio.driver == "nvme" %}
+{% set off_label = "Off" if is_kernel else "UIO" %}
+{% set on_label = "On" if is_kernel else "VFIO" %}
 <table>
 <thead>
 <tr>
@@ -191,21 +198,18 @@ IOMMU-on <code>vfio-pci</code> run. Throughput is collected with
   <th>IO size</th>
   <th>Devices</th>
   <th>IO depth</th>
-  <th>UIO IOPS</th>
-  <th>VFIO IOPS</th>
+  <th>{{ off_label }} IOPS</th>
+  <th>{{ on_label }} IOPS</th>
   <th>IOPS delta %</th>
-  <th>UIO MiB/s</th>
-  <th>VFIO MiB/s</th>
+  <th>{{ off_label }} MiB/s</th>
+  <th>{{ on_label }} MiB/s</th>
   <th>MiB/s delta %</th>
-  <th>UIO mean us</th>
-  <th>VFIO mean us</th>
+  <th>{{ off_label }} mean us</th>
+  <th>{{ on_label }} mean us</th>
   <th>Latency delta %</th>
 </tr>
 </thead>
 <tbody>
-{% macro pct(value) -%}
-{% if value is none %}N/A{% else %}{{ "%.2f"|format(value) }}{% endif %}
-{%- endmacro %}
 {% for dataset in datasets %}
 {% for item in dataset.data %}
 <tr>
@@ -243,6 +247,11 @@ const datasets = {{ datasets | tojson }};
 const rows = datasets.flatMap(dataset => (
   dataset.data.map(row => ({ ...row, datasetLabel: dataset.label }))
 ));
+const firstRow = rows[0] || {};
+const kernelNvme = firstRow.uio?.driver === "nvme" && firstRow.vfio?.driver === "nvme";
+const sideLabels = kernelNvme
+  ? { uio: "Off", vfio: "On" }
+  : { uio: "UIO", vfio: "VFIO" };
 const charts = buildCharts(rows);
 const holder = document.getElementById("charts");
 const renderedCharts = [];
@@ -339,8 +348,8 @@ charts.forEach((chart, idx) => {
   const badge = document.createElement("div");
   badge.className = "badge";
   badge.innerHTML = `
-    <span class="legend-dot" style="background: var(--accent-uio)"></span> UIO
-    <span class="legend-dot" style="background: var(--accent-vfio)"></span> VFIO
+    <span class="legend-dot" style="background: var(--accent-uio)"></span> ${sideLabels.uio}
+    <span class="legend-dot" style="background: var(--accent-vfio)"></span> ${sideLabels.vfio}
   `;
   header.appendChild(titleBlock);
   header.appendChild(badge);
@@ -355,8 +364,8 @@ charts.forEach((chart, idx) => {
       <tr>
         <th>IO depth</th>
         <th>Devices</th>
-        <th>UIO ${chart.unit}</th>
-        <th>VFIO ${chart.unit}</th>
+        <th>${sideLabels.uio} ${chart.unit}</th>
+        <th>${sideLabels.vfio} ${chart.unit}</th>
         <th>Delta %</th>
       </tr>
     </thead>

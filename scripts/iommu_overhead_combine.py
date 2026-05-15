@@ -1,6 +1,5 @@
 """
-Combine uPCIe IOMMU overhead benchmark results
-==============================================
+Combine IOMMU overhead benchmark results.
 """
 
 import errno
@@ -65,6 +64,8 @@ def combine_group(entries):
         "iops": iops,
         "mibs": mibs,
     }
+    if "backend" in first:
+        result["backend"] = first["backend"]
 
     if first["runner"] == "fio":
         result["lat_ns"] = avg(entry["lat_ns"] for entry in entries)
@@ -108,6 +109,8 @@ def aggregate_devices(combined):
             "iops": sum(entry["iops"] for entry in entries),
             "mibs": sum(entry["mibs"] for entry in entries),
         }
+        if "backend" in first:
+            item["backend"] = first["backend"]
 
         if first["runner"] == "fio":
             item["lat_ns"] = avg(entry["lat_ns"] for entry in entries)
@@ -139,28 +142,32 @@ def pair_results(combined):
         indexed, key=lambda item: (item[1], item[2], item[4], item[0], item[3])
     ):
         pair = indexed[key]
-        if "uio" not in pair or "vfio" not in pair:
+        if "uio" in pair and "vfio" in pair:
+            off = pair["uio"]
+            on = pair["vfio"]
+        elif "off" in pair and "on" in pair:
+            off = pair["off"]
+            on = pair["on"]
+        else:
             continue
 
         runner, rw, iosize, iodepth, devcount = key
-        uio = pair["uio"]
-        vfio = pair["vfio"]
         item = {
             "runner": runner,
             "rw": rw,
             "iosize": iosize,
             "iodepth": iodepth,
             "devcount": devcount,
-            "uio": uio,
-            "vfio": vfio,
-            "iops_delta_pct": pct_delta(uio["iops"], vfio["iops"]),
-            "mibs_delta_pct": pct_delta(uio["mibs"], vfio["mibs"]),
+            "uio": off,
+            "vfio": on,
+            "iops_delta_pct": pct_delta(off["iops"], on["iops"]),
+            "mibs_delta_pct": pct_delta(off["mibs"], on["mibs"]),
         }
 
         if runner == "fio":
-            item["lat_delta_pct"] = pct_delta(uio["lat_ns"], vfio["lat_ns"])
+            item["lat_delta_pct"] = pct_delta(off["lat_ns"], on["lat_ns"])
             item["tail_lat_delta_pct"] = {
-                name: pct_delta(uio["tail_lat_ns"][name], vfio["tail_lat_ns"][name])
+                name: pct_delta(off["tail_lat_ns"][name], on["tail_lat_ns"][name])
                 for name in ["p99_9", "p99_99", "p99_999"]
             }
 
@@ -184,10 +191,20 @@ def main(args, cijoe):
     combined = [combine_group(entries) for entries in groups.values()]
     items = pair_results(aggregate_devices(combined))
     if not items:
-        log.error("No matching UIO/VFIO IOMMU overhead result pairs found")
+        log.error("No matching IOMMU overhead result pairs found")
         return errno.ENOENT
 
-    payload = {"uPCIe IOMMU Overhead": items}
+    fio_4k_page = all(
+        item["uio"].get("backend") == "fio_4k_page"
+        and item["vfio"].get("backend") == "fio_4k_page"
+        for item in items
+    )
+    title = (
+        "Kernel NVMe IOMMU Overhead (4KB pages)"
+        if fio_4k_page
+        else "xNVMe/uPCIe Hugepage IOMMU Overhead"
+    )
+    payload = {title: items}
 
     with (artifacts / "benchmark-results.json").open("w") as jfd:
         json.dump(payload, jfd, indent=2)

@@ -1,0 +1,114 @@
+doc: |
+  Benchmark fio 4KB-page IOMMU overhead
+  =====================================
+
+  This workflow measures IOMMU overhead through the kernel NVMe driver with
+  raw fio and normal 4KB pages:
+
+    1. boot with IOMMU disabled and collect fio/io_uring results
+    2. boot with IOMMU enabled and collect fio/io_uring results
+    3. combine both result sets and generate an HTML report
+
+  It modifies `/etc/default/grub` on the target, reboots the machine twice, and
+  waits for the CIJOE transport to return after each reboot.
+
+  Example:
+
+    cijoe --monitor \
+      -c configs/transport.toml \
+      -c configs/aisio.toml \
+      -c configs/datasets.toml \
+      -c configs/iommu_overhead_fio_4k_page.toml \
+      tasks/bench_iommu_overhead_fio_4k_page.yaml
+
+  Multi-device mode uses the same task and benchmark config, plus a config with
+  top-level `[[devices]]` entries such as `configs/devices_8.toml` or
+  `configs/devices_16.toml`. Devices are pinned to CPUs by config order.
+
+    cijoe --monitor \
+      -c configs/transport.toml \
+      -c configs/aisio.toml \
+      -c configs/datasets.toml \
+      -c configs/devices_8.toml \
+      -c configs/iommu_overhead_fio_4k_page.toml \
+      tasks/bench_iommu_overhead_fio_4k_page.yaml
+
+  Recovery
+  --------
+  Before the first edit, the original grub config is copied to
+  `/etc/default/grub.aisio-iommu-overhead.bak` on the target. If a reboot
+  fails or the workflow is aborted in an unwanted boot state, restore with:
+
+    cp /etc/default/grub.aisio-iommu-overhead.bak /etc/default/grub \
+      && update-grub  # or: grub2-mkconfig -o /boot/grub2/grub.cfg
+
+  and reboot.
+
+steps:
+- name: set_iommu_off
+  uses: iommu_boot
+  with:
+    mode: set-off
+
+- name: reboot_iommu_off
+  run: shutdown -r now
+
+- name: wait_down_iommu_off
+  uses: core.wait_for_transport
+  with:
+    state: down
+    timeout: 60
+
+- name: wait_up_iommu_off
+  uses: core.wait_for_transport
+  with:
+    state: up
+    timeout: 600
+
+- name: verify_iommu_off
+  uses: iommu_boot
+  with:
+    mode: verify-off
+
+- name: benchmark_off
+  uses: iommu_overhead_fio_4k_page
+  with:
+    label: "off"
+
+- name: set_iommu_on
+  uses: iommu_boot
+  with:
+    mode: set-on
+
+- name: reboot_iommu_on
+  run: shutdown -r now
+
+- name: wait_down_iommu_on
+  uses: core.wait_for_transport
+  with:
+    state: down
+    timeout: 60
+
+- name: wait_up_iommu_on
+  uses: core.wait_for_transport
+  with:
+    state: up
+    timeout: 600
+
+- name: verify_iommu_on
+  uses: iommu_boot
+  with:
+    mode: verify-on
+
+- name: benchmark_on
+  uses: iommu_overhead_fio_4k_page
+  with:
+    label: "on"
+
+- name: combine
+  uses: iommu_overhead_combine
+
+- name: visualize
+  uses: bench_visualize
+  with:
+    template: iommu-overhead

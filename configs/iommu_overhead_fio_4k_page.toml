@@ -1,0 +1,25 @@
+# "4k" in this config refers to the memory page size used by the kernel NVMe
+# path (normal 4KB pages, no hugepages). Workload IO sizes are independent and
+# configured via [[iommu_overhead.workloads]] below.
+
+[iommu_overhead]
+runtime = 30
+repeat = 5
+fio_ramp_time = 10
+fio_size = "100%"
+workload_pause = 10
+disable_thp = true
+
+# Multi-device mode is enabled by adding a config with [[devices]] entries,
+# such as configs/devices_16.toml. Devices are pinned automatically by order:
+# device 0 -> CPU 0, device 1 -> CPU 1, and so on.
+
+[[iommu_overhead.workloads]]
+rw = "randread"
+iosize = 4096
+iodepths = [1, 2, 4, 8, 16, 32]
+
+[[iommu_overhead.workloads]]
+rw = "read"
+iosize = 131072
+iodepths = [1, 2, 4, 8, 16, 32]
