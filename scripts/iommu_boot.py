@@ -25,6 +25,7 @@ from pathlib import Path
 mode = sys.argv[1]
 if mode not in ("on", "off"):
     raise SystemExit(f"unsupported mode: {mode}")
+iommu_strict = bool(int(sys.argv[2])) if len(sys.argv) > 2 else False
 
 grub = Path("/etc/default/grub")
 backup = Path("/etc/default/grub.aisio-iommu-overhead.bak")
@@ -43,12 +44,19 @@ DROP_TOKENS = {
     "iommu=off",
     "intel_iommu=on",
     "amd_iommu=on",
+    "iommu.strict=0",
+    "iommu.strict=1",
 }
 
 def update_value(match):
     value = match.group("value").strip()
     tokens = [t for t in value.split() if t not in DROP_TOKENS]
-    tokens.append(off_token if mode == "off" else on_token)
+    if mode == "off":
+        tokens.append(off_token)
+    else:
+        tokens.append(on_token)
+        if iommu_strict:
+            tokens.append("iommu.strict=1")
     return 'GRUB_CMDLINE_LINUX_DEFAULT="' + " ".join(tokens) + '"'
 
 updated, count = re.subn(
@@ -59,8 +67,15 @@ updated, count = re.subn(
     flags=re.MULTILINE,
 )
 if count == 0:
-    token = off_token if mode == "off" else on_token
-    updated = text.rstrip() + '\nGRUB_CMDLINE_LINUX_DEFAULT="' + token + '"\n'
+    tokens = [off_token] if mode == "off" else [on_token]
+    if mode == "on" and iommu_strict:
+        tokens.append("iommu.strict=1")
+    updated = (
+        text.rstrip()
+        + '\nGRUB_CMDLINE_LINUX_DEFAULT="'
+        + " ".join(tokens)
+        + '"\n'
+    )
 
 grub.write_text(updated)
 """
@@ -76,6 +91,14 @@ def add_args(parser: ArgumentParser):
 
 def q(value):
     return shlex.quote(str(value))
+
+
+def conf(cijoe, key, default=None):
+    return cijoe.getconf(f"iommu_overhead.{key}", default)
+
+
+def iommu_strict(cijoe):
+    return bool(conf(cijoe, "iommu_strict", False))
 
 
 def artifacts_path(args):
@@ -130,7 +153,8 @@ def set_mode(args, cijoe, mode):
         log.error("Failed transferring grub update script")
         return err
 
-    cmd = f"python3 {GRUB_UPDATE_REMOTE} {q(mode)} && {grub_update}"
+    strict_arg = "1" if mode == "on" and iommu_strict(cijoe) else "0"
+    cmd = f"python3 {GRUB_UPDATE_REMOTE} {q(mode)} {strict_arg} && {grub_update}"
     err, state = cijoe.run(cmd)
     (artifacts / f"update-grub-{mode}.txt").write_text(state.output())
     if err:
@@ -165,6 +189,7 @@ def verify_mode(args, cijoe, mode):
 
     off_in_cmdline = cmdline_has_iommu_off(cmdline)
     enabled_in_dmesg = dmesg_indicates_iommu_enabled(dmesg)
+    strict_required = iommu_strict(cijoe)
 
     if mode == "off":
         if not off_in_cmdline:
@@ -184,6 +209,12 @@ def verify_mode(args, cijoe, mode):
         if not enabled_in_dmesg:
             log.error(
                 "Expected IOMMU-on boot, but dmesg does not indicate IOMMU is enabled"
+            )
+            return errno.EINVAL
+        if strict_required and "iommu.strict=1" not in cmdline:
+            log.error(
+                "Expected strict IOMMU boot, but /proc/cmdline has no "
+                "iommu.strict=1 token"
             )
             return errno.EINVAL
 

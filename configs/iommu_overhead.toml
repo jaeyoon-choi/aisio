@@ -5,6 +5,7 @@ fio_ramp_time = 10
 fio_size = "100%"
 workload_pause = 10
 hugepages = 1024
+iommu_strict = true
 
 # Multi-device mode is enabled by adding a config with [[devices]] entries,
 # such as configs/devices_16.toml. Devices are pinned automatically by order:

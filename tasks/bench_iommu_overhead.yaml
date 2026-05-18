@@ -33,6 +33,10 @@ doc: |
       -c configs/iommu_overhead.toml \
       tasks/bench_iommu_overhead.yaml
 
+  Strict IOMMU invalidation is controlled by `iommu_strict` in
+  `configs/iommu_overhead.toml`. When enabled, the IOMMU-on boot uses
+  `iommu.strict=1`.
+
   Recovery
   --------
   Before the first edit, the original grub config is copied to
