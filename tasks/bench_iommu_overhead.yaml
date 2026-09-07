@@ -15,16 +15,31 @@ doc: |
   It modifies `/etc/default/grub` on the target, reboots the machine twice, and
   waits for the CIJOE transport to return after each reboot.
 
-  The benchmark parameters live in this task so the experiment definition stays
-  self-contained.
-
   Example:
 
     cijoe --monitor \
       -c configs/transport.toml \
       -c configs/aisio.toml \
       -c configs/datasets.toml \
+      -c configs/iommu_overhead.toml \
       tasks/bench_iommu_overhead.yaml
+
+  Multi-device mode uses the same task and benchmark config, plus a config
+  with top-level `[[devices]]` entries such as `configs/devices_8.toml` or
+  `configs/devices_16.toml`. Devices are pinned to CPUs by config order,
+  starting at CPU 0:
+
+    cijoe --monitor \
+      -c configs/transport.toml \
+      -c configs/aisio.toml \
+      -c configs/datasets.toml \
+      -c configs/devices_8.toml \
+      -c configs/iommu_overhead.toml \
+      tasks/bench_iommu_overhead.yaml
+
+  Strict IOMMU invalidation is controlled by `iommu_strict` in
+  `configs/iommu_overhead.toml`. When enabled, the IOMMU-on boot uses
+  `iommu.strict=1`.
 
   Recovery
   --------
@@ -56,7 +71,7 @@ steps:
   uses: core.wait_for_transport
   with:
     state: up
-    timeout: 300
+    timeout: 600
 
 - name: verify_iommu_off
   uses: iommu_boot
@@ -66,15 +81,6 @@ steps:
 - name: benchmark_uio
   uses: iommu_overhead
   with:
-    repeat: 3
-    runtime: 10
-    fio_ramp_time: 5
-    fio_size: "100%"
-    workload_pause: 5
-    hugepages: 1024
-    rws: [randread, read]
-    iosizes: [4096, 131072]
-    iodepths: [1, 2, 4, 8, 16, 32]
     driver: uio_pci_generic
     label: uio
 
@@ -96,7 +102,7 @@ steps:
   uses: core.wait_for_transport
   with:
     state: up
-    timeout: 300
+    timeout: 600
 
 - name: verify_iommu_on
   uses: iommu_boot
@@ -106,15 +112,6 @@ steps:
 - name: benchmark_vfio
   uses: iommu_overhead
   with:
-    repeat: 3
-    runtime: 10
-    fio_ramp_time: 5
-    fio_size: "100%"
-    workload_pause: 5
-    hugepages: 1024
-    rws: [randread, read]
-    iosizes: [4096, 131072]
-    iodepths: [1, 2, 4, 8, 16, 32]
     driver: vfio-pci
     label: vfio
 
