@@ -44,6 +44,8 @@ def add_args(parser: ArgumentParser):
         "--driver", choices=["uio_pci_generic", "vfio-pci"], required=True
     )
     parser.add_argument("--label", choices=["uio", "vfio"], required=True)
+    parser.add_argument("--memory", choices=["host", "gpu"], default="host")
+    parser.add_argument("--gpu_id", type=int, default=0)
 
 
 def q(value):
@@ -56,6 +58,38 @@ def conf(cijoe, key, default=None):
 
 def cpu_to_cpumask(cpu):
     return hex(1 << int(cpu))
+
+
+def cpus_to_cpumask(cpus):
+    mask = 0
+    for cpu in cpus:
+        mask |= 1 << int(cpu)
+    return hex(mask)
+
+
+def backend_for(memory):
+    """The xNVMe backend that puts data buffers where `memory` says."""
+    return "upcie-cuda" if memory == "gpu" else "upcie"
+
+
+def gpu_memory(args):
+    return args.memory == "gpu"
+
+
+def xnvmeperf_env(args):
+    """
+    Environment prefix for an xnvmeperf run.
+
+    Reaching GPU memory while an IOMMU enforces needs the iommufd path: it is
+    the one that reserves the IOVA window the GPU pages are mapped into. xNVMe
+    picks it only when /dev/iommu opens and the device has a cdev node, and
+    falls back to the legacy type1 container without saying so, which maps the
+    window without reserving it. Asking for it by name turns that silent
+    fallback into a failure.
+    """
+    if gpu_memory(args) and args.driver == "vfio-pci":
+        return "XNVME_UPCIE_VFIO_MODE=iommufd "
+    return ""
 
 
 def bdf_safe(pci_addr):
@@ -212,6 +246,11 @@ def bind_driver(cijoe, driver, pci_addrs, mountpoint, hugepages):
         "mkdir -p /dev/hugepages",
         "mountpoint -q /dev/hugepages || mount -t hugetlbfs nodev /dev/hugepages",
     ]
+    if driver == "vfio-pci":
+        # /dev/iommu only appears once the module is in, and nothing pulls it in
+        # on its own. Tolerate a kernel built without it: the run then fails
+        # where the mode is asked for, naming what is missing.
+        commands.append("modprobe iommufd || true")
     commands.extend(
         f"devbind --device {q(pci_addr)} --bind {q(driver)}" for pci_addr in pci_addrs
     )
@@ -229,29 +268,39 @@ def reset_driver(cijoe, pci_addrs):
     return err
 
 
-def build_xnvmeperf_cmd(cijoe, pci_addr, rw, iosize, iodepth):
-    return xnvmeperf_cmd(
+def build_xnvmeperf_cmd(args, cijoe, devices, rw, iosize, iodepth):
+    """
+    One xnvmeperf run over every device.
+
+    xnvmeperf opens each device it is given in the same process and wants a CPU
+    per device, so the mask covers the CPUs the devices are pinned to. Keeping
+    every device in one process is what makes the GPU-memory runs possible at
+    all: the CUDA heap is per-process, and the vfio path refuses the shared-
+    memory mode that would let separate processes share a controller.
+    """
+    return xnvmeperf_env(args) + xnvmeperf_cmd(
         "xnvmeperf",
         {
-            "cpumask": cpu_to_cpumask(0),
+            "cpumask": cpus_to_cpumask(device["cpu"] for device in devices),
             "qdepth": iodepth,
             "iosize": iosize,
             "runtime": int(conf(cijoe, "runtime", 10)),
             "iopattern": rw,
-            "backend": "upcie",
-            "devices": [pci_addr],
+            "backend": backend_for(args.memory),
+            "gpu_id": args.gpu_id if gpu_memory(args) else None,
+            "devices": [device["pci_addr"] for device in devices],
         },
     )
 
 
-def fio_cmd_multi(cijoe, devices, rw, iosize, iodepth):
+def fio_cmd_multi(args, cijoe, devices, rw, iosize, iodepth):
     runtime = int(conf(cijoe, "runtime", 10))
     ramp_time = int(conf(cijoe, "fio_ramp_time", 5))
     size = conf(cijoe, "fio_size", "100%")
     parts = [
         "fio",
         "--ioengine=xnvme",
-        "--xnvme_be=upcie",
+        f"--xnvme_be={backend_for(args.memory)}",
         "--thread=1",
         "--direct=1",
         f"--rw={q(rw)}",
@@ -278,21 +327,21 @@ def fio_cmd_multi(cijoe, devices, rw, iosize, iodepth):
             ]
         )
 
-    return " ".join(parts)
+    return xnvmeperf_env(args) + " ".join(parts)
 
 
-def fio_cmd(cijoe, pci_addr, rw, iosize, iodepth):
+def fio_cmd(args, cijoe, pci_addr, rw, iosize, iodepth):
     runtime = int(conf(cijoe, "runtime", 10))
     ramp_time = int(conf(cijoe, "fio_ramp_time", 5))
     size = conf(cijoe, "fio_size", "100%")
     fio_device = str(pci_addr).replace(":", r"\:")
-    return " ".join(
+    return xnvmeperf_env(args) + " ".join(
         [
             "fio",
             "--name=aisio-iommu-overhead",
             f"--filename={q(fio_device)}",
             "--ioengine=xnvme",
-            "--xnvme_be=upcie",
+            f"--xnvme_be={backend_for(args.memory)}",
             "--xnvme_dev_nsid=1",
             "--thread=1",
             "--direct=1",
@@ -397,9 +446,12 @@ def parse_fio_multi(output, rw, devices):
     return parsed
 
 
-def result_file(path, label, runner, rw, iosize, iodepth, rep, devcount=None, dev=None):
+def result_file(
+    path, label, memory, runner, rw, iosize, iodepth, rep, devcount=None, dev=None
+):
     suffix = (
-        f"label_{label}-runner_{runner}-rw_{rw}-iosize_{iosize}-" f"iodepth_{iodepth}"
+        f"label_{label}-mem_{memory}-runner_{runner}-rw_{rw}-"
+        f"iosize_{iosize}-iodepth_{iodepth}"
     )
     if devcount is not None:
         suffix += f"-devcount_{devcount}"
@@ -424,11 +476,14 @@ def base_result(
     cpu=0,
     devcount=None,
     dev=None,
+    cpumask=None,
 ):
     result = {
         "label": args.label,
         "driver": args.driver,
         "iommu": "on" if args.driver == "vfio-pci" else "off",
+        "memory": args.memory,
+        "backend": backend_for(args.memory),
         "runner": runner,
         "rw": rw,
         "iosize": iosize,
@@ -436,10 +491,15 @@ def base_result(
         "repeat": rep,
         "runtime": int(conf(cijoe, "runtime", 10)),
         "cpu": int(cpu),
-        "cpumask": cpu_to_cpumask(cpu),
-        "fio_numjobs": 1,
-        "fio_cpus_allowed": str(cpu),
+        # A run spanning devices spans their CPUs, so the mask is passed in
+        # rather than derived from the one CPU a per-device row belongs to.
+        "cpumask": cpumask or cpu_to_cpumask(cpu),
     }
+    if runner == "fio":
+        result["fio_numjobs"] = 1
+        result["fio_cpus_allowed"] = str(cpu)
+    if gpu_memory(args):
+        result["gpu_id"] = int(args.gpu_id)
     if devcount is not None:
         result["devcount"] = int(devcount)
     if dev is not None:
@@ -449,6 +509,75 @@ def base_result(
 
 def print_progress(done, total, action):
     print(f"{done}/{total}: {action}\033[K", end="\r", flush=True)
+
+
+def xnvmeperf_pass(args, cijoe, devices, cases, repeat, out_dir, progress):
+    """
+    Run xnvmeperf once per case, over every device at once.
+
+    The row it writes is already summed over the devices, since that is what
+    xnvmeperf's Total line reports, so it carries devcount but no dev. The fio
+    pass below also covers GPU memory: it selects the upcie-cuda backend, which
+    allocates data buffers from the CUDA heap.
+    """
+    devcount = len(devices)
+    cpumask = cpus_to_cpumask(device["cpu"] for device in devices)
+    workload_pause = int(conf(cijoe, "workload_pause", 5))
+
+    for case_idx, (rw, iosize, iodepth) in enumerate(cases, start=1):
+        for rep in range(1, repeat + 1):
+            path = result_file(
+                out_dir,
+                args.label,
+                args.memory,
+                "xnvmeperf",
+                rw,
+                iosize,
+                iodepth,
+                rep,
+                devcount=devcount,
+            )
+            if path.exists():
+                progress["done"] += 1
+                continue
+
+            workload = (
+                f"{args.label}/{args.memory} {rw} iosize={iosize} "
+                f"iodepth={iodepth} devices={devcount} rep={rep}"
+            )
+            print_progress(
+                progress["done"], progress["total"], f"running xnvmeperf {workload}"
+            )
+            err, output = run_command(
+                cijoe, build_xnvmeperf_cmd(args, cijoe, devices, rw, iosize, iodepth)
+            )
+            if err:
+                return err
+
+            result = base_result(
+                args,
+                cijoe,
+                "xnvmeperf",
+                rw,
+                iosize,
+                iodepth,
+                rep,
+                devcount=devcount,
+                cpumask=cpumask,
+            )
+            result.update(parse_xnvmeperf(output))
+            if result["failed"]:
+                # An enforcing IOMMU that rejects the buffer shows up here: the
+                # run reports throughput while every command failed.
+                log.error(f"xnvmeperf reported failed I/O: {result}")
+                return errno.EIO
+            write_result(path, result)
+            progress["done"] += 1
+
+        if workload_pause > 0 and case_idx < len(cases):
+            time.sleep(workload_pause)
+
+    return 0
 
 
 def run_multi(args, cijoe, devices, cases):
@@ -478,20 +607,27 @@ def run_multi(args, cijoe, devices, cases):
         reset_driver(cijoe, [device["pci_addr"] for device in devices])
         return err
 
-    total = len(cases) * repeat
-    done = 0
+    runners = 2
+    progress = {"done": 0, "total": len(cases) * repeat * runners}
 
     try:
+        err = xnvmeperf_pass(
+            args, cijoe, devices, cases, repeat, out_dir, progress
+        )
+        if err:
+            return err
+
         for case_idx, (rw, iosize, iodepth) in enumerate(cases, start=1):
             for rep in range(1, repeat + 1):
                 workload = (
-                    f"{args.label} {rw} iosize={iosize} "
+                    f"{args.label}/{args.memory} {rw} iosize={iosize} "
                     f"iodepth={iodepth} devices={devcount} rep={rep}"
                 )
                 paths = [
                     result_file(
                         out_dir,
                         args.label,
+                        args.memory,
                         "fio",
                         rw,
                         iosize,
@@ -503,16 +639,18 @@ def run_multi(args, cijoe, devices, cases):
                     for device in devices
                 ]
                 if all(path.exists() for path in paths):
-                    done += 1
+                    progress["done"] += 1
                     continue
                 if any(path.exists() for path in paths):
                     log.error(f"partial fio result set exists for {workload}")
                     return errno.EEXIST
 
-                print_progress(done, total, f"running fio {workload}")
+                print_progress(
+                    progress["done"], progress["total"], f"running fio {workload}"
+                )
                 err, output = run_fio_multi(
                     cijoe,
-                    fio_cmd_multi(cijoe, devices, rw, iosize, iodepth),
+                    fio_cmd_multi(args, cijoe, devices, rw, iosize, iodepth),
                     args.driver,
                 )
                 if err:
@@ -536,6 +674,7 @@ def run_multi(args, cijoe, devices, cases):
                         result_file(
                             out_dir,
                             args.label,
+                            args.memory,
                             "fio",
                             rw,
                             iosize,
@@ -546,12 +685,12 @@ def run_multi(args, cijoe, devices, cases):
                         ),
                         result,
                     )
-                done += 1
+                progress["done"] += 1
 
             if workload_pause > 0 and case_idx < len(cases):
                 time.sleep(workload_pause)
 
-        print(f"{done}/{total}: complete")
+        print(f"{progress['done']}/{progress['total']}: complete")
     finally:
         reset_driver(cijoe, [device["pci_addr"] for device in devices])
 
@@ -589,65 +728,46 @@ def main(args, cijoe):
         reset_driver(cijoe, pci_addr)
         return err
 
-    total = len(cases) * repeat * 2
-    done = 0
+    runners = 2
+    progress = {"done": 0, "total": len(cases) * repeat * runners}
+    single = [{"pci_addr": pci_addr, "cpu": 0}]
+
     try:
+        err = xnvmeperf_pass(args, cijoe, single, cases, repeat, out_dir, progress)
+        if err:
+            return err
+
         for case_idx, (rw, iosize, iodepth) in enumerate(cases, start=1):
             for rep in range(1, repeat + 1):
                 workload = (
-                    f"{args.label} {rw} iosize={iosize} " f"iodepth={iodepth} rep={rep}"
+                    f"{args.label}/{args.memory} {rw} iosize={iosize} "
+                    f"iodepth={iodepth} rep={rep}"
                 )
                 path = result_file(
-                    out_dir, args.label, "xnvmeperf", rw, iosize, iodepth, rep
+                    out_dir, args.label, args.memory, "fio", rw, iosize, iodepth, rep
                 )
 
                 if path.exists():
-                    done += 1
+                    progress["done"] += 1
                     continue
 
-                print_progress(done, total, f"running xnvmeperf {workload}")
-                err, output = run_command(
-                    cijoe, build_xnvmeperf_cmd(cijoe, pci_addr, rw, iosize, iodepth)
+                print_progress(
+                    progress["done"], progress["total"], f"running fio {workload}"
                 )
-                if err:
-                    return err
-                result = base_result(args, cijoe, "xnvmeperf", rw, iosize, iodepth, rep)
-                result.update(parse_xnvmeperf(output))
-                if result["failed"]:
-                    log.error(f"xnvmeperf reported failed I/O: {result}")
-                    return errno.EIO
-                write_result(path, result)
-                done += 1
-
-            if workload_pause > 0 and case_idx < len(cases):
-                time.sleep(workload_pause)
-
-        for case_idx, (rw, iosize, iodepth) in enumerate(cases, start=1):
-            for rep in range(1, repeat + 1):
-                workload = (
-                    f"{args.label} {rw} iosize={iosize} " f"iodepth={iodepth} rep={rep}"
-                )
-                path = result_file(out_dir, args.label, "fio", rw, iosize, iodepth, rep)
-
-                if path.exists():
-                    done += 1
-                    continue
-
-                print_progress(done, total, f"running fio {workload}")
                 err, output = run_command(
-                    cijoe, fio_cmd(cijoe, pci_addr, rw, iosize, iodepth)
+                    cijoe, fio_cmd(args, cijoe, pci_addr, rw, iosize, iodepth)
                 )
                 if err:
                     return err
                 result = base_result(args, cijoe, "fio", rw, iosize, iodepth, rep)
                 result.update(parse_fio(output, rw))
                 write_result(path, result)
-                done += 1
+                progress["done"] += 1
 
             if workload_pause > 0 and case_idx < len(cases):
                 time.sleep(workload_pause)
 
-        print(f"{done}/{total}: complete")
+        print(f"{progress['done']}/{progress['total']}: complete")
     finally:
         reset_driver(cijoe, pci_addr)
 

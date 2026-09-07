@@ -15,6 +15,37 @@ doc: |
   It modifies `/etc/default/grub` on the target, reboots the machine twice, and
   waits for the CIJOE transport to return after each reboot.
 
+  Buffer placement
+  ----------------
+  Each boot is measured twice, once with data buffers in host memory
+  (`memory: host`, `--be upcie`) and once with them in GPU memory
+  (`memory: gpu`, `--be upcie-cuda`), giving four conditions. An IOMMU delta is
+  only meaningful between two runs whose buffers lived in the same kind of
+  memory, so the report pairs and charts them separately.
+
+  Both runners cover both kinds of memory. The backend follows `memory`, and
+  fio's xNVMe ioengine allocates its data buffers through that backend, so
+  `--be upcie-cuda` puts them in the CUDA heap the same way xnvmeperf does.
+  Every condition therefore carries throughput from xnvmeperf and from fio, and
+  latency and tail latency from fio.
+
+  The GPU path needs every device opened from one process: the CUDA heap is
+  per-process, and the vfio path refuses the shared-memory mode that would let
+  separate processes share a controller. xnvmeperf opens them all itself, and
+  fio runs with `--thread=1` so its per-device jobs are threads.
+
+  Reaching GPU memory needs both uPCIe DKMS modules, so run
+  `tasks/setup_upcie_modules.yaml` before `tasks/setup_aisio.yaml` builds
+  xNVMe; their UAPI headers are the build-time gate, and a build without them
+  succeeds and fails only once a GPU buffer is reached for. While an IOMMU
+  enforces, the run additionally asks for the iommufd path by name, since the
+  legacy type1 fallback maps the IOVA window without reserving it.
+
+  Buffers are imported as uPCIe's own misc device rather than on behalf of the
+  NVMe, which an exporter may answer by migrating them to system memory. Check
+  BAR1 usage with `nvidia-smi -q -d memory` against the achieved bandwidth
+  before reading the GPU numbers as peer-to-peer.
+
   Example:
 
     cijoe --monitor \
@@ -78,11 +109,19 @@ steps:
   with:
     mode: verify-off
 
-- name: benchmark_uio
+- name: benchmark_uio_host
   uses: iommu_overhead
   with:
     driver: uio_pci_generic
     label: uio
+    memory: host
+
+- name: benchmark_uio_gpu
+  uses: iommu_overhead
+  with:
+    driver: uio_pci_generic
+    label: uio
+    memory: gpu
 
 - name: set_iommu_on
   uses: iommu_boot
@@ -109,11 +148,19 @@ steps:
   with:
     mode: verify-on
 
-- name: benchmark_vfio
+- name: benchmark_vfio_host
   uses: iommu_overhead
   with:
     driver: vfio-pci
     label: vfio
+    memory: host
+
+- name: benchmark_vfio_gpu
+  uses: iommu_overhead
+  with:
+    driver: vfio-pci
+    label: vfio
+    memory: gpu
 
 - name: combine
   uses: iommu_overhead_combine

@@ -10,7 +10,7 @@ import errno
 import json
 import logging as log
 from argparse import ArgumentParser
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 from pathlib import Path
 
 
@@ -36,6 +36,7 @@ def load_results(results_dir):
             item = json.load(jfd)
         key = (
             item["label"],
+            item.get("memory", "host"),
             item["runner"],
             item["rw"],
             int(item["iosize"]),
@@ -56,6 +57,7 @@ def combine_group(entries):
         "label": first["label"],
         "driver": first["driver"],
         "iommu": first["iommu"],
+        "memory": first.get("memory", "host"),
         "runner": first["runner"],
         "rw": first["rw"],
         "iosize": int(first["iosize"]),
@@ -87,6 +89,7 @@ def aggregate_devices(combined):
     for result in combined:
         key = (
             result["label"],
+            result["memory"],
             result["runner"],
             result["rw"],
             result["iosize"],
@@ -102,6 +105,7 @@ def aggregate_devices(combined):
             "label": first["label"],
             "driver": first["driver"],
             "iommu": first["iommu"],
+            "memory": first["memory"],
             "runner": first["runner"],
             "rw": first["rw"],
             "iosize": first["iosize"],
@@ -129,21 +133,33 @@ def aggregate_devices(combined):
     return aggregated
 
 
+# Everything a pair is identified by. The IOMMU-off and IOMMU-on sides of a
+# pair differ only in label, so 'memory' sits alongside the workload rather than
+# inside it: an IOMMU delta is only meaningful between two runs whose buffers
+# lived in the same kind of memory.
+PairKey = namedtuple("PairKey", "runner memory rw iosize iodepth devcount")
+
+
+def pair_key(result):
+    return PairKey(
+        result["runner"],
+        result.get("memory", "host"),
+        result["rw"],
+        result["iosize"],
+        result["iodepth"],
+        result.get("devcount", 1),
+    )
+
+
 def pair_results(combined):
     indexed = {}
     for result in combined:
-        key = (
-            result["runner"],
-            result["rw"],
-            result["iosize"],
-            result["iodepth"],
-            result.get("devcount", 1),
-        )
-        indexed.setdefault(key, {})[result["label"]] = result
+        indexed.setdefault(pair_key(result), {})[result["label"]] = result
 
     items = []
     for key in sorted(
-        indexed, key=lambda item: (item[1], item[2], item[4], item[0], item[3])
+        indexed,
+        key=lambda k: (k.memory, k.rw, k.iosize, k.devcount, k.runner, k.iodepth),
     ):
         pair = indexed[key]
         if "uio" in pair and "vfio" in pair:
@@ -155,20 +171,15 @@ def pair_results(combined):
         else:
             continue
 
-        runner, rw, iosize, iodepth, devcount = key
         item = {
-            "runner": runner,
-            "rw": rw,
-            "iosize": iosize,
-            "iodepth": iodepth,
-            "devcount": devcount,
+            **key._asdict(),
             "uio": off,
             "vfio": on,
             "iops_delta_pct": pct_delta(off["iops"], on["iops"]),
             "mibs_delta_pct": pct_delta(off["mibs"], on["mibs"]),
         }
 
-        if runner == "fio":
+        if key.runner == "fio":
             item["lat_delta_pct"] = pct_delta(off["lat_ns"], on["lat_ns"])
             item["tail_lat_delta_pct"] = {
                 name: pct_delta(off["tail_lat_ns"][name], on["tail_lat_ns"][name])
