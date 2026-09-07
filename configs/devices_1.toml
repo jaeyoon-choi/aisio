@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: Samsung Electronics Co., Ltd
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
+# One of sid's 32 Samsung MZTLD15THEPB (14 TB, PCIe Gen4 x4) NVMe devices, for
+# the workflows that want a single device.
+#
+# 0000:4d:00.0 is nvme0 and sits on NUMA node 0, the same node as the L4 GPU at
+# 0000:31:00.0, so peer-to-peer between them stays on one socket.
+#
+# sid boots from SATA (sda + sdb, LVM vg0-lv--0), so no NVMe needs keeping out
+# of the userspace driver's reach.
+[xnvme.driver]
+prefix = ""
+
+[[devices]]
+pci_addr = "0000:4d:00.0"

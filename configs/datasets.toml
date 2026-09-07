@@ -2,11 +2,14 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
+# nvme0 on sid, NUMA node 0, the same node as the L4 GPU at 0000:31:00.0. The
+# IOMMU overhead benchmark unmounts this mountpoint before it takes the device
+# into userspace, and uses pci_addr only when no [[devices]] list is given.
 [filesystems.dset]
 mountpoint = "/mnt/datasets"
 name = "xfs"
 bdev = "/dev/nvme0n1"
-pci_addr = "0000:01:00.0"
+pci_addr = "0000:4d:00.0"
 
 [datasets.tiktokish]
 seed = "tiktokish"

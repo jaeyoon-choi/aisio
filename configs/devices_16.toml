@@ -2,56 +2,68 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-[cijoe.workflow]
-fail_fast=true
-
+# Every NVMe device on sid's NUMA node 0: sixteen Samsung MZTLD15THEPB (14 TB,
+# PCIe Gen4 x4), eight behind root complex pci0000:4a and eight behind
+# pci0000:64.
+#
+# Node 0 is where the L4 GPU at 0000:31:00.0 sits. Peer-to-peer between a GPU
+# and an NVMe on the other socket crosses UPI, which would put a link the
+# experiment is not about in the middle of the GPU-memory conditions, so sid's
+# other sixteen devices (0000:cc-d3 and 0000:e5-ec, node 1) are left out.
+#
+# The benchmark pins device i to CPU i, so these sixteen land on CPUs 0-15.
+# Node 0 owns CPUs 0-23 and their siblings 48-71, so the pinning stays local and
+# uses sixteen distinct physical cores.
+#
+# sid boots from SATA (sda + sdb, LVM vg0-lv--0), so no NVMe needs keeping out
+# of the userspace driver's reach.
 [xnvme.driver]
-prefix = "PCI_BLACKLIST=\"0000:01:00.0\""
-
-[[devices]]
-pci_addr = "0000:4a:00.0"
-
-[[devices]]
-pci_addr = "0000:4b:00.0"
-
-[[devices]]
-pci_addr = "0000:4c:00.0"
+prefix = ""
 
 [[devices]]
 pci_addr = "0000:4d:00.0"
 
 [[devices]]
-pci_addr = "0000:61:00.0"
+pci_addr = "0000:4e:00.0"
 
 [[devices]]
-pci_addr = "0000:62:00.0"
+pci_addr = "0000:4f:00.0"
 
 [[devices]]
-pci_addr = "0000:63:00.0"
+pci_addr = "0000:50:00.0"
 
 [[devices]]
-pci_addr = "0000:64:00.0"
+pci_addr = "0000:51:00.0"
 
 [[devices]]
-pci_addr = "0000:ca:00.0"
+pci_addr = "0000:52:00.0"
 
 [[devices]]
-pci_addr = "0000:cb:00.0"
+pci_addr = "0000:53:00.0"
 
 [[devices]]
-pci_addr = "0000:cc:00.0"
+pci_addr = "0000:54:00.0"
 
 [[devices]]
-pci_addr = "0000:cd:00.0"
+pci_addr = "0000:67:00.0"
 
 [[devices]]
-pci_addr = "0000:e1:00.0"
+pci_addr = "0000:68:00.0"
 
 [[devices]]
-pci_addr = "0000:e2:00.0"
+pci_addr = "0000:69:00.0"
 
 [[devices]]
-pci_addr = "0000:e3:00.0"
+pci_addr = "0000:6a:00.0"
 
 [[devices]]
-pci_addr = "0000:e4:00.0"
+pci_addr = "0000:6b:00.0"
+
+[[devices]]
+pci_addr = "0000:6c:00.0"
+
+[[devices]]
+pci_addr = "0000:6d:00.0"
+
+[[devices]]
+pci_addr = "0000:6e:00.0"

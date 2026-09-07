@@ -1,0 +1,48 @@
+# SPDX-FileCopyrightText: Samsung Electronics Co., Ltd
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
+# Eight of sid's 32 Samsung MZTLD15THEPB (14 TB, PCIe Gen4 x4) NVMe devices.
+#
+# All eight sit on NUMA node 0, which is where the L4 GPU at 0000:31:00.0 sits.
+# Peer-to-peer between a GPU and an NVMe on the other socket crosses UPI, so the
+# GPU-memory conditions of the IOMMU overhead benchmark have to stay on node 0.
+# sid's other 16 NVMe devices (0000:cc-d3 and 0000:e5-ec) are on node 1.
+#
+# They are taken four from each of two root complexes, pci0000:4a and
+# pci0000:64, rather than eight from one: that is how the runs on sic were
+# arranged, and keeping the shape comparable matters more than the extra IOTLB
+# pressure eight behind a single DMAR unit would apply. Concentrating them is
+# the sharper test of translation cost, so it is worth a separate run.
+#
+# The benchmark pins device i to CPU i, so these eight land on CPUs 0-7, all of
+# them node-0 cores.
+#
+# sid boots from SATA (sda + sdb, LVM vg0-lv--0), so no NVMe needs keeping out
+# of the userspace driver's reach.
+[xnvme.driver]
+prefix = ""
+
+[[devices]]
+pci_addr = "0000:4d:00.0"
+
+[[devices]]
+pci_addr = "0000:4e:00.0"
+
+[[devices]]
+pci_addr = "0000:4f:00.0"
+
+[[devices]]
+pci_addr = "0000:50:00.0"
+
+[[devices]]
+pci_addr = "0000:67:00.0"
+
+[[devices]]
+pci_addr = "0000:68:00.0"
+
+[[devices]]
+pci_addr = "0000:69:00.0"
+
+[[devices]]
+pci_addr = "0000:6a:00.0"
