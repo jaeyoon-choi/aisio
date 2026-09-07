@@ -13,12 +13,14 @@ path = "/root/git/xnvme"
 
 [upcie.dkms]
 remote = "https://github.com/safl/upcie"
-release = "v0.6.0"
+release = "v0.9.0"
 
-# Each DKMS package carries its own version, which is unrelated to the uPCIe
-# release above that publishes it as a '.deb' asset.
-[upcie.dkms.packages]
-dmabuf_import = "0.2.0"
+# Both experimental modules, 'dmabuf_import' and 'iommu_map_pa', ship as a
+# single DKMS package whose version tracks the uPCIe release above. Earlier
+# releases published them as two packages versioned independently of uPCIe.
+[upcie.dkms.package]
+name = "upcie-experimental-dkms"
+version = "0.9.0"
 
 [xal.repository]
 remote = "https://github.com/xnvme/xal"

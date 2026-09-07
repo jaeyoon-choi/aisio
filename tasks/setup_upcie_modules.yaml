@@ -6,20 +6,30 @@ doc: |
   Install the uPCIe kernel modules
   ================================
 
-  uPCIe releases the out-of-tree modules its experimental paths build on as
-  DKMS packages, so they build against the running kernel and rebuild
-  themselves on kernel updates. The stock Ubuntu GA kernel is all that is
-  required.
+  uPCIe releases the out-of-tree modules its experimental paths build on as a
+  DKMS package, so they build against the running kernel and rebuild themselves
+  on kernel updates. The stock Ubuntu GA kernel is all that is required.
 
-  * dmabuf-import serves DMABUF_IMPORT_ATTACH / _DETACH / _GET_MAP on
-    '/dev/dmabuf_import'. It resolves the DMA addresses of a dma-buf exported
-    by a GPU runtime, which is what lets xNVMe build NVMe PRP lists pointing
-    into device memory.
+  Both modules ship in one package, 'upcie-experimental-dkms', because the paths
+  that use them need both:
+
+  * dmabuf-import serves the dma-buf import ioctls on '/dev/dmabuf_import'. It
+    resolves the DMA addresses of a dma-buf exported by a GPU runtime, which is
+    what lets xNVMe build NVMe PRP lists pointing into device memory.
+
+  * iommu-map-pa serves IOMMU_MAP_PA / IOMMU_UNMAP_PA on '/dev/iommu_map_pa'.
+    It installs those addresses into the IOMMU domain a VFIO-controlled NVMe
+    currently uses, which is what makes GPU memory reachable for P2P DMA while
+    an IOMMU is enforcing. Its device node is root-only.
 
   Each package installs its UAPI under '/usr/include/linux/'. uPCIe compiles an
   experimental path only when its header is present, so run this before
   'setup_aisio.yaml' builds xNVMe; otherwise those paths are built as stubs
   returning -ENOTSUP.
+
+  Neither module has hardware to match on, so nothing would autoload them.
+  Installing the package loads both and drops
+  '/usr/lib/modules-load.d/upcie-experimental.conf' so they return on boot.
 
   This can be run with::
 
@@ -33,23 +43,37 @@ doc: |
 steps:
 - name: download
   run: |
-    wget -qO /tmp/dmabuf-import-dkms_{{ config.upcie.dkms.packages.dmabuf_import }}_all.deb {{ config.upcie.dkms.remote }}/releases/download/{{ config.upcie.dkms.release }}/dmabuf-import-dkms_{{ config.upcie.dkms.packages.dmabuf_import }}_all.deb
+    wget -qO /tmp/{{ config.upcie.dkms.package.name }}_{{ config.upcie.dkms.package.version }}_all.deb {{ config.upcie.dkms.remote }}/releases/download/{{ config.upcie.dkms.release }}/{{ config.upcie.dkms.package.name }}_{{ config.upcie.dkms.package.version }}_all.deb
 
 - name: install
   run: |
     apt-get -qy update
-    DEBIAN_FRONTEND=noninteractive apt-get -qy install /tmp/dmabuf-import-dkms_{{ config.upcie.dkms.packages.dmabuf_import }}_all.deb
+    DEBIAN_FRONTEND=noninteractive apt-get -qy install /tmp/{{ config.upcie.dkms.package.name }}_{{ config.upcie.dkms.package.version }}_all.deb
 
-# Installing a package registers the module with DKMS but does not load it; the
-# drop-in has systemd-modules-load bring dmabuf_import in on every boot.
-- name: autoload_dmabuf_import
+# The package loads both modules on install, so this only reports what it did.
+# A load failure does not fail the install: unsigned modules are refused under
+# Secure Boot, and the only trace is in the journal.
+- name: check_modules_loaded
   run: |
-    echo dmabuf_import | tee /etc/modules-load.d/dmabuf_import.conf
-    modprobe dmabuf_import
-
-- name: check_dmabuf_import
-  run: |
-    dkms status | grep dmabuf-import/{{ config.upcie.dkms.packages.dmabuf_import }}
+    systemctl status systemd-modules-load --no-pager || true
+    dmesg | grep -i -E 'dmabuf_import|iommu_map_pa' || true
     lsmod | grep dmabuf_import
-    ls -l /dev/dmabuf_import
+    lsmod | grep iommu_map_pa
+
+# DKMS registers the sources under 'upcie-experimental'; the '-dkms' suffix
+# belongs to the binary package, not to the DKMS module name.
+- name: check_dkms
+  run: |
+    dkms status | grep upcie-experimental/{{ config.upcie.dkms.package.version }}
+
+# The UAPI headers are the build-time gate: without them uPCIe compiles the
+# experimental paths as stubs and the failure only shows up at runtime.
+- name: check_uapi_headers
+  run: |
     ls -l /usr/include/linux/dmabuf_import.h
+    ls -l /usr/include/linux/iommu_map_pa.h
+
+- name: check_device_nodes
+  run: |
+    ls -l /dev/dmabuf_import
+    ls -l /dev/iommu_map_pa
