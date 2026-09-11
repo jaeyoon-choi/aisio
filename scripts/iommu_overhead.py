@@ -26,6 +26,12 @@ from xnvmeperf import xnvmeperf_cmd
 FIO_PERCENTILE_LIST = "99.9:99.99:99.999"
 VFIO_DEVICE_OPEN_RETRIES = 5
 VFIO_DEVICE_OPEN_RETRY_DELAY = 2
+# EAGAIN out of the VFIO device open, in whichever spelling the runner uses:
+# fio's xNVMe ioengine prints the errno as-is, xnvmeperf prints it negated.
+VFIO_DEVICE_OPEN_EAGAIN = (
+    re.compile(r"failed retrieving device handle, errno: -?11\b"),
+    re.compile(r"xnvme_dev_open\([^)]*\): err\(-?11\)"),
+)
 TAIL_LATENCIES = {
     "p99_9": "99.900000",
     "p99_99": "99.990000",
@@ -207,31 +213,37 @@ def run_command(cijoe, cmd):
 
 
 def transient_vfio_device_open_failure(output):
-    markers = (
-        "failed retrieving device handle, errno: -11",
-        "vfio_group_get_device_fd(); errno(11)",
-    )
-    return any(marker in output for marker in markers)
+    return any(marker.search(output) for marker in VFIO_DEVICE_OPEN_EAGAIN)
 
 
-def run_fio_multi(cijoe, cmd, driver):
+def run_with_vfio_retry(cijoe, cmd, driver, what):
+    """
+    Run `cmd`, retrying while the VFIO device open comes back with EAGAIN.
+
+    The group the previous workload used can still be closing when the next one
+    opens it, which fails a run with nothing actually wrong. Every runner opens
+    the devices the same way, so all of them go through here.
+    """
     attempts = VFIO_DEVICE_OPEN_RETRIES if driver == "vfio-pci" else 1
 
     for attempt in range(1, attempts + 1):
         err, output = run_command(cijoe, cmd)
-        if not err:
+        if not err or not transient_vfio_device_open_failure(output):
             return err, output
 
-        if not transient_vfio_device_open_failure(output) or attempt == attempts:
+        if attempt == attempts:
+            if attempts > 1:
+                log.error(
+                    f"VFIO device open still returned EAGAIN for {what} after "
+                    f"{attempts} attempts"
+                )
             return err, output
 
         log.warning(
-            "VFIO device open returned EAGAIN; retrying fio multi-device "
-            f"run ({attempt}/{attempts})"
+            f"VFIO device open returned EAGAIN; retrying {what} "
+            f"({attempt}/{attempts})"
         )
         time.sleep(VFIO_DEVICE_OPEN_RETRY_DELAY)
-
-    return errno.EAGAIN, ""
 
 
 def bind_driver(cijoe, driver, pci_addrs, mountpoint, hugepages):
@@ -548,8 +560,11 @@ def xnvmeperf_pass(args, cijoe, devices, cases, repeat, out_dir, progress):
             print_progress(
                 progress["done"], progress["total"], f"running xnvmeperf {workload}"
             )
-            err, output = run_command(
-                cijoe, build_xnvmeperf_cmd(args, cijoe, devices, rw, iosize, iodepth)
+            err, output = run_with_vfio_retry(
+                cijoe,
+                build_xnvmeperf_cmd(args, cijoe, devices, rw, iosize, iodepth),
+                args.driver,
+                f"xnvmeperf {workload}",
             )
             if err:
                 return err
@@ -648,10 +663,11 @@ def run_multi(args, cijoe, devices, cases):
                 print_progress(
                     progress["done"], progress["total"], f"running fio {workload}"
                 )
-                err, output = run_fio_multi(
+                err, output = run_with_vfio_retry(
                     cijoe,
                     fio_cmd_multi(args, cijoe, devices, rw, iosize, iodepth),
                     args.driver,
+                    f"fio {workload}",
                 )
                 if err:
                     return err
@@ -754,8 +770,11 @@ def main(args, cijoe):
                 print_progress(
                     progress["done"], progress["total"], f"running fio {workload}"
                 )
-                err, output = run_command(
-                    cijoe, fio_cmd(args, cijoe, pci_addr, rw, iosize, iodepth)
+                err, output = run_with_vfio_retry(
+                    cijoe,
+                    fio_cmd(args, cijoe, pci_addr, rw, iosize, iodepth),
+                    args.driver,
+                    f"fio {workload}",
                 )
                 if err:
                     return err
