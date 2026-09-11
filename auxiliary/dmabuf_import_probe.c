@@ -2,10 +2,12 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * Dump the granularity at which a CUDA dma-buf is DMA-mapped, and where it
- * ends up. The (dma_addr, dma_len) tuples DMABUF_IMPORT_GET_MAP returns are
- * the IOMMU IOVA mapping unit: one big tuple covers the whole IOVA window with
- * one IOTLB entry, many small tuples mean a per-entry walk.
+ * Dump the export-side view of a CUDA dma-buf and where the buffer ends up.
+ * The (dma_addr, dma_len) tuples DMABUF_IMPORT_GET_MAP returns are not the
+ * IOMMU mapping unit: the benchmark maps the GPU heap through iommu_map_pa_add
+ * at 2 MiB (DMAMEM_CUDA_REGISTRY_GRANULARITY), while GET_MAP shows 64 KiB
+ * export pages on a misc import or NVIDIA's private map path merged into one
+ * segment on a real-device (--bdf) import.
  */
 
 #define _GNU_SOURCE

@@ -6,17 +6,18 @@ doc: |
   Dump the IOMMU mapping granularity of a CUDA dma-buf
   ====================================================
 
-  The IOMMU-overhead benchmark showed no delta for GPU-memory buffers, and the
-  open question is whether that is because translation is cheap (the GPU window
-  is mapped as one big IOVA range) or because the GPU's PCIe link saturates
-  first. This probes the first half directly: allocate one large CUDA buffer,
-  export it as a dma-buf, import it through /dev/dmabuf_import, and print the
-  `(dma_addr, dma_len)` tuples GET_MAP returns -- the granularity at which the
-  IOMMU maps the window.
+  The IOMMU-overhead benchmark showed no delta for GPU-memory buffers because
+  the GPU heap is mapped through ``iommu_map_pa_add`` at
+  ``DMAMEM_CUDA_REGISTRY_GRANULARITY`` = 2 MiB, one bulk mapping at bring-up,
+  and not mapped at all with iommu-off (uio), which drives raw BAR2 physical
+  addresses. This probe dumps the ``(dma_addr, dma_len)`` tuples GET_MAP
+  returns for one large CUDA buffer, to tell the export-side segmentation
+  apart from that mapping.
 
-  One tuple covering the whole buffer means one IOTLB entry answers the whole
-  DMA, like a hugepage. Many small tuples mean the per-page walk exists and the
-  benchmark's zero delta is the link talking, not translation being free.
+  The misc import enumerates the exporter's pages (64 KiB, raw BAR2 physical);
+  importing on behalf of a real NVMe (``--bdf``) shows NVIDIA's private map
+  path merging them into one 1 GiB segment. Neither tuple size is the
+  benchmark's IOMMU mapping unit (2 MiB).
 
   It also prints the CUDA allocation granularity and DMABUF_IMPORT_DESCRIBE,
   which says where the buffer ended up (device memory vs migrated to system
@@ -32,9 +33,10 @@ doc: |
   ------
   The step takes `size_mib` (CUDA buffer size, default 1024), `gpu_id` (default
   0), and `bdf`. The default import (no `bdf`) attaches as uPCIe's own misc
-  device, which is what the upcie-cuda backend does. Set `bdf` to an NVMe PCI
-  address to instead import on behalf of that device, the peer-to-peer path the
-  addresses are programmed into.
+  device, the enumeration step the upcie-cuda backend also performs; its actual
+  2 MiB ``iommu_map_pa_add`` mapping is not exercised here. Set `bdf` to an
+  NVMe PCI address to instead import on behalf of that device, the
+  peer-to-peer path the addresses are programmed into.
 
   Example:
 

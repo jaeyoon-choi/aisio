@@ -10,14 +10,17 @@ Runs the dma-buf probe in its peer-to-peer variant (``--bdf``) and dumps the
 ``iommu:map``/``iommu:unmap`` trace around it.
 
 What this can and cannot see: NVIDIA's dma-buf exporter maps the buffer
-through its own path, so the GPU window's 1 GiB attach is **not** visible in
-the kernel's generic ``iommu:map`` tracepoint. What the trace does show is the
-size of the kernel-mediated DMA mappings CUDA performs while the context is
-set up -- on sid those are 2 MiB units with 2 MiB-aligned IOVA and physical
+through its own path, so the probe's 1 GiB ``--bdf`` attach is **not** visible
+in the kernel's generic ``iommu:map`` tracepoint. What the trace does show is
+the size of the kernel-mediated DMA mappings CUDA performs while the context
+is set up -- on sid those are 2 MiB units with 2 MiB-aligned IOVA and physical
 addresses, which is the kernel superpage leaf in action (Intel VT-d maps any
-2 MiB-aligned, contiguous range as one 2 MiB page). The primary evidence for
-the GPU buffer itself stays the probe's ``GET_MAP``: one 1 GiB segment at the
-BAR2 base versus 16384 x 64 KiB in the no-IOMMU misc path.
+2 MiB-aligned, contiguous range as one 2 MiB page). That 2 MiB is also the
+benchmark's mapping unit: upcie-cuda maps the GPU heap with
+``iommu_map_pa_add`` at ``DMAMEM_CUDA_REGISTRY_GRANULARITY`` = 2 MiB, one bulk
+mapping at bring-up (nothing mapped with iommu-off/uio). The probe's 1 GiB
+``--bdf`` segment versus 16384 x 64 KiB on the misc path are export-side
+views, not the mapping unit.
 
 Use ``tasks/trace_iommu_gpu.yaml`` to run it; the full trace is written to
 ``artifacts/iommu-trace-gpu/trace.txt`` and only the superpage-sized events

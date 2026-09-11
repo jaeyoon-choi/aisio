@@ -10,13 +10,18 @@ doc: |
   behalf of a real NVMe device, and dumps the ``iommu:map``/``iommu:unmap``
   trace around it.
 
-  The GPU window's own mapping goes through NVIDIA's private dma-buf path and
-  is invisible to the kernel tracepoint; the probe's ``GET_MAP`` is the direct
-  evidence there (one 1 GiB segment at the BAR2 base). The trace contributes
-  the kernel side of the story: the CUDA context setup performs DMA maps in
-  2 MiB units at 2 MiB-aligned addresses, i.e. the Intel VT-d superpage leaf.
-  The console prints only superpage-sized events (``size >= 65536``); the full
-  trace lands in ``artifacts/iommu-trace-gpu/trace.txt``.
+  The probe's ``GET_MAP`` shows that import as one 1 GiB segment at the BAR2
+  base through NVIDIA's private dma-buf map path, which the kernel tracepoint
+  cannot see. That bdf path is not the one the benchmark uses: upcie-cuda maps
+  the GPU heap via ``iommu_map_pa_add`` at
+  ``DMAMEM_CUDA_REGISTRY_GRANULARITY`` = 2 MiB, one bulk mapping of
+  512 x 2 MiB per 1 GiB heap at bring-up, and with iommu-off (uio) there is no
+  mapping at all -- the raw BAR2 physical addresses are used. The trace
+  contributes that kernel side: the CUDA setup performs DMA maps in 2 MiB units
+  at 2 MiB-aligned addresses, the Intel VT-d superpage leaf matching that 2 MiB
+  mapping unit. The console prints only superpage-sized events
+  (``size >= 65536``); the full trace lands in
+  ``artifacts/iommu-trace-gpu/trace.txt``.
 
   Pick an NVMe currently bound to the ``nvme`` driver (``lspci -k | grep nvme``
   on the target).

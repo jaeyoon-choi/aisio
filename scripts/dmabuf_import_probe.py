@@ -9,10 +9,11 @@ Dump the IOMMU mapping granularity of a CUDA dma-buf
 The probe allocates one large CUDA device-memory buffer, exports it as a
 dma-buf, imports it through uPCIe's /dev/dmabuf_import, and prints the
 ``(dma_addr, dma_len)`` tuples that ``DMABUF_IMPORT_GET_MAP`` returns. Those
-tuples are the granularity at which the IOMMU maps the GPU window: one large
-tuple means one IOTLB entry covers the whole buffer, many small tuples mean a
-per-entry walk, which is the translation cost the IOMMU-overhead benchmark
-tries to measure.
+tuples are the export-side view, not the IOMMU mapping unit: the benchmark
+maps the GPU heap through ``iommu_map_pa_add`` at 2 MiB
+(``DMAMEM_CUDA_REGISTRY_GRANULARITY``), while GET_MAP shows 64 KiB export
+pages on a misc import or NVIDIA's private map path merged into one segment
+on a real-device (``--bdf``) import.
 
 It also prints the CUDA allocation granularity (the coarse grain of what could
 be one mapping) and DMABUF_IMPORT_DESCRIBE (where the buffer ended up: device
@@ -30,7 +31,8 @@ Example:
 
 Pass ``--bdf 0000:41:00.0`` to also import on behalf of an NVMe device, which
 is the peer-to-peer path the addresses are actually programmed into. The
-default (no bdf) matches the misc-device import the upcie-cuda backend uses.
+default (no bdf) performs the same misc-device enumeration the upcie-cuda
+backend does; its actual 2 MiB IOMMU mapping is not exercised here.
 """
 
 import errno
