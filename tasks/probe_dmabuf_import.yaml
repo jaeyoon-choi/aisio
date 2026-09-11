@@ -1,0 +1,60 @@
+# SPDX-FileCopyrightText: Samsung Electronics Co., Ltd
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
+doc: |
+  Dump the IOMMU mapping granularity of a CUDA dma-buf
+  ====================================================
+
+  The IOMMU-overhead benchmark showed no delta for GPU-memory buffers, and the
+  open question is whether that is because translation is cheap (the GPU window
+  is mapped as one big IOVA range) or because the GPU's PCIe link saturates
+  first. This probes the first half directly: allocate one large CUDA buffer,
+  export it as a dma-buf, import it through /dev/dmabuf_import, and print the
+  `(dma_addr, dma_len)` tuples GET_MAP returns -- the granularity at which the
+  IOMMU maps the window.
+
+  One tuple covering the whole buffer means one IOTLB entry answers the whole
+  DMA, like a hugepage. Many small tuples mean the per-page walk exists and the
+  benchmark's zero delta is the link talking, not translation being free.
+
+  It also prints the CUDA allocation granularity and DMABUF_IMPORT_DESCRIBE,
+  which says where the buffer ended up (device memory vs migrated to system
+  memory), so a silently-migrated buffer cannot be misread as device memory.
+
+  Requirements
+  ------------
+  The target needs the DMABUF_IMPORT UAPI and module: run
+  `tasks/setup_upcie_modules.yaml` first, and CUDA on the PATH (the transport
+  config already adds it).
+
+  Tuning
+  ------
+  The step takes `size_mib` (CUDA buffer size, default 1024), `gpu_id` (default
+  0), and `bdf`. The default import (no `bdf`) attaches as uPCIe's own misc
+  device, which is what the upcie-cuda backend does. Set `bdf` to an NVMe PCI
+  address to instead import on behalf of that device, the peer-to-peer path the
+  addresses are programmed into.
+
+  Example:
+
+    cijoe --monitor \
+      -c configs/transport.toml \
+      tasks/probe_dmabuf_import.yaml
+
+  Recovery
+  --------
+  If a later run fails to open the device with -ENOMEM or -ESTALE, the module
+  may hold a leaked import from an earlier one-shot tool; confirm with
+  `dmesg | grep dmabuf_import` and recover with
+  `rmmod dmabuf_import && modprobe dmabuf_import`. This probe uses
+  ATTACH_BDF (even for the misc-device case), so its own imports are released
+  when the descriptor closes and it does not leak on exit.
+
+steps:
+- name: probe
+  uses: dmabuf_import_probe
+  with:
+    size_mib: 1024
+    gpu_id: 0
+    # bdf: "0000:41:00.0"
