@@ -1,0 +1,28 @@
+# SPDX-FileCopyrightText: Samsung Electronics Co., Ltd
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
+doc: |
+  Recon the IOMMU tracepoint surface on the target
+  ================================================
+
+  One-shot inventory of the ftrace tracepoints the IOMMU drivers expose --
+  the generic ``iommu`` system and Intel's ``intel_iommu`` system -- together
+  with their field formats, the IOMMU groups, and the current NVMe/NVIDIA
+  driver binding.
+
+  The Intel kernels on sid have no debugfs page-table dump (``/sys/kernel/
+  debug/iommu`` is absent), so a follow-up has to read the 2 MiB superpage
+  coalescing decision from these trace events instead: the ``map``/``unmap``
+  events log the IOVA, physical address and size of each mapping the DMA layer
+  actually performs, which is the next-best signal to a raw page-table walk.
+
+  Example:
+
+    cijoe --monitor \
+      -c configs/transport.toml \
+      tasks/inspect_iommu_pagetable.yaml
+
+steps:
+- name: recon
+  uses: iommu_trace_recon

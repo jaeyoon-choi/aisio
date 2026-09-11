@@ -1,0 +1,42 @@
+# SPDX-FileCopyrightText: Samsung Electronics Co., Ltd
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
+doc: |
+  Trace the IOMMU map granularity of a GPU dma-buf (peer-to-peer path)
+  ====================================================================
+
+  Runs the dma-buf probe with ``--bdf`` so the GPU buffer is imported on
+  behalf of a real NVMe device, and dumps the ``iommu:map``/``iommu:unmap``
+  trace around it.
+
+  The GPU window's own mapping goes through NVIDIA's private dma-buf path and
+  is invisible to the kernel tracepoint; the probe's ``GET_MAP`` is the direct
+  evidence there (one 1 GiB segment at the BAR2 base). The trace contributes
+  the kernel side of the story: the CUDA context setup performs DMA maps in
+  2 MiB units at 2 MiB-aligned addresses, i.e. the Intel VT-d superpage leaf.
+  The console prints only superpage-sized events (``size >= 65536``); the full
+  trace lands in ``artifacts/iommu-trace-gpu/trace.txt``.
+
+  Pick an NVMe currently bound to the ``nvme`` driver (``lspci -k | grep nvme``
+  on the target).
+
+  Example:
+
+    cijoe --monitor \
+      -c configs/transport.toml \
+      tasks/trace_iommu_gpu.yaml
+
+  Recovery
+  --------
+  If the probe fails to open /dev/dmabuf_import with -ENOMEM/-ESTALE, the
+  module may hold a leaked import; recover with
+  ``rmmod dmabuf_import && modprobe dmabuf_import``.
+
+steps:
+- name: trace
+  uses: iommu_trace_gpu
+  with:
+    bdf: "0000:4d:00.0"
+    size_mib: 1024
+    gpu_id: 0
