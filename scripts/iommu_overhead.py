@@ -626,9 +626,7 @@ def run_multi(args, cijoe, devices, cases):
     progress = {"done": 0, "total": len(cases) * repeat * runners}
 
     try:
-        err = xnvmeperf_pass(
-            args, cijoe, devices, cases, repeat, out_dir, progress
-        )
+        err = xnvmeperf_pass(args, cijoe, devices, cases, repeat, out_dir, progress)
         if err:
             return err
 
@@ -638,8 +636,8 @@ def run_multi(args, cijoe, devices, cases):
                     f"{args.label}/{args.memory} {rw} iosize={iosize} "
                     f"iodepth={iodepth} devices={devcount} rep={rep}"
                 )
-                paths = [
-                    result_file(
+                paths = {
+                    device["pci_addr"]: result_file(
                         out_dir,
                         args.label,
                         args.memory,
@@ -652,11 +650,11 @@ def run_multi(args, cijoe, devices, cases):
                         dev=device["pci_addr"],
                     )
                     for device in devices
-                ]
-                if all(path.exists() for path in paths):
+                }
+                if all(path.exists() for path in paths.values()):
                     progress["done"] += 1
                     continue
-                if any(path.exists() for path in paths):
+                if any(path.exists() for path in paths.values()):
                     log.error(f"partial fio result set exists for {workload}")
                     return errno.EEXIST
 
@@ -686,21 +684,7 @@ def run_multi(args, cijoe, devices, cases):
                         dev=device["pci_addr"],
                     )
                     result.update(parsed)
-                    write_result(
-                        result_file(
-                            out_dir,
-                            args.label,
-                            args.memory,
-                            "fio",
-                            rw,
-                            iosize,
-                            iodepth,
-                            rep,
-                            devcount=devcount,
-                            dev=device["pci_addr"],
-                        ),
-                        result,
-                    )
+                    write_result(paths[device["pci_addr"]], result)
                 progress["done"] += 1
 
             if workload_pause > 0 and case_idx < len(cases):

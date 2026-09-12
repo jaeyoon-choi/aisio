@@ -101,6 +101,19 @@ def aggregate_devices(combined):
     aggregated = []
     for entries in grouped.values():
         first = entries[0]
+        # One fio row per device. Summing a group that holds any other number
+        # would report the total under a count it does not belong to.
+        if first["runner"] == "fio" and len(entries) != first["devcount"]:
+            cause = (
+                "the results mix different device sets"
+                if len(entries) > first["devcount"]
+                else "the run did not finish"
+            )
+            raise ValueError(
+                f"{len(entries)} fio rows for a {first['devcount']}-device run "
+                f"({first['label']}/{first['memory']} {first['rw']} "
+                f"iosize={first['iosize']} iodepth={first['iodepth']}): {cause}"
+            )
         item = {
             "label": first["label"],
             "driver": first["driver"],
@@ -204,7 +217,11 @@ def main(args, cijoe):
         return errno.ENOENT
 
     combined = [combine_group(entries) for entries in groups.values()]
-    items = pair_results(aggregate_devices(combined))
+    try:
+        items = pair_results(aggregate_devices(combined))
+    except ValueError as exc:
+        log.error(str(exc))
+        return errno.EINVAL
     if not items:
         log.error("No matching IOMMU overhead result pairs found")
         return errno.ENOENT
