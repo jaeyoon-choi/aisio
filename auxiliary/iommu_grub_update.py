@@ -34,6 +34,7 @@ DROP_TOKENS = {
     "intel_iommu=off",
     "amd_iommu=off",
     "iommu=off",
+    "iommu=pt",
     "intel_iommu=on",
     "amd_iommu=on",
     "iommu.strict=0",
