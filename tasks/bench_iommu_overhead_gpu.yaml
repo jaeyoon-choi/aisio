@@ -3,10 +3,12 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 doc: |
-  Benchmark uPCIe IOMMU overhead
-  ==============================
+  Benchmark uPCIe IOMMU overhead, GPU-memory buffers
+  ==================================================
 
-  This workflow automates the full uPCIe IOMMU overhead measurement:
+  Measures what an enforcing IOMMU costs when the data buffers live in GPU
+  memory (`--be upcie-cuda`), which is the case the architecture is built for:
+  an NVMe reading straight into GPU VRAM.
 
     1. boot with IOMMU disabled and collect uio_pci_generic results
     2. boot with IOMMU enabled and collect vfio-pci results
@@ -15,36 +17,44 @@ doc: |
   It modifies `/etc/default/grub` on the target, reboots the machine twice, and
   waits for the CIJOE transport to return after each reboot.
 
-  Buffer placement
-  ----------------
-  Each boot is measured twice, once with data buffers in host memory
-  (`memory: host`, `--be upcie`) and once with them in GPU memory
-  (`memory: gpu`, `--be upcie-cuda`), giving four conditions. An IOMMU delta is
-  only meaningful between two runs whose buffers lived in the same kind of
-  memory, so the report pairs and charts them separately.
-
-  Both runners cover both kinds of memory. The backend follows `memory`, and
-  fio's xNVMe ioengine allocates its data buffers through that backend, so
-  `--be upcie-cuda` puts them in the CUDA heap the same way xnvmeperf does.
-  Every condition therefore carries throughput from xnvmeperf and from fio, and
-  latency and tail latency from fio.
+  Both runners cover the condition. The backend follows `memory`, and fio's
+  xNVMe ioengine allocates its data buffers through that backend, so it puts
+  them in the CUDA heap the same way xnvmeperf does. Latency and tail latency
+  come from fio.
 
   The GPU path needs every device opened from one process: the CUDA heap is
   per-process, and the vfio path refuses the shared-memory mode that would let
   separate processes share a controller. xnvmeperf opens them all itself, and
   fio runs with `--thread=1` so its per-device jobs are threads.
 
+  Run `tasks/bench_iommu_overhead_host.yaml` for the same measurement with the
+  buffers in host hugepages. An IOMMU delta is only meaningful between two runs
+  whose buffers lived in the same kind of memory, so the two workflows collect
+  and report separately. To read both in one report, point
+  `iommu_overhead_combine --results-dir` at a directory holding both result
+  sets: the report keys on `memory` and charts the two apart.
+
+  Requirements
+  ------------
   Reaching GPU memory needs both uPCIe DKMS modules, so run
   `tasks/setup_upcie_modules.yaml` before `tasks/setup_aisio.yaml` builds
-  xNVMe; their UAPI headers are the build-time gate, and a build without them
+  xNVMe. Their UAPI headers are the build-time gate, and a build without them
   succeeds and fails only once a GPU buffer is reached for. While an IOMMU
   enforces, the run additionally asks for the iommufd path by name, since the
   legacy type1 fallback maps the IOVA window without reserving it.
 
+  Reading the results
+  -------------------
   Buffers are imported as uPCIe's own misc device rather than on behalf of the
   NVMe, which an exporter may answer by migrating them to system memory. Check
   BAR1 usage with `nvidia-smi -q -d memory` against the achieved bandwidth
-  before reading the GPU numbers as peer-to-peer.
+  before reading the numbers as peer-to-peer.
+
+  A GPU's PCIe link is one link where the devices are many, so this workflow
+  saturates it at a handful of devices while the host workflow keeps scaling.
+  Where both sides of a pair are capped by that link, the IOMMU delta reads as
+  nothing: that is the link talking, not evidence that translation is free.
+  Read the deltas at the depths and sizes that stay below the ceiling.
 
   Example:
 
@@ -53,20 +63,24 @@ doc: |
       -c configs/aisio.toml \
       -c configs/datasets.toml \
       -c configs/iommu_overhead.toml \
-      tasks/bench_iommu_overhead.yaml
+      tasks/bench_iommu_overhead_gpu.yaml
 
-  Multi-device mode uses the same task and benchmark config, plus a config
-  with top-level `[[devices]]` entries such as `configs/devices_8.toml` or
-  `configs/devices_16.toml`. Devices are pinned to CPUs by config order,
-  starting at CPU 0:
+  Multi-device mode uses the same task and benchmark config, plus a config with
+  top-level `[[devices]]` entries such as `configs/devices_16.toml`. Devices are
+  pinned to CPUs by config order, starting at CPU 0:
 
     cijoe --monitor \
       -c configs/transport.toml \
       -c configs/aisio.toml \
       -c configs/datasets.toml \
-      -c configs/devices_8.toml \
+      -c configs/devices_16.toml \
       -c configs/iommu_overhead.toml \
-      tasks/bench_iommu_overhead.yaml
+      tasks/bench_iommu_overhead_gpu.yaml
+
+  Keep the devices, the CPUs they pin to, and the GPU on one NUMA node. A
+  peer-to-peer transfer between a GPU and an NVMe on another socket crosses UPI,
+  which this workflow would then be measuring instead of the cost of
+  translation.
 
   Strict IOMMU invalidation is controlled by `iommu_strict` in
   `configs/iommu_overhead.toml`. When enabled, the IOMMU-on boot uses
@@ -109,13 +123,6 @@ steps:
   with:
     mode: verify-off
 
-- name: benchmark_uio_host
-  uses: iommu_overhead
-  with:
-    driver: uio_pci_generic
-    label: uio
-    memory: host
-
 - name: benchmark_uio_gpu
   uses: iommu_overhead
   with:
@@ -147,13 +154,6 @@ steps:
   uses: iommu_boot
   with:
     mode: verify-on
-
-- name: benchmark_vfio_host
-  uses: iommu_overhead
-  with:
-    driver: vfio-pci
-    label: vfio
-    memory: host
 
 - name: benchmark_vfio_gpu
   uses: iommu_overhead
