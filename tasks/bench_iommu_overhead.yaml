@@ -26,7 +26,9 @@ doc: |
 
   Multi-device mode uses the same task and benchmark config, plus a config with
   top-level `[[devices]]` entries such as `configs/devices_16.toml`. Devices are
-  pinned to CPUs by config order, starting at CPU 0:
+  pinned to the CPU an entry names with `cpu = N`, or to its position in the
+  list when it names none. A run refuses to start when a CPU it would pin to is
+  offline, and warns about a device pinned to a CPU on another NUMA node:
 
     cijoe --monitor \
       -c configs/transport.toml \
