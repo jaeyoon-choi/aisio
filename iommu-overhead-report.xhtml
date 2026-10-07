@@ -1,0 +1,51 @@
+<ac:structured-macro ac:name="toc"><ac:parameter ac:name="maxLevel">2</ac:parameter></ac:structured-macro>
+<h2>개요</h2>
+<p>IOMMU-off(<code>uio_pci_generic</code>)와 IOMMU-on(<code>vfio-pci</code> + iommufd) 실행을 비교한 결과다. NVMe 16대(<code>0000:4d:00.0 ~ 0000:54:00.0</code>, <code>0000:67:00.0 ~ 0000:6e:00.0</code>)를 GPU 메모리 버퍼(<code>upcie-cuda</code>)로 구동했다. 워크로드는 randread 4K·read 128K, qdepth 1~32, 런타임 30 s × 5회. 러너는 xnvmeperf(단일 프로세스에서 16대 개방)와 fio(디바이스당 별도 프로세스)다.</p>
+<h2>처리량</h2>
+<p>IOPS는 16대 합산, 5회 반복 평균. MiB/s delta는 IOPS delta와 같다(iosize가 같으므로).</p>
+<table><tbody>
+<tr><th>Runner</th><th>RW</th><th>qdepth</th><th>UIO IOPS</th><th>VFIO IOPS</th><th>IOPS Δ %</th><th>UIO MiB/s</th><th>VFIO MiB/s</th></tr>
+<tr><td>fio</td><td>randread (4K)</td><td>1</td><td>1,741,489.75</td><td>1,739,458.05</td><td>-0.12</td><td>6,802.69</td><td>6,794.76</td></tr>
+<tr><td>fio</td><td>randread (4K)</td><td>2</td><td>2,825,938.53</td><td>2,830,775.99</td><td>+0.17</td><td>11,038.82</td><td>11,057.72</td></tr>
+<tr><td>fio</td><td>randread (4K)</td><td>4</td><td>4,005,338.26</td><td>4,046,061.24</td><td>+1.02</td><td>15,645.86</td><td>15,804.93</td></tr>
+<tr><td>fio</td><td>randread (4K)</td><td>8</td><td>5,094,458.12</td><td>5,168,524.88</td><td>+1.45</td><td>19,900.24</td><td>20,189.57</td></tr>
+<tr><td>fio</td><td>randread (4K)</td><td>16</td><td>5,179,953.60</td><td>5,304,294.33</td><td>+2.40</td><td>20,234.23</td><td>20,719.93</td></tr>
+<tr><td>fio</td><td>randread (4K)</td><td>32</td><td>5,182,308.70</td><td>5,308,792.33</td><td>+2.44</td><td>20,243.46</td><td>20,737.53</td></tr>
+<tr><td>fio</td><td>read (128K)</td><td>1</td><td>163,343.63</td><td>167,207.68</td><td>+2.37</td><td>20,417.95</td><td>20,900.96</td></tr>
+<tr><td>fio</td><td>read (128K)</td><td>2</td><td>163,410.97</td><td>167,775.84</td><td>+2.67</td><td>20,426.44</td><td>20,972.05</td></tr>
+<tr><td>fio</td><td>read (128K)</td><td>4</td><td>163,395.68</td><td>167,748.80</td><td>+2.66</td><td>20,424.66</td><td>20,968.80</td></tr>
+<tr><td>fio</td><td>read (128K)</td><td>8</td><td>163,404.32</td><td>167,863.55</td><td>+2.73</td><td>20,426.01</td><td>20,983.41</td></tr>
+<tr><td>fio</td><td>read (128K)</td><td>16</td><td>163,391.75</td><td>167,748.94</td><td>+2.67</td><td>20,424.97</td><td>20,969.62</td></tr>
+<tr><td>fio</td><td>read (128K)</td><td>32</td><td>163,407.57</td><td>167,835.10</td><td>+2.71</td><td>20,428.01</td><td>20,981.45</td></tr>
+<tr><td>xnvmeperf</td><td>randread (4K)</td><td>1</td><td>1,781,700.32</td><td>1,772,510.85</td><td>-0.52</td><td>6,959.77</td><td>6,923.87</td></tr>
+<tr><td>xnvmeperf</td><td>randread (4K)</td><td>2</td><td>2,928,312.77</td><td>2,939,727.97</td><td>+0.39</td><td>11,438.72</td><td>11,483.31</td></tr>
+<tr><td>xnvmeperf</td><td>randread (4K)</td><td>4</td><td>3,862,077.77</td><td>3,862,449.27</td><td>+0.01</td><td>15,086.24</td><td>15,087.69</td></tr>
+<tr><td>xnvmeperf</td><td>randread (4K)</td><td>8</td><td>5,082,825.30</td><td>5,082,310.39</td><td>-0.01</td><td>19,854.79</td><td>19,852.77</td></tr>
+<tr><td>xnvmeperf</td><td>randread (4K)</td><td>16</td><td>5,163,291.14</td><td>5,162,464.13</td><td>-0.02</td><td>20,169.11</td><td>20,165.87</td></tr>
+<tr><td>xnvmeperf</td><td>randread (4K)</td><td>32</td><td>5,164,119.74</td><td>5,163,849.69</td><td>-0.01</td><td>20,172.34</td><td>20,171.29</td></tr>
+<tr><td>xnvmeperf</td><td>read (128K)</td><td>1</td><td>162,840.71</td><td>162,841.23</td><td>0.00</td><td>20,355.09</td><td>20,355.15</td></tr>
+<tr><td>xnvmeperf</td><td>read (128K)</td><td>2</td><td>162,831.24</td><td>162,832.34</td><td>0.00</td><td>20,353.91</td><td>20,354.04</td></tr>
+<tr><td>xnvmeperf</td><td>read (128K)</td><td>4</td><td>162,828.05</td><td>162,827.38</td><td>0.00</td><td>20,353.51</td><td>20,353.42</td></tr>
+<tr><td>xnvmeperf</td><td>read (128K)</td><td>8</td><td>162,825.62</td><td>162,826.57</td><td>0.00</td><td>20,353.20</td><td>20,353.32</td></tr>
+<tr><td>xnvmeperf</td><td>read (128K)</td><td>16</td><td>162,833.13</td><td>162,828.32</td><td>0.00</td><td>20,354.14</td><td>20,353.54</td></tr>
+<tr><td>xnvmeperf</td><td>read (128K)</td><td>32</td><td>162,831.16</td><td>162,830.25</td><td>0.00</td><td>20,353.89</td><td>20,353.78</td></tr>
+</tbody></table>
+<h2>레이턴시 — fio</h2>
+<p>평균 응답 시간(μs). xnvmeperf는 원 보고서에서 레이턴시를 내지 않는다.</p>
+<table><tbody>
+<tr><th>RW</th><th>qdepth</th><th>UIO μs</th><th>VFIO μs</th><th>Latency Δ %</th></tr>
+<tr><td>randread (4K)</td><td>1</td><td>8.96</td><td>8.97</td><td>+0.16</td></tr>
+<tr><td>randread (4K)</td><td>2</td><td>11.10</td><td>11.08</td><td>-0.17</td></tr>
+<tr><td>randread (4K)</td><td>4</td><td>15.75</td><td>15.59</td><td>-1.01</td></tr>
+<tr><td>randread (4K)</td><td>8</td><td>24.81</td><td>24.46</td><td>-1.41</td></tr>
+<tr><td>randread (4K)</td><td>16</td><td>49.17</td><td>48.06</td><td>-2.26</td></tr>
+<tr><td>randread (4K)</td><td>32</td><td>98.58</td><td>96.32</td><td>-2.30</td></tr>
+<tr><td>read (128K)</td><td>1</td><td>98.58</td><td>96.33</td><td>-2.28</td></tr>
+<tr><td>read (128K)</td><td>2</td><td>197.35</td><td>192.23</td><td>-2.60</td></tr>
+<tr><td>read (128K)</td><td>4</td><td>394.87</td><td>385.09</td><td>-2.48</td></tr>
+<tr><td>read (128K)</td><td>8</td><td>789.93</td><td>768.78</td><td>-2.68</td></tr>
+<tr><td>read (128K)</td><td>16</td><td>1,580.30</td><td>1,540.84</td><td>-2.50</td></tr>
+<tr><td>read (128K)</td><td>32</td><td>3,159.86</td><td>3,081.17</td><td>-2.49</td></tr>
+</tbody></table>
+<h2>메모</h2>
+<ac:structured-macro ac:name="note"><ac:rich-text-body><p>원본 <code>benchmark-results.html</code>의 차트는 브라우저에서 그리는 JavaScript라 Confluence에 넣을 수 없다. 그 차트가 그리는 숫자를 위 표로 옮겼다. 원본 HTML: <code>cijoe-output/artifacts/benchmark-results.html</code>, 데이터: <code>cijoe-output/artifacts/benchmark-results.json</code>.</p></ac:rich-text-body></ac:structured-macro>
