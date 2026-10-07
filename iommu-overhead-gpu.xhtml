@@ -1,0 +1,64 @@
+<ac:structured-macro ac:name="toc"><ac:parameter ac:name="maxLevel">2</ac:parameter></ac:structured-macro>
+<h2>판정</h2>
+<p><ac:structured-macro ac:name="status"><ac:parameter ac:name="colour">Green</ac:parameter><ac:parameter ac:name="title">측정 완료</ac:parameter></ac:structured-macro> GPU 메모리 버퍼에서 uio(IOMMU off) 대비 vfio(IOMMU on)의 IOMMU 오버헤드는 측정 노이즈 이하다. 24쌍(러너 2 × 패턴 2 × qdepth 6) 전체의 IOPS delta가 -0.5% ~ +2.7%다. +2%대 값은 uio/vfio가 서로 다른 부트·런에서 나온 편차지, IOMMU를 켜서 빨라진 것은 아니다.</p>
+<h2>조건</h2>
+<ul>
+<li>머신: sid(192.168.100.4). NVMe 16대를 GPU와 같은 NUMA 노드에 고정</li>
+<li>디바이스: <code>0000:4d:00.0 ~ 0000:54:00.0</code>, <code>0000:67:00.0 ~ 0000:6e:00.0</code></li>
+<li>부트: uio = <code>intel_iommu=off</code>, vfio = <code>intel_iommu=on iommu.strict=1</code></li>
+<li>경로: uio는 <code>uio_pci_generic</code>, vfio는 <code>vfio-pci</code> + iommufd</li>
+<li>스택: xNVMe + uPCIe(<code>upcie-cuda</code>) + CUDA dmabuf</li>
+<li>워크로드: randread 4K, read 128K, qdepth 1/2/4/8/16/32, 런타임 30 s × 5회</li>
+<li>러너: xnvmeperf(단일 프로세스에서 16대 개방) / fio(디바이스당 별도 프로세스)</li>
+</ul>
+<h2>측정</h2>
+<p>표의 IOPS는 16대 합산, 5회 반복 평균. delta = (vfio - uio) / uio. 합산 최대는 randread에서 약 5.16M IOPS(약 20.2 GiB/s), 순차읽기에서 약 20.4 GiB/s다.</p>
+<p><strong>xnvmeperf</strong></p>
+<table><tbody>
+<tr><th>rw</th><th>qdepth</th><th>uio IOPS</th><th>vfio IOPS</th><th>delta</th></tr>
+<tr><td>randread</td><td>1</td><td>1,781,700</td><td>1,772,511</td><td>-0.5%</td></tr>
+<tr><td>randread</td><td>2</td><td>2,928,313</td><td>2,939,728</td><td>+0.4%</td></tr>
+<tr><td>randread</td><td>4</td><td>3,862,078</td><td>3,862,449</td><td>0.0%</td></tr>
+<tr><td>randread</td><td>8</td><td>5,082,825</td><td>5,082,310</td><td>0.0%</td></tr>
+<tr><td>randread</td><td>16</td><td>5,163,291</td><td>5,162,464</td><td>0.0%</td></tr>
+<tr><td>randread</td><td>32</td><td>5,164,120</td><td>5,163,850</td><td>0.0%</td></tr>
+<tr><td>read</td><td>1</td><td>162,841</td><td>162,841</td><td>0.0%</td></tr>
+<tr><td>read</td><td>2</td><td>162,831</td><td>162,832</td><td>0.0%</td></tr>
+<tr><td>read</td><td>4</td><td>162,828</td><td>162,827</td><td>0.0%</td></tr>
+<tr><td>read</td><td>8</td><td>162,826</td><td>162,827</td><td>0.0%</td></tr>
+<tr><td>read</td><td>16</td><td>162,833</td><td>162,828</td><td>0.0%</td></tr>
+<tr><td>read</td><td>32</td><td>162,831</td><td>162,830</td><td>0.0%</td></tr>
+</tbody></table>
+<p><strong>fio</strong></p>
+<table><tbody>
+<tr><th>rw</th><th>qdepth</th><th>uio IOPS</th><th>vfio IOPS</th><th>delta</th></tr>
+<tr><td>randread</td><td>1</td><td>1,741,490</td><td>1,739,458</td><td>-0.1%</td></tr>
+<tr><td>randread</td><td>2</td><td>2,825,939</td><td>2,830,776</td><td>+0.2%</td></tr>
+<tr><td>randread</td><td>4</td><td>4,005,338</td><td>4,046,061</td><td>+1.0%</td></tr>
+<tr><td>randread</td><td>8</td><td>5,094,458</td><td>5,168,525</td><td>+1.5%</td></tr>
+<tr><td>randread</td><td>16</td><td>5,179,954</td><td>5,304,294</td><td>+2.4%</td></tr>
+<tr><td>randread</td><td>32</td><td>5,182,309</td><td>5,308,792</td><td>+2.4%</td></tr>
+<tr><td>read</td><td>1</td><td>163,344</td><td>167,208</td><td>+2.4%</td></tr>
+<tr><td>read</td><td>2</td><td>163,411</td><td>167,776</td><td>+2.7%</td></tr>
+<tr><td>read</td><td>4</td><td>163,396</td><td>167,749</td><td>+2.7%</td></tr>
+<tr><td>read</td><td>8</td><td>163,404</td><td>167,864</td><td>+2.7%</td></tr>
+<tr><td>read</td><td>16</td><td>163,392</td><td>167,749</td><td>+2.7%</td></tr>
+<tr><td>read</td><td>32</td><td>163,408</td><td>167,835</td><td>+2.7%</td></tr>
+</tbody></table>
+<h2>근거</h2>
+<ul>
+<li>원시 결과: <code>cijoe-output/artifacts/iommu-overhead/uio/*.json</code>(1020개), <code>cijoe-output/artifacts/iommu-overhead/vfio/*.json</code>(1020개)</li>
+<li>집계: <code>cijoe-output/artifacts/benchmark-results.json</code>(24쌍), <code>cijoe-output/artifacts/benchmark-results.html</code></li>
+<li>수집 워크플로: <code>tasks/bench_iommu_overhead_gpu.yaml</code>(uio_gpu·vfio_gpu, 리부트 2회), vfio 재수집은 <code>tasks/bench_iommu_overhead_vfio_gpu.yaml</code></li>
+<li>집계 스크립트: <code>scripts/iommu_overhead_combine.py</code>, <code>scripts/bench_visualize.py</code>(템플릿 <code>iommu-overhead</code>)</li>
+<li>산출 커밋: <code>2ad1e72</code>(bench), <code>8b08a87</code>(configs), <code>bef20db</code>(docs) — repo <code>/home/jaeyoon/aisio/aisio</code></li>
+</ul>
+<ac:structured-macro ac:name="code"><ac:parameter ac:name="language">bash</ac:parameter><ac:parameter ac:name="title">재현 커맨드</ac:parameter><ac:plain-text-body><![CDATA[cijoe -c configs/transport.toml -c configs/aisio.toml -c configs/datasets.toml -c configs/devices_16.toml -c configs/iommu_overhead.toml tasks/bench_iommu_overhead_gpu.yaml]]></ac:plain-text-body></ac:structured-macro>
+<h2>한계</h2>
+<ul>
+<li>read 128K는 qdepth 1에서 이미 약 20.3 GiB/s로 GPU PCIe 링크를 포화시킨다. 이 구간의 delta 0%는 링크가 말한 것이지 번역 비용이 없음을 증명하지 못한다. 해석 가능한 지점은 서브-포화인 randread 4K qdepth 1/2다.</li>
+<li>fio의 +1 ~ +2.7%는 uio/vfio가 서로 다른 부트·런에서 따로 수집된 데 따른 실행 간 편차다.</li>
+<li>GPU 숫자가 실제 P2P인지(BAR1 사용)는 <code>nvidia-smi -q -d memory</code> 검증을 마치지 않았다. 버퍼가 시스템 메모리로 빠졌을 가능성이 남아 있다.</li>
+</ul>
+<h2>요청</h2>
+<ac:structured-macro ac:name="info"><ac:rich-text-body><p>GPU 메모리 조건(uio_gpu·vfio_gpu) 수집은 끝났다. 남은 확인은 nvidia-smi 기반 BAR1 사용량 검증이다. 호스트 메모리 조건(uio_host·vfio_host)까지 수집해 4-조건 보고서를 낼지 알려달라.</p></ac:rich-text-body></ac:structured-macro>
