@@ -1,0 +1,1258 @@
+<ac:structured-macro ac:name="html">
+<ac:plain-text-body><![CDATA[<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>xNVMe/uPCIe Hugepage IOMMU Overhead</title>
+<style>
+:root {
+  --bg: #ffffff;
+  --panel: #f7f9fc;
+  --ink: #1e2430;
+  --muted: #6d7481;
+  --line: #dce3ec;
+  --accent-uio: #d96b2b;
+  --accent-vfio: #2457c5;
+  --accent-delta: #0f8b6d;
+  --danger: #b03a2e;
+  --shadow: 0 16px 50px rgba(30, 36, 48, 0.08);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", "Noto Sans", sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+}
+
+main {
+  width: min(1320px, calc(100vw - 32px));
+  margin: 0 auto;
+  padding: 32px 0 48px;
+}
+
+h1, h2, p { margin: 0; }
+
+.hero {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.hero h1 {
+  font-size: clamp(2rem, 4vw, 3.4rem);
+  line-height: 0.95;
+}
+
+.hero p {
+  max-width: 920px;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+  padding: 20px;
+}
+
+.chart-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(520px, 1fr));
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.chart-card {
+  display: grid;
+  gap: 14px;
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: end;
+}
+
+.chart-title {
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.chart-subtitle {
+  color: var(--muted);
+  font-size: 0.92rem;
+  margin-top: 4px;
+}
+
+.chart-wrap {
+  position: relative;
+  min-height: 300px;
+}
+
+.chart-wrap canvas {
+  width: 100%;
+  height: 300px;
+  display: block;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  padding: 6px 10px;
+  font-size: 0.82rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
+.table-wrap { overflow-x: auto; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+thead th {
+  text-align: left;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-bottom: 1px solid var(--line);
+  padding: 12px 10px;
+  white-space: nowrap;
+}
+
+tbody td {
+  padding: 12px 10px;
+  border-bottom: 1px solid rgba(220, 227, 236, 0.8);
+  white-space: nowrap;
+}
+
+tbody tr:hover {
+  background: rgba(36, 87, 197, 0.04);
+}
+
+.delta-pos {
+  color: var(--accent-delta);
+  font-weight: 700;
+}
+
+.delta-neg {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.summary-panel h2 {
+  margin-bottom: 12px;
+}
+</style>
+</head>
+<body>
+<main>
+<section class="hero">
+<h1>xNVMe/uPCIe Hugepage IOMMU Overhead</h1>
+
+<p>
+This report compares an IOMMU-off run against an IOMMU-on run. The uPCIe
+path uses <code>uio_pci_generic</code> and <code>vfio-pci</code>; the kernel
+NVMe 4KB-page path uses raw <code>fio</code> through the <code>nvme</code>
+driver.
+</p>
+</section>
+
+<h2>Charts</h2>
+<div class="chart-grid" id="charts"></div>
+
+<section class="panel summary-panel">
+<h2>Summary</h2>
+<div class="table-wrap">
+
+
+
+
+
+<table>
+<thead>
+<tr>
+  <th>Runner</th>
+  <th>Buffers</th>
+  <th>RW</th>
+  <th>IO size</th>
+  <th>Devices</th>
+  <th>IO depth</th>
+  <th>UIO IOPS</th>
+  <th>VFIO IOPS</th>
+  <th>IOPS delta %</th>
+  <th>UIO MiB/s</th>
+  <th>VFIO MiB/s</th>
+  <th>MiB/s delta %</th>
+  <th>UIO mean us</th>
+  <th>VFIO mean us</th>
+  <th>Latency delta %</th>
+</tr>
+</thead>
+<tbody>
+
+
+<tr>
+  <td>xnvmeperf</td>
+  <td>gpu</td>
+  <td>randread</td>
+  <td>4096</td>
+  <td>16</td>
+  <td>1</td>
+  <td>1781532.88</td>
+  <td>1771636.26</td>
+  <td>-0.56</td>
+  <td>6959.11</td>
+  <td>6920.45</td>
+  <td>-0.56</td>
+  
+  <td>N/A</td>
+  <td>N/A</td>
+  <td>N/A</td>
+  
+</tr>
+
+<tr>
+  <td>xnvmeperf</td>
+  <td>gpu</td>
+  <td>randread</td>
+  <td>4096</td>
+  <td>16</td>
+  <td>2</td>
+  <td>2930220.92</td>
+  <td>2943723.96</td>
+  <td>0.46</td>
+  <td>11446.18</td>
+  <td>11498.92</td>
+  <td>0.46</td>
+  
+  <td>N/A</td>
+  <td>N/A</td>
+  <td>N/A</td>
+  
+</tr>
+
+<tr>
+  <td>xnvmeperf</td>
+  <td>gpu</td>
+  <td>randread</td>
+  <td>4096</td>
+  <td>16</td>
+  <td>4</td>
+  <td>3862486.08</td>
+  <td>3865284.28</td>
+  <td>0.07</td>
+  <td>15087.84</td>
+  <td>15098.77</td>
+  <td>0.07</td>
+  
+  <td>N/A</td>
+  <td>N/A</td>
+  <td>N/A</td>
+  
+</tr>
+
+<tr>
+  <td>xnvmeperf</td>
+  <td>gpu</td>
+  <td>randread</td>
+  <td>4096</td>
+  <td>16</td>
+  <td>8</td>
+  <td>5081889.71</td>
+  <td>5083720.70</td>
+  <td>0.04</td>
+  <td>19851.13</td>
+  <td>19858.29</td>
+  <td>0.04</td>
+  
+  <td>N/A</td>
+  <td>N/A</td>
+  <td>N/A</td>
+  
+</tr>
+
+<tr>
+  <td>xnvmeperf</td>
+  <td>gpu</td>
+  <td>randread</td>
+  <td>4096</td>
+  <td>16</td>
+  <td>16</td>
+  <td>5162486.22</td>
+  <td>5162601.97</td>
+  <td>0.00</td>
+  <td>20165.96</td>
+  <td>20166.41</td>
+  <td>0.00</td>
+  
+  <td>N/A</td>
+  <td>N/A</td>
+  <td>N/A</td>
+  
+</tr>
+
+<tr>
+  <td>xnvmeperf</td>
+  <td>gpu</td>
+  <td>randread</td>
+  <td>4096</td>
+  <td>16</td>
+  <td>32</td>
+  <td>5164372.22</td>
+  <td>5164438.89</td>
+  <td>0.00</td>
+  <td>20173.33</td>
+  <td>20173.59</td>
+  <td>0.00</td>
+  
+  <td>N/A</td>
+  <td>N/A</td>
+  <td>N/A</td>
+  
+</tr>
+
+<tr>
+  <td>xnvmeperf</td>
+  <td>gpu</td>
+  <td>read</td>
+  <td>131072</td>
+  <td>16</td>
+  <td>1</td>
+  <td>162844.65</td>
+  <td>162841.03</td>
+  <td>-0.00</td>
+  <td>20355.58</td>
+  <td>20355.13</td>
+  <td>-0.00</td>
+  
+  <td>N/A</td>
+  <td>N/A</td>
+  <td>N/A</td>
+  
+</tr>
+
+<tr>
+  <td>xnvmeperf</td>
+  <td>gpu</td>
+  <td>read</td>
+  <td>131072</td>
+  <td>16</td>
+  <td>2</td>
+  <td>162832.74</td>
+  <td>162832.01</td>
+  <td>-0.00</td>
+  <td>20354.09</td>
+  <td>20354.00</td>
+  <td>-0.00</td>
+  
+  <td>N/A</td>
+  <td>N/A</td>
+  <td>N/A</td>
+  
+</tr>
+
+<tr>
+  <td>xnvmeperf</td>
+  <td>gpu</td>
+  <td>read</td>
+  <td>131072</td>
+  <td>16</td>
+  <td>4</td>
+  <td>162832.65</td>
+  <td>162830.14</td>
+  <td>-0.00</td>
+  <td>20354.08</td>
+  <td>20353.77</td>
+  <td>-0.00</td>
+  
+  <td>N/A</td>
+  <td>N/A</td>
+  <td>N/A</td>
+  
+</tr>
+
+<tr>
+  <td>xnvmeperf</td>
+  <td>gpu</td>
+  <td>read</td>
+  <td>131072</td>
+  <td>16</td>
+  <td>8</td>
+  <td>162834.92</td>
+  <td>162831.03</td>
+  <td>-0.00</td>
+  <td>20354.37</td>
+  <td>20353.88</td>
+  <td>-0.00</td>
+  
+  <td>N/A</td>
+  <td>N/A</td>
+  <td>N/A</td>
+  
+</tr>
+
+<tr>
+  <td>xnvmeperf</td>
+  <td>gpu</td>
+  <td>read</td>
+  <td>131072</td>
+  <td>16</td>
+  <td>16</td>
+  <td>162829.96</td>
+  <td>162830.36</td>
+  <td>0.00</td>
+  <td>20353.74</td>
+  <td>20353.79</td>
+  <td>0.00</td>
+  
+  <td>N/A</td>
+  <td>N/A</td>
+  <td>N/A</td>
+  
+</tr>
+
+<tr>
+  <td>xnvmeperf</td>
+  <td>gpu</td>
+  <td>read</td>
+  <td>131072</td>
+  <td>16</td>
+  <td>32</td>
+  <td>162825.95</td>
+  <td>162824.18</td>
+  <td>-0.00</td>
+  <td>20353.24</td>
+  <td>20353.02</td>
+  <td>-0.00</td>
+  
+  <td>N/A</td>
+  <td>N/A</td>
+  <td>N/A</td>
+  
+</tr>
+
+<tr>
+  <td>fio</td>
+  <td>host</td>
+  <td>randread</td>
+  <td>4096</td>
+  <td>16</td>
+  <td>1</td>
+  <td>1759549.11</td>
+  <td>1759616.04</td>
+  <td>0.00</td>
+  <td>6873.24</td>
+  <td>6873.50</td>
+  <td>0.00</td>
+  
+  <td>8.88</td>
+  <td>8.88</td>
+  <td>0.01</td>
+  
+</tr>
+
+<tr>
+  <td>fio</td>
+  <td>host</td>
+  <td>randread</td>
+  <td>4096</td>
+  <td>16</td>
+  <td>2</td>
+  <td>3176837.52</td>
+  <td>3178003.55</td>
+  <td>0.04</td>
+  <td>12409.52</td>
+  <td>12414.08</td>
+  <td>0.04</td>
+  
+  <td>9.86</td>
+  <td>9.86</td>
+  <td>-0.03</td>
+  
+</tr>
+
+<tr>
+  <td>fio</td>
+  <td>host</td>
+  <td>randread</td>
+  <td>4096</td>
+  <td>16</td>
+  <td>4</td>
+  <td>6187119.64</td>
+  <td>6208693.66</td>
+  <td>0.35</td>
+  <td>24168.44</td>
+  <td>24252.72</td>
+  <td>0.35</td>
+  
+  <td>10.13</td>
+  <td>10.09</td>
+  <td>-0.34</td>
+  
+</tr>
+
+<tr>
+  <td>fio</td>
+  <td>host</td>
+  <td>randread</td>
+  <td>4096</td>
+  <td>16</td>
+  <td>8</td>
+  <td>9553659.66</td>
+  <td>9970861.57</td>
+  <td>4.37</td>
+  <td>37319.00</td>
+  <td>38948.69</td>
+  <td>4.37</td>
+  
+  <td>13.17</td>
+  <td>12.60</td>
+  <td>-4.26</td>
+  
+</tr>
+
+<tr>
+  <td>fio</td>
+  <td>host</td>
+  <td>randread</td>
+  <td>4096</td>
+  <td>16</td>
+  <td>16</td>
+  <td>12235496.78</td>
+  <td>12717626.68</td>
+  <td>3.94</td>
+  <td>47794.94</td>
+  <td>49678.26</td>
+  <td>3.94</td>
+  
+  <td>20.70</td>
+  <td>19.91</td>
+  <td>-3.83</td>
+  
+</tr>
+
+<tr>
+  <td>fio</td>
+  <td>host</td>
+  <td>randread</td>
+  <td>4096</td>
+  <td>16</td>
+  <td>32</td>
+  <td>12248921.23</td>
+  <td>12771361.23</td>
+  <td>4.27</td>
+  <td>47847.41</td>
+  <td>49888.19</td>
+  <td>4.27</td>
+  
+  <td>41.58</td>
+  <td>39.88</td>
+  <td>-4.09</td>
+  
+</tr>
+
+<tr>
+  <td>xnvmeperf</td>
+  <td>host</td>
+  <td>randread</td>
+  <td>4096</td>
+  <td>16</td>
+  <td>1</td>
+  <td>1792986.99</td>
+  <td>1792088.47</td>
+  <td>-0.05</td>
+  <td>7003.86</td>
+  <td>7000.35</td>
+  <td>-0.05</td>
+  
+  <td>N/A</td>
+  <td>N/A</td>
+  <td>N/A</td>
+  
+</tr>
+
+<tr>
+  <td>xnvmeperf</td>
+  <td>host</td>
+  <td>randread</td>
+  <td>4096</td>
+  <td>16</td>
+  <td>2</td>
+  <td>3284563.16</td>
+  <td>3283918.02</td>
+  <td>-0.02</td>
+  <td>12830.32</td>
+  <td>12827.80</td>
+  <td>-0.02</td>
+  
+  <td>N/A</td>
+  <td>N/A</td>
+  <td>N/A</td>
+  
+</tr>
+
+<tr>
+  <td>xnvmeperf</td>
+  <td>host</td>
+  <td>randread</td>
+  <td>4096</td>
+  <td>16</td>
+  <td>4</td>
+  <td>6388784.14</td>
+  <td>6408164.14</td>
+  <td>0.30</td>
+  <td>24956.19</td>
+  <td>25031.89</td>
+  <td>0.30</td>
+  
+  <td>N/A</td>
+  <td>N/A</td>
+  <td>N/A</td>
+  
+</tr>
+
+<tr>
+  <td>xnvmeperf</td>
+  <td>host</td>
+  <td>randread</td>
+  <td>4096</td>
+  <td>16</td>
+  <td>8</td>
+  <td>9667989.70</td>
+  <td>9913154.00</td>
+  <td>2.54</td>
+  <td>37765.59</td>
+  <td>38723.26</td>
+  <td>2.54</td>
+  
+  <td>N/A</td>
+  <td>N/A</td>
+  <td>N/A</td>
+  
+</tr>
+
+<tr>
+  <td>xnvmeperf</td>
+  <td>host</td>
+  <td>randread</td>
+  <td>4096</td>
+  <td>16</td>
+  <td>16</td>
+  <td>12226519.44</td>
+  <td>12557542.60</td>
+  <td>2.71</td>
+  <td>47759.84</td>
+  <td>49052.90</td>
+  <td>2.71</td>
+  
+  <td>N/A</td>
+  <td>N/A</td>
+  <td>N/A</td>
+  
+</tr>
+
+<tr>
+  <td>xnvmeperf</td>
+  <td>host</td>
+  <td>randread</td>
+  <td>4096</td>
+  <td>16</td>
+  <td>32</td>
+  <td>12228826.22</td>
+  <td>12558178.98</td>
+  <td>2.69</td>
+  <td>47768.85</td>
+  <td>49055.39</td>
+  <td>2.69</td>
+  
+  <td>N/A</td>
+  <td>N/A</td>
+  <td>N/A</td>
+  
+</tr>
+
+<tr>
+  <td>fio</td>
+  <td>host</td>
+  <td>read</td>
+  <td>131072</td>
+  <td>16</td>
+  <td>1</td>
+  <td>355431.26</td>
+  <td>366810.61</td>
+  <td>3.20</td>
+  <td>44428.91</td>
+  <td>45851.33</td>
+  <td>3.20</td>
+  
+  <td>44.81</td>
+  <td>43.42</td>
+  <td>-3.10</td>
+  
+</tr>
+
+<tr>
+  <td>fio</td>
+  <td>host</td>
+  <td>read</td>
+  <td>131072</td>
+  <td>16</td>
+  <td>2</td>
+  <td>392473.93</td>
+  <td>409014.67</td>
+  <td>4.21</td>
+  <td>49059.31</td>
+  <td>51126.90</td>
+  <td>4.21</td>
+  
+  <td>81.32</td>
+  <td>78.05</td>
+  <td>-4.03</td>
+  
+</tr>
+
+<tr>
+  <td>fio</td>
+  <td>host</td>
+  <td>read</td>
+  <td>131072</td>
+  <td>16</td>
+  <td>4</td>
+  <td>391929.92</td>
+  <td>408265.45</td>
+  <td>4.17</td>
+  <td>48991.44</td>
+  <td>51033.38</td>
+  <td>4.17</td>
+  
+  <td>163.08</td>
+  <td>156.58</td>
+  <td>-3.98</td>
+  
+</tr>
+
+<tr>
+  <td>fio</td>
+  <td>host</td>
+  <td>read</td>
+  <td>131072</td>
+  <td>16</td>
+  <td>8</td>
+  <td>391698.25</td>
+  <td>407832.87</td>
+  <td>4.12</td>
+  <td>48962.75</td>
+  <td>50979.58</td>
+  <td>4.12</td>
+  
+  <td>326.56</td>
+  <td>313.71</td>
+  <td>-3.94</td>
+  
+</tr>
+
+<tr>
+  <td>fio</td>
+  <td>host</td>
+  <td>read</td>
+  <td>131072</td>
+  <td>16</td>
+  <td>16</td>
+  <td>391659.40</td>
+  <td>408105.40</td>
+  <td>4.20</td>
+  <td>48958.42</td>
+  <td>51014.17</td>
+  <td>4.20</td>
+  
+  <td>653.39</td>
+  <td>627.22</td>
+  <td>-4.01</td>
+  
+</tr>
+
+<tr>
+  <td>fio</td>
+  <td>host</td>
+  <td>read</td>
+  <td>131072</td>
+  <td>16</td>
+  <td>32</td>
+  <td>391591.62</td>
+  <td>408257.44</td>
+  <td>4.26</td>
+  <td>48951.02</td>
+  <td>51034.25</td>
+  <td>4.26</td>
+  
+  <td>1307.22</td>
+  <td>1254.18</td>
+  <td>-4.06</td>
+  
+</tr>
+
+<tr>
+  <td>xnvmeperf</td>
+  <td>host</td>
+  <td>read</td>
+  <td>131072</td>
+  <td>16</td>
+  <td>1</td>
+  <td>352799.73</td>
+  <td>361842.28</td>
+  <td>2.56</td>
+  <td>44099.97</td>
+  <td>45230.29</td>
+  <td>2.56</td>
+  
+  <td>N/A</td>
+  <td>N/A</td>
+  <td>N/A</td>
+  
+</tr>
+
+<tr>
+  <td>xnvmeperf</td>
+  <td>host</td>
+  <td>read</td>
+  <td>131072</td>
+  <td>16</td>
+  <td>2</td>
+  <td>391761.24</td>
+  <td>401729.36</td>
+  <td>2.54</td>
+  <td>48970.15</td>
+  <td>50216.17</td>
+  <td>2.54</td>
+  
+  <td>N/A</td>
+  <td>N/A</td>
+  <td>N/A</td>
+  
+</tr>
+
+<tr>
+  <td>xnvmeperf</td>
+  <td>host</td>
+  <td>read</td>
+  <td>131072</td>
+  <td>16</td>
+  <td>4</td>
+  <td>391757.78</td>
+  <td>401767.38</td>
+  <td>2.56</td>
+  <td>48969.72</td>
+  <td>50220.92</td>
+  <td>2.56</td>
+  
+  <td>N/A</td>
+  <td>N/A</td>
+  <td>N/A</td>
+  
+</tr>
+
+<tr>
+  <td>xnvmeperf</td>
+  <td>host</td>
+  <td>read</td>
+  <td>131072</td>
+  <td>16</td>
+  <td>8</td>
+  <td>391762.96</td>
+  <td>401747.40</td>
+  <td>2.55</td>
+  <td>48970.37</td>
+  <td>50218.42</td>
+  <td>2.55</td>
+  
+  <td>N/A</td>
+  <td>N/A</td>
+  <td>N/A</td>
+  
+</tr>
+
+<tr>
+  <td>xnvmeperf</td>
+  <td>host</td>
+  <td>read</td>
+  <td>131072</td>
+  <td>16</td>
+  <td>16</td>
+  <td>391757.13</td>
+  <td>401745.74</td>
+  <td>2.55</td>
+  <td>48969.64</td>
+  <td>50218.22</td>
+  <td>2.55</td>
+  
+  <td>N/A</td>
+  <td>N/A</td>
+  <td>N/A</td>
+  
+</tr>
+
+<tr>
+  <td>xnvmeperf</td>
+  <td>host</td>
+  <td>read</td>
+  <td>131072</td>
+  <td>16</td>
+  <td>32</td>
+  <td>391757.50</td>
+  <td>401747.29</td>
+  <td>2.55</td>
+  <td>48969.69</td>
+  <td>50218.41</td>
+  <td>2.55</td>
+  
+  <td>N/A</td>
+  <td>N/A</td>
+  <td>N/A</td>
+  
+</tr>
+
+
+</tbody>
+</table>
+</div>
+</section>
+</main>
+
+<script>
+const datasets = [{"data": [{"devcount": 16, "iodepth": 1, "iops_delta_pct": -0.5555114973673487, "iosize": 4096, "memory": "gpu", "mibs_delta_pct": -0.5555019088642265, "runner": "xnvmeperf", "rw": "randread", "uio": {"backend": "upcie-cuda", "devcount": 16, "devices": [], "driver": "uio_pci_generic", "iodepth": 1, "iommu": "off", "iops": 1781532.884, "iosize": 4096, "label": "uio", "memory": "gpu", "mibs": 6959.111999999999, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "randread"}, "vfio": {"backend": "upcie-cuda", "devcount": 16, "devices": [], "driver": "vfio-pci", "iodepth": 1, "iommu": "on", "iops": 1771636.264, "iosize": 4096, "label": "vfio", "memory": "gpu", "mibs": 6920.454, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "randread"}}, {"devcount": 16, "iodepth": 2, "iops_delta_pct": 0.4608196569282425, "iosize": 4096, "memory": "gpu", "mibs_delta_pct": 0.46083512956641237, "runner": "xnvmeperf", "rw": "randread", "uio": {"backend": "upcie-cuda", "devcount": 16, "devices": [], "driver": "uio_pci_generic", "iodepth": 2, "iommu": "off", "iops": 2930220.922, "iosize": 4096, "label": "uio", "memory": "gpu", "mibs": 11446.176, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "randread"}, "vfio": {"backend": "upcie-cuda", "devcount": 16, "devices": [], "driver": "vfio-pci", "iodepth": 2, "iommu": "on", "iops": 2943723.956, "iosize": 4096, "label": "vfio", "memory": "gpu", "mibs": 11498.923999999999, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "randread"}}, {"devcount": 16, "iodepth": 4, "iops_delta_pct": 0.07244556860377198, "iosize": 4096, "memory": "gpu", "mibs_delta_pct": 0.07242919760935851, "runner": "xnvmeperf", "rw": "randread", "uio": {"backend": "upcie-cuda", "devcount": 16, "devices": [], "driver": "uio_pci_generic", "iodepth": 4, "iommu": "off", "iops": 3862486.076, "iosize": 4096, "label": "uio", "memory": "gpu", "mibs": 15087.838, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "randread"}, "vfio": {"backend": "upcie-cuda", "devcount": 16, "devices": [], "driver": "vfio-pci", "iodepth": 4, "iommu": "on", "iops": 3865284.2759999996, "iosize": 4096, "label": "vfio", "memory": "gpu", "mibs": 15098.766, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "randread"}}, {"devcount": 16, "iodepth": 8, "iops_delta_pct": 0.03602970755384121, "iosize": 4096, "memory": "gpu", "mibs_delta_pct": 0.03602816846635494, "runner": "xnvmeperf", "rw": "randread", "uio": {"backend": "upcie-cuda", "devcount": 16, "devices": [], "driver": "uio_pci_generic", "iodepth": 8, "iommu": "off", "iops": 5081889.708, "iosize": 4096, "label": "uio", "memory": "gpu", "mibs": 19851.134, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "randread"}, "vfio": {"backend": "upcie-cuda", "devcount": 16, "devices": [], "driver": "vfio-pci", "iodepth": 8, "iommu": "on", "iops": 5083720.698000001, "iosize": 4096, "label": "vfio", "memory": "gpu", "mibs": 19858.286, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "randread"}}, {"devcount": 16, "iodepth": 16, "iops_delta_pct": 0.0022421754764392664, "iosize": 4096, "memory": "gpu", "mibs_delta_pct": 0.002231482931489842, "runner": "xnvmeperf", "rw": "randread", "uio": {"backend": "upcie-cuda", "devcount": 16, "devices": [], "driver": "uio_pci_generic", "iodepth": 16, "iommu": "off", "iops": 5162486.220000001, "iosize": 4096, "label": "uio", "memory": "gpu", "mibs": 20165.962, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "randread"}, "vfio": {"backend": "upcie-cuda", "devcount": 16, "devices": [], "driver": "vfio-pci", "iodepth": 16, "iommu": "on", "iops": 5162601.972, "iosize": 4096, "label": "vfio", "memory": "gpu", "mibs": 20166.412, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "randread"}}, {"devcount": 16, "iodepth": 32, "iops_delta_pct": 0.001290882940030115, "iosize": 4096, "memory": "gpu", "mibs_delta_pct": 0.0012888304795242475, "runner": "xnvmeperf", "rw": "randread", "uio": {"backend": "upcie-cuda", "devcount": 16, "devices": [], "driver": "uio_pci_generic", "iodepth": 32, "iommu": "off", "iops": 5164372.224, "iosize": 4096, "label": "uio", "memory": "gpu", "mibs": 20173.328, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "randread"}, "vfio": {"backend": "upcie-cuda", "devcount": 16, "devices": [], "driver": "vfio-pci", "iodepth": 32, "iommu": "on", "iops": 5164438.89, "iosize": 4096, "label": "vfio", "memory": "gpu", "mibs": 20173.588, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "randread"}}, {"devcount": 16, "iodepth": 1, "iops_delta_pct": -0.002224205680394728, "iosize": 131072, "memory": "gpu", "mibs_delta_pct": -0.0022205211327525442, "runner": "xnvmeperf", "rw": "read", "uio": {"backend": "upcie-cuda", "devcount": 16, "devices": [], "driver": "uio_pci_generic", "iodepth": 1, "iommu": "off", "iops": 162844.652, "iosize": 131072, "label": "uio", "memory": "gpu", "mibs": 20355.582000000002, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "read"}, "vfio": {"backend": "upcie-cuda", "devcount": 16, "devices": [], "driver": "vfio-pci", "iodepth": 1, "iommu": "on", "iops": 162841.03, "iosize": 131072, "label": "vfio", "memory": "gpu", "mibs": 20355.129999999997, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "read"}}, {"devcount": 16, "iodepth": 2, "iops_delta_pct": -0.0004483127901559438, "iosize": 131072, "memory": "gpu", "mibs_delta_pct": -0.00045199756391449446, "runner": "xnvmeperf", "rw": "read", "uio": {"backend": "upcie-cuda", "devcount": 16, "devices": [], "driver": "uio_pci_generic", "iodepth": 2, "iommu": "off", "iops": 162832.74, "iosize": 131072, "label": "uio", "memory": "gpu", "mibs": 20354.091999999997, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "read"}, "vfio": {"backend": "upcie-cuda", "devcount": 16, "devices": [], "driver": "vfio-pci", "iodepth": 2, "iommu": "on", "iops": 162832.01, "iosize": 131072, "label": "vfio", "memory": "gpu", "mibs": 20354.0, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "read"}}, {"devcount": 16, "iodepth": 4, "iops_delta_pct": -0.0015414598787037584, "iosize": 131072, "memory": "gpu", "mibs_delta_pct": -0.00155251413452364, "runner": "xnvmeperf", "rw": "read", "uio": {"backend": "upcie-cuda", "devcount": 16, "devices": [], "driver": "uio_pci_generic", "iodepth": 4, "iommu": "off", "iops": 162832.652, "iosize": 131072, "label": "uio", "memory": "gpu", "mibs": 20354.082000000002, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "read"}, "vfio": {"backend": "upcie-cuda", "devcount": 16, "devices": [], "driver": "vfio-pci", "iodepth": 4, "iommu": "on", "iops": 162830.142, "iosize": 131072, "label": "vfio", "memory": "gpu", "mibs": 20353.766, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "read"}}, {"devcount": 16, "iodepth": 8, "iops_delta_pct": -0.0023901507414967036, "iosize": 131072, "memory": "gpu", "mibs_delta_pct": -0.0023876941193079837, "runner": "xnvmeperf", "rw": "read", "uio": {"backend": "upcie-cuda", "devcount": 16, "devices": [], "driver": "uio_pci_generic", "iodepth": 8, "iommu": "off", "iops": 162834.918, "iosize": 131072, "label": "uio", "memory": "gpu", "mibs": 20354.366, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "read"}, "vfio": {"backend": "upcie-cuda", "devcount": 16, "devices": [], "driver": "vfio-pci", "iodepth": 8, "iommu": "on", "iops": 162831.026, "iosize": 131072, "label": "vfio", "memory": "gpu", "mibs": 20353.879999999997, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "read"}}, {"devcount": 16, "iodepth": 16, "iops_delta_pct": 0.0002468833131032881, "iosize": 131072, "memory": "gpu", "mibs_delta_pct": 0.0002456550500139453, "runner": "xnvmeperf", "rw": "read", "uio": {"backend": "upcie-cuda", "devcount": 16, "devices": [], "driver": "uio_pci_generic", "iodepth": 16, "iommu": "off", "iops": 162829.96000000002, "iosize": 131072, "label": "uio", "memory": "gpu", "mibs": 20353.744, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "read"}, "vfio": {"backend": "upcie-cuda", "devcount": 16, "devices": [], "driver": "vfio-pci", "iodepth": 16, "iommu": "on", "iops": 162830.362, "iosize": 131072, "label": "vfio", "memory": "gpu", "mibs": 20353.794, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "read"}}, {"devcount": 16, "iodepth": 32, "iops_delta_pct": -0.0010907352164496906, "iosize": 131072, "memory": "gpu", "mibs_delta_pct": -0.0010907352164496906, "runner": "xnvmeperf", "rw": "read", "uio": {"backend": "upcie-cuda", "devcount": 16, "devices": [], "driver": "uio_pci_generic", "iodepth": 32, "iommu": "off", "iops": 162825.952, "iosize": 131072, "label": "uio", "memory": "gpu", "mibs": 20353.244, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "read"}, "vfio": {"backend": "upcie-cuda", "devcount": 16, "devices": [], "driver": "vfio-pci", "iodepth": 32, "iommu": "on", "iops": 162824.176, "iosize": 131072, "label": "vfio", "memory": "gpu", "mibs": 20353.022, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "read"}}, {"devcount": 16, "iodepth": 1, "iops_delta_pct": 0.0038038400716739794, "iosize": 4096, "lat_delta_pct": 0.008917450383677835, "memory": "host", "mibs_delta_pct": 0.0038030761005684913, "runner": "fio", "rw": "randread", "tail_lat_delta_pct": {"p99_9": 1.4730966041246705, "p99_99": 1.2350877192982392, "p99_999": -0.9524915785805473}, "uio": {"backend": "upcie", "devcount": 16, "devices": ["0000:4d:00.0", "0000:4e:00.0", "0000:4f:00.0", "0000:50:00.0", "0000:51:00.0", "0000:52:00.0", "0000:53:00.0", "0000:54:00.0", "0000:67:00.0", "0000:68:00.0", "0000:69:00.0", "0000:6a:00.0", "0000:6b:00.0", "0000:6c:00.0", "0000:6d:00.0", "0000:6e:00.0"], "driver": "uio_pci_generic", "iodepth": 1, "iommu": "off", "iops": 1759549.1119196, "iosize": 4096, "label": "uio", "lat_ns": 8881.9643331, "memory": "host", "mibs": 6873.2387630462645, "repeat": 5, "runner": "fio", "runtime": 30, "rw": "randread", "tail_lat_ns": {"p99_9": 10318.4, "p99_99": 11400.0, "p99_999": 27548.8}}, "vfio": {"backend": "upcie", "devcount": 16, "devices": ["0000:4d:00.0", "0000:4e:00.0", "0000:4f:00.0", "0000:50:00.0", "0000:51:00.0", "0000:52:00.0", "0000:53:00.0", "0000:54:00.0", "0000:67:00.0", "0000:68:00.0", "0000:69:00.0", "0000:6a:00.0", "0000:6b:00.0", "0000:6c:00.0", "0000:6d:00.0", "0000:6e:00.0"], "driver": "vfio-pci", "iodepth": 1, "iommu": "on", "iops": 1759616.0423538, "iosize": 4096, "label": "vfio", "lat_ns": 8882.7563778625, "memory": "host", "mibs": 6873.500157546997, "repeat": 5, "runner": "fio", "runtime": 30, "rw": "randread", "tail_lat_ns": {"p99_9": 10470.4, "p99_99": 11540.8, "p99_999": 27286.4}}}, {"devcount": 16, "iodepth": 2, "iops_delta_pct": 0.036704042681389985, "iosize": 4096, "lat_delta_pct": -0.02887028933300694, "memory": "host", "mibs_delta_pct": 0.03670361460151179, "runner": "fio", "rw": "randread", "tail_lat_delta_pct": {"p99_9": 1.302605210420845, "p99_99": 1.4631619836851053, "p99_999": 3.267838676318513}, "uio": {"backend": "upcie", "devcount": 16, "devices": ["0000:4d:00.0", "0000:4e:00.0", "0000:4f:00.0", "0000:50:00.0", "0000:51:00.0", "0000:52:00.0", "0000:53:00.0", "0000:54:00.0", "0000:67:00.0", "0000:68:00.0", "0000:69:00.0", "0000:6a:00.0", "0000:6b:00.0", "0000:6c:00.0", "0000:6d:00.0", "0000:6e:00.0"], "driver": "uio_pci_generic", "iodepth": 2, "iommu": "off", "iops": 3176837.5187496, "iosize": 4096, "label": "uio", "lat_ns": 9860.9907997875, "memory": "host", "mibs": 12409.523738288879, "repeat": 5, "runner": "fio", "runtime": 30, "rw": "randread", "tail_lat_ns": {"p99_9": 11177.6, "p99_99": 12356.8, "p99_999": 30944.0}}, "vfio": {"backend": "upcie", "devcount": 16, "devices": ["0000:4d:00.0", "0000:4e:00.0", "0000:4f:00.0", "0000:50:00.0", "0000:51:00.0", "0000:52:00.0", "0000:53:00.0", "0000:54:00.0", "0000:67:00.0", "0000:68:00.0", "0000:69:00.0", "0000:6a:00.0", "0000:6b:00.0", "0000:6c:00.0", "0000:6d:00.0", "0000:6e:00.0"], "driver": "vfio-pci", "iodepth": 2, "iommu": "on", "iops": 3178003.5465484, "iosize": 4096, "label": "vfio", "lat_ns": 9858.1439032125, "memory": "host", "mibs": 12414.078482055664, "repeat": 5, "runner": "fio", "runtime": 30, "rw": "randread", "tail_lat_ns": {"p99_9": 11323.2, "p99_99": 12537.6, "p99_999": 31955.2}}}, {"devcount": 16, "iodepth": 4, "iops_delta_pct": 0.3486924790783285, "iosize": 4096, "lat_delta_pct": -0.34239318197711915, "memory": "host", "mibs_delta_pct": 0.3486924919190284, "runner": "fio", "rw": "randread", "tail_lat_delta_pct": {"p99_9": 0.9430149535228345, "p99_99": 0.09300162752847646, "p99_999": -2.995090753501779}, "uio": {"backend": "upcie", "devcount": 16, "devices": ["0000:4d:00.0", "0000:4e:00.0", "0000:4f:00.0", "0000:50:00.0", "0000:51:00.0", "0000:52:00.0", "0000:53:00.0", "0000:54:00.0", "0000:67:00.0", "0000:68:00.0", "0000:69:00.0", "0000:6a:00.0", "0000:6b:00.0", "0000:6c:00.0", "0000:6d:00.0", "0000:6e:00.0"], "driver": "uio_pci_generic", "iodepth": 4, "iommu": "off", "iops": 6187119.642679, "iosize": 4096, "label": "uio", "lat_ns": 10125.863064737501, "memory": "host", "mibs": 24168.442580795287, "repeat": 5, "runner": "fio", "runtime": 30, "rw": "randread", "tail_lat_ns": {"p99_9": 11876.8, "p99_99": 13763.2, "p99_999": 35524.8}}, "vfio": {"backend": "upcie", "devcount": 16, "devices": ["0000:4d:00.0", "0000:4e:00.0", "0000:4f:00.0", "0000:50:00.0", "0000:51:00.0", "0000:52:00.0", "0000:53:00.0", "0000:54:00.0", "0000:67:00.0", "0000:68:00.0", "0000:69:00.0", "0000:6a:00.0", "0000:6b:00.0", "0000:6c:00.0", "0000:6d:00.0", "0000:6e:00.0"], "driver": "vfio-pci", "iodepth": 4, "iommu": "on", "iops": 6208693.6635446, "iosize": 4096, "label": "vfio", "lat_ns": 10091.1927999875, "memory": "host", "mibs": 24252.71612548828, "repeat": 5, "runner": "fio", "runtime": 30, "rw": "randread", "tail_lat_ns": {"p99_9": 11988.8, "p99_99": 13776.0, "p99_999": 34460.8}}}, {"devcount": 16, "iodepth": 8, "iops_delta_pct": 4.366932895303861, "iosize": 4096, "lat_delta_pct": -4.259153841692273, "memory": "host", "mibs_delta_pct": 4.366931516833874, "runner": "fio", "rw": "randread", "tail_lat_delta_pct": {"p99_9": -3.3028812368236045, "p99_99": -3.398058252427178, "p99_999": -2.077502691065665}, "uio": {"backend": "upcie", "devcount": 16, "devices": ["0000:4d:00.0", "0000:4e:00.0", "0000:4f:00.0", "0000:50:00.0", "0000:51:00.0", "0000:52:00.0", "0000:53:00.0", "0000:54:00.0", "0000:67:00.0", "0000:68:00.0", "0000:69:00.0", "0000:6a:00.0", "0000:6b:00.0", "0000:6c:00.0", "0000:6d:00.0", "0000:6e:00.0"], "driver": "uio_pci_generic", "iodepth": 8, "iommu": "off", "iops": 9553659.664678, "iosize": 4096, "label": "uio", "lat_ns": 13165.1035268125, "memory": "host", "mibs": 37318.99782314301, "repeat": 5, "runner": "fio", "runtime": 30, "rw": "randread", "tail_lat_ns": {"p99_9": 18214.399999999998, "p99_99": 22412.8, "p99_999": 44592.0}}, "vfio": {"backend": "upcie", "devcount": 16, "devices": ["0000:4d:00.0", "0000:4e:00.0", "0000:4f:00.0", "0000:50:00.0", "0000:51:00.0", "0000:52:00.0", "0000:53:00.0", "0000:54:00.0", "0000:67:00.0", "0000:68:00.0", "0000:69:00.0", "0000:6a:00.0", "0000:6b:00.0", "0000:6c:00.0", "0000:6d:00.0", "0000:6e:00.0"], "driver": "vfio-pci", "iodepth": 8, "iommu": "on", "iops": 9970861.5712802, "iosize": 4096, "label": "vfio", "lat_ns": 12604.3815141875, "memory": "host", "mibs": 38948.692900848386, "repeat": 5, "runner": "fio", "runtime": 30, "rw": "randread", "tail_lat_ns": {"p99_9": 17612.8, "p99_99": 21651.2, "p99_999": 43665.6}}}, {"devcount": 16, "iodepth": 16, "iops_delta_pct": 3.940419454995145, "iosize": 4096, "lat_delta_pct": -3.833593211487375, "memory": "host", "mibs_delta_pct": 3.940416837662685, "runner": "fio", "rw": "randread", "tail_lat_delta_pct": {"p99_9": -1.9441307869802107, "p99_99": 0.1826939046670026, "p99_999": 2.7748078000101946}, "uio": {"backend": "upcie", "devcount": 16, "devices": ["0000:4d:00.0", "0000:4e:00.0", "0000:4f:00.0", "0000:50:00.0", "0000:51:00.0", "0000:52:00.0", "0000:53:00.0", "0000:54:00.0", "0000:67:00.0", "0000:68:00.0", "0000:69:00.0", "0000:6a:00.0", "0000:6b:00.0", "0000:6c:00.0", "0000:6d:00.0", "0000:6e:00.0"], "driver": "uio_pci_generic", "iodepth": 16, "iommu": "off", "iops": 12235496.783440601, "iosize": 4096, "label": "uio", "lat_ns": 20701.0629133, "memory": "host", "mibs": 47794.94104576111, "repeat": 5, "runner": "fio", "runtime": 30, "rw": "randread", "tail_lat_ns": {"p99_9": 32590.399999999998, "p99_99": 38534.4, "p99_999": 62851.2}}, "vfio": {"backend": "upcie", "devcount": 16, "devices": ["0000:4d:00.0", "0000:4e:00.0", "0000:4f:00.0", "0000:50:00.0", "0000:51:00.0", "0000:52:00.0", "0000:53:00.0", "0000:54:00.0", "0000:67:00.0", "0000:68:00.0", "0000:69:00.0", "0000:6a:00.0", "0000:6b:00.0", "0000:6c:00.0", "0000:6d:00.0", "0000:6e:00.0"], "driver": "vfio-pci", "iodepth": 16, "iommu": "on", "iops": 12717626.6791106, "iosize": 4096, "label": "vfio", "lat_ns": 19907.46837075, "memory": "host", "mibs": 49678.26095027923, "repeat": 5, "runner": "fio", "runtime": 30, "rw": "randread", "tail_lat_ns": {"p99_9": 31956.8, "p99_99": 38604.8, "p99_999": 64595.200000000004}}}, {"devcount": 16, "iodepth": 32, "iops_delta_pct": 4.2651919208905404, "iosize": 4096, "lat_delta_pct": -4.088749284263212, "memory": "host", "mibs_delta_pct": 4.265186013023885, "runner": "fio", "rw": "randread", "tail_lat_delta_pct": {"p99_9": -3.728923476005188, "p99_99": -3.309539260220632, "p99_999": -0.9073942982173828}, "uio": {"backend": "upcie", "devcount": 16, "devices": ["0000:4d:00.0", "0000:4e:00.0", "0000:4f:00.0", "0000:50:00.0", "0000:51:00.0", "0000:52:00.0", "0000:53:00.0", "0000:54:00.0", "0000:67:00.0", "0000:68:00.0", "0000:69:00.0", "0000:6a:00.0", "0000:6b:00.0", "0000:6c:00.0", "0000:6d:00.0", "0000:6e:00.0"], "driver": "uio_pci_generic", "iodepth": 32, "iommu": "off", "iops": 12248921.2292918, "iosize": 4096, "label": "uio", "lat_ns": 41582.1711221375, "memory": "host", "mibs": 47847.41359405518, "repeat": 5, "runner": "fio", "runtime": 30, "rw": "randread", "tail_lat_ns": {"p99_9": 59212.8, "p99_99": 78899.2, "p99_999": 99449.59999999999}}, "vfio": {"backend": "upcie", "devcount": 16, "devices": ["0000:4d:00.0", "0000:4e:00.0", "0000:4f:00.0", "0000:50:00.0", "0000:51:00.0", "0000:52:00.0", "0000:53:00.0", "0000:54:00.0", "0000:67:00.0", "0000:68:00.0", "0000:69:00.0", "0000:6a:00.0", "0000:6b:00.0", "0000:6c:00.0", "0000:6d:00.0", "0000:6e:00.0"], "driver": "vfio-pci", "iodepth": 32, "iommu": "on", "iops": 12771361.2279598, "iosize": 4096, "label": "vfio", "lat_ns": 39881.980398, "memory": "host", "mibs": 49888.19478626251, "repeat": 5, "runner": "fio", "runtime": 30, "rw": "randread", "tail_lat_ns": {"p99_9": 57004.8, "p99_99": 76288.0, "p99_999": 98547.2}}}, {"devcount": 16, "iodepth": 1, "iops_delta_pct": -0.050113024021567455, "iosize": 4096, "memory": "host", "mibs_delta_pct": -0.05011525079899156, "runner": "xnvmeperf", "rw": "randread", "uio": {"backend": "upcie", "devcount": 16, "devices": [], "driver": "uio_pci_generic", "iodepth": 1, "iommu": "off", "iops": 1792986.988, "iosize": 4096, "label": "uio", "memory": "host", "mibs": 7003.856, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "randread"}, "vfio": {"backend": "upcie", "devcount": 16, "devices": [], "driver": "vfio-pci", "iodepth": 1, "iommu": "on", "iops": 1792088.4679999999, "iosize": 4096, "label": "vfio", "memory": "host", "mibs": 7000.346, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "randread"}}, {"devcount": 16, "iodepth": 2, "iops_delta_pct": -0.01964133339379608, "iosize": 4096, "memory": "host", "mibs_delta_pct": -0.019640969316118733, "runner": "xnvmeperf", "rw": "randread", "uio": {"backend": "upcie", "devcount": 16, "devices": [], "driver": "uio_pci_generic", "iodepth": 2, "iommu": "off", "iops": 3284563.156, "iosize": 4096, "label": "uio", "memory": "host", "mibs": 12830.323999999999, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "randread"}, "vfio": {"backend": "upcie", "devcount": 16, "devices": [], "driver": "vfio-pci", "iodepth": 2, "iommu": "on", "iops": 3283918.024, "iosize": 4096, "label": "vfio", "memory": "host", "mibs": 12827.804, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "randread"}}, {"devcount": 16, "iodepth": 4, "iops_delta_pct": 0.30334413530625687, "iosize": 4096, "memory": "host", "mibs_delta_pct": 0.3033476106206521, "runner": "xnvmeperf", "rw": "randread", "uio": {"backend": "upcie", "devcount": 16, "devices": [], "driver": "uio_pci_generic", "iodepth": 4, "iommu": "off", "iops": 6388784.138, "iosize": 4096, "label": "uio", "memory": "host", "mibs": 24956.188000000002, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "randread"}, "vfio": {"backend": "upcie", "devcount": 16, "devices": [], "driver": "vfio-pci", "iodepth": 4, "iommu": "on", "iops": 6408164.14, "iosize": 4096, "label": "vfio", "memory": "host", "mibs": 25031.892, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "randread"}}, {"devcount": 16, "iodepth": 8, "iops_delta_pct": 2.535835367112903, "iosize": 4096, "memory": "host", "mibs_delta_pct": 2.535832490458373, "runner": "xnvmeperf", "rw": "randread", "uio": {"backend": "upcie", "devcount": 16, "devices": [], "driver": "uio_pci_generic", "iodepth": 8, "iommu": "off", "iops": 9667989.696, "iosize": 4096, "label": "uio", "memory": "host", "mibs": 37765.585999999996, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "randread"}, "vfio": {"backend": "upcie", "devcount": 16, "devices": [], "driver": "vfio-pci", "iodepth": 8, "iommu": "on", "iops": 9913153.998, "iosize": 4096, "label": "vfio", "memory": "host", "mibs": 38723.257999999994, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "randread"}}, {"devcount": 16, "iodepth": 16, "iops_delta_pct": 2.707419455984573, "iosize": 4096, "memory": "host", "mibs_delta_pct": 2.707416829394028, "runner": "xnvmeperf", "rw": "randread", "uio": {"backend": "upcie", "devcount": 16, "devices": [], "driver": "uio_pci_generic", "iodepth": 16, "iommu": "off", "iops": 12226519.436, "iosize": 4096, "label": "uio", "memory": "host", "mibs": 47759.842000000004, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "randread"}, "vfio": {"backend": "upcie", "devcount": 16, "devices": [], "driver": "vfio-pci", "iodepth": 16, "iommu": "on", "iops": 12557542.602, "iosize": 4096, "label": "vfio", "memory": "host", "mibs": 49052.9, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "randread"}}, {"devcount": 16, "iodepth": 32, "iops_delta_pct": 2.693249115008977, "iosize": 4096, "memory": "host", "mibs_delta_pct": 2.6932487303651333, "runner": "xnvmeperf", "rw": "randread", "uio": {"backend": "upcie", "devcount": 16, "devices": [], "driver": "uio_pci_generic", "iodepth": 32, "iommu": "off", "iops": 12228826.222, "iosize": 4096, "label": "uio", "memory": "host", "mibs": 47768.852, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "randread"}, "vfio": {"backend": "upcie", "devcount": 16, "devices": [], "driver": "vfio-pci", "iodepth": 32, "iommu": "on", "iops": 12558178.976, "iosize": 4096, "label": "vfio", "memory": "host", "mibs": 49055.386, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "randread"}}, {"devcount": 16, "iodepth": 1, "iops_delta_pct": 3.2015603315936376, "iosize": 131072, "lat_delta_pct": -3.1003370580800205, "memory": "host", "mibs_delta_pct": 3.2015621459252963, "runner": "fio", "rw": "read", "tail_lat_delta_pct": {"p99_9": -2.182320441988944, "p99_99": -1.9007391763463537, "p99_999": 5.344488188976373}, "uio": {"backend": "upcie", "devcount": 16, "devices": ["0000:4d:00.0", "0000:4e:00.0", "0000:4f:00.0", "0000:50:00.0", "0000:51:00.0", "0000:52:00.0", "0000:53:00.0", "0000:54:00.0", "0000:67:00.0", "0000:68:00.0", "0000:69:00.0", "0000:6a:00.0", "0000:6b:00.0", "0000:6c:00.0", "0000:6d:00.0", "0000:6e:00.0"], "driver": "uio_pci_generic", "iodepth": 1, "iommu": "off", "iops": 355431.2611106, "iosize": 131072, "label": "uio", "lat_ns": 44805.11475695, "memory": "host", "mibs": 44428.908464813234, "repeat": 5, "runner": "fio", "runtime": 30, "rw": "read", "tail_lat_ns": {"p99_9": 46336.0, "p99_99": 48486.4, "p99_999": 65024.0}}, "vfio": {"backend": "upcie", "devcount": 16, "devices": ["0000:4d:00.0", "0000:4e:00.0", "0000:4f:00.0", "0000:50:00.0", "0000:51:00.0", "0000:52:00.0", "0000:53:00.0", "0000:54:00.0", "0000:67:00.0", "0000:68:00.0", "0000:69:00.0", "0000:6a:00.0", "0000:6b:00.0", "0000:6c:00.0", "0000:6d:00.0", "0000:6e:00.0"], "driver": "vfio-pci", "iodepth": 1, "iommu": "on", "iops": 366810.6073724, "iosize": 131072, "label": "vfio", "lat_ns": 43416.005180225, "memory": "host", "mibs": 45851.327580070494, "repeat": 5, "runner": "fio", "runtime": 30, "rw": "read", "tail_lat_ns": {"p99_9": 45324.8, "p99_99": 47564.8, "p99_999": 68499.2}}}, {"devcount": 16, "iodepth": 2, "iops_delta_pct": 4.214481695219682, "iosize": 131072, "lat_delta_pct": -4.025445003743186, "memory": "host", "mibs_delta_pct": 4.2144776661591745, "runner": "fio", "rw": "read", "tail_lat_delta_pct": {"p99_9": -2.3872267865447183, "p99_99": 0.15232844915132282, "p99_999": 2.96927914852444}, "uio": {"backend": "upcie", "devcount": 16, "devices": ["0000:4d:00.0", "0000:4e:00.0", "0000:4f:00.0", "0000:50:00.0", "0000:51:00.0", "0000:52:00.0", "0000:53:00.0", "0000:54:00.0", "0000:67:00.0", "0000:68:00.0", "0000:69:00.0", "0000:6a:00.0", "0000:6b:00.0", "0000:6c:00.0", "0000:6d:00.0", "0000:6e:00.0"], "driver": "uio_pci_generic", "iodepth": 2, "iommu": "off", "iops": 392473.9308694, "iosize": 131072, "label": "uio", "lat_ns": 81319.4484813125, "memory": "host", "mibs": 49059.30801544189, "repeat": 5, "runner": "fio", "runtime": 30, "rw": "read", "tail_lat_ns": {"p99_9": 82572.8, "p99_99": 88230.4, "p99_999": 105830.4}}, "vfio": {"backend": "upcie", "devcount": 16, "devices": ["0000:4d:00.0", "0000:4e:00.0", "0000:4f:00.0", "0000:50:00.0", "0000:51:00.0", "0000:52:00.0", "0000:53:00.0", "0000:54:00.0", "0000:67:00.0", "0000:68:00.0", "0000:69:00.0", "0000:6a:00.0", "0000:6b:00.0", "0000:6c:00.0", "0000:6d:00.0", "0000:6e:00.0"], "driver": "vfio-pci", "iodepth": 2, "iommu": "on", "iops": 409014.6728444, "iosize": 131072, "label": "vfio", "lat_ns": 78045.97880535, "memory": "host", "mibs": 51126.90159492493, "repeat": 5, "runner": "fio", "runtime": 30, "rw": "read", "tail_lat_ns": {"p99_9": 80601.6, "p99_99": 88364.8, "p99_999": 108972.8}}}, {"devcount": 16, "iodepth": 4, "iops_delta_pct": 4.1679736171494435, "iosize": 131072, "lat_delta_pct": -3.9840388493847954, "memory": "host", "mibs_delta_pct": 4.167961707273339, "runner": "fio", "rw": "read", "tail_lat_delta_pct": {"p99_9": -2.4242424242424243, "p99_99": -2.0698576972833247, "p99_999": 38.45191555903051}, "uio": {"backend": "upcie", "devcount": 16, "devices": ["0000:4d:00.0", "0000:4e:00.0", "0000:4f:00.0", "0000:50:00.0", "0000:51:00.0", "0000:52:00.0", "0000:53:00.0", "0000:54:00.0", "0000:67:00.0", "0000:68:00.0", "0000:69:00.0", "0000:6a:00.0", "0000:6b:00.0", "0000:6c:00.0", "0000:6d:00.0", "0000:6e:00.0"], "driver": "uio_pci_generic", "iodepth": 4, "iommu": "off", "iops": 391929.915669, "iosize": 131072, "label": "uio", "lat_ns": 163075.9909859625, "memory": "host", "mibs": 48991.4394443512, "repeat": 5, "runner": "fio", "runtime": 30, "rw": "read", "tail_lat_ns": {"p99_9": 168960.0, "p99_99": 178099.2, "p99_999": 245568.0}}, "vfio": {"backend": "upcie", "devcount": 16, "devices": ["0000:4d:00.0", "0000:4e:00.0", "0000:4f:00.0", "0000:50:00.0", "0000:51:00.0", "0000:52:00.0", "0000:53:00.0", "0000:54:00.0", "0000:67:00.0", "0000:68:00.0", "0000:69:00.0", "0000:6a:00.0", "0000:6b:00.0", "0000:6c:00.0", "0000:6d:00.0", "0000:6e:00.0"], "driver": "vfio-pci", "iodepth": 4, "iommu": "on", "iops": 408265.4511518, "iosize": 131072, "label": "vfio", "lat_ns": 156578.9801510625, "memory": "host", "mibs": 51033.38388023376, "repeat": 5, "runner": "fio", "runtime": 30, "rw": "read", "tail_lat_ns": {"p99_9": 164864.0, "p99_99": 174412.8, "p99_999": 339993.60000000003}}}, {"devcount": 16, "iodepth": 8, "iops_delta_pct": 4.119144139858337, "iosize": 131072, "lat_delta_pct": -3.935385223142065, "memory": "host", "mibs_delta_pct": 4.119104814044062, "runner": "fio", "rw": "read", "tail_lat_delta_pct": {"p99_9": -2.43605359317905, "p99_99": 1.5135621159898132, "p99_999": -5.016760411340263}, "uio": {"backend": "upcie", "devcount": 16, "devices": ["0000:4d:00.0", "0000:4e:00.0", "0000:4f:00.0", "0000:50:00.0", "0000:51:00.0", "0000:52:00.0", "0000:53:00.0", "0000:54:00.0", "0000:67:00.0", "0000:68:00.0", "0000:69:00.0", "0000:6a:00.0", "0000:6b:00.0", "0000:6c:00.0", "0000:6d:00.0", "0000:6e:00.0"], "driver": "uio_pci_generic", "iodepth": 8, "iommu": "off", "iops": 391698.2500582, "iosize": 131072, "label": "uio", "lat_ns": 326556.2830533875, "memory": "host", "mibs": 48962.74873313904, "repeat": 5, "runner": "fio", "runtime": 30, "rw": "read", "tail_lat_ns": {"p99_9": 336281.6, "p99_99": 341657.6, "p99_999": 450585.6}}, "vfio": {"backend": "upcie", "devcount": 16, "devices": ["0000:4d:00.0", "0000:4e:00.0", "0000:4f:00.0", "0000:50:00.0", "0000:51:00.0", "0000:52:00.0", "0000:53:00.0", "0000:54:00.0", "0000:67:00.0", "0000:68:00.0", "0000:69:00.0", "0000:6a:00.0", "0000:6b:00.0", "0000:6c:00.0", "0000:6d:00.0", "0000:6e:00.0"], "driver": "vfio-pci", "iodepth": 8, "iommu": "on", "iops": 407832.8655714, "iosize": 131072, "label": "vfio", "lat_ns": 313705.0353448625, "memory": "host", "mibs": 50979.575673294064, "repeat": 5, "runner": "fio", "runtime": 30, "rw": "read", "tail_lat_ns": {"p99_9": 328089.6, "p99_99": 346828.8, "p99_999": 427980.8}}}, {"devcount": 16, "iodepth": 16, "iops_delta_pct": 4.199056259120267, "iosize": 131072, "lat_delta_pct": -4.006274049386658, "memory": "host", "mibs_delta_pct": 4.198970492721585, "runner": "fio", "rw": "read", "tail_lat_delta_pct": {"p99_9": -2.4539877300613497, "p99_99": -1.9449931621334249, "p99_999": -7.456400522007359}, "uio": {"backend": "upcie", "devcount": 16, "devices": ["0000:4d:00.0", "0000:4e:00.0", "0000:4f:00.0", "0000:50:00.0", "0000:51:00.0", "0000:52:00.0", "0000:53:00.0", "0000:54:00.0", "0000:67:00.0", "0000:68:00.0", "0000:69:00.0", "0000:6a:00.0", "0000:6b:00.0", "0000:6c:00.0", "0000:6d:00.0", "0000:6e:00.0"], "driver": "uio_pci_generic", "iodepth": 16, "iommu": "off", "iops": 391659.3980202, "iosize": 131072, "label": "uio", "lat_ns": 653394.4846629375, "memory": "host", "mibs": 48958.42471199036, "repeat": 5, "runner": "fio", "runtime": 30, "rw": "read", "tail_lat_ns": {"p99_9": 667648.0, "p99_99": 673894.4, "p99_999": 863129.6}}, "vfio": {"backend": "upcie", "devcount": 16, "devices": ["0000:4d:00.0", "0000:4e:00.0", "0000:4f:00.0", "0000:50:00.0", "0000:51:00.0", "0000:52:00.0", "0000:53:00.0", "0000:54:00.0", "0000:67:00.0", "0000:68:00.0", "0000:69:00.0", "0000:6a:00.0", "0000:6b:00.0", "0000:6c:00.0", "0000:6d:00.0", "0000:6e:00.0"], "driver": "vfio-pci", "iodepth": 16, "iommu": "on", "iops": 408105.3964872, "iosize": 131072, "label": "vfio", "lat_ns": 627217.7109837625, "memory": "host", "mibs": 51014.17451934815, "repeat": 5, "runner": "fio", "runtime": 30, "rw": "read", "tail_lat_ns": {"p99_9": 651264.0, "p99_99": 660787.2, "p99_999": 798771.2}}}, {"devcount": 16, "iodepth": 32, "iops_delta_pct": 4.25591804413897, "iosize": 131072, "lat_delta_pct": -4.058036946351233, "memory": "host", "mibs_delta_pct": 4.25573837222677, "runner": "fio", "rw": "read", "tail_lat_delta_pct": {"p99_9": -2.484472049689441, "p99_99": -7.11894016596302, "p99_999": -7.034869544013661}, "uio": {"backend": "upcie", "devcount": 16, "devices": ["0000:4d:00.0", "0000:4e:00.0", "0000:4f:00.0", "0000:50:00.0", "0000:51:00.0", "0000:52:00.0", "0000:53:00.0", "0000:54:00.0", "0000:67:00.0", "0000:68:00.0", "0000:69:00.0", "0000:6a:00.0", "0000:6b:00.0", "0000:6c:00.0", "0000:6d:00.0", "0000:6e:00.0"], "driver": "uio_pci_generic", "iodepth": 32, "iommu": "off", "iops": 391591.6226336, "iosize": 131072, "label": "uio", "lat_ns": 1307223.6407309626, "memory": "host", "mibs": 48951.019401931764, "repeat": 5, "runner": "fio", "runtime": 30, "rw": "read", "tail_lat_ns": {"p99_9": 1318912.0, "p99_99": 1406771.2, "p99_999": 1679769.6}}, "vfio": {"backend": "upcie", "devcount": 16, "devices": ["0000:4d:00.0", "0000:4e:00.0", "0000:4f:00.0", "0000:50:00.0", "0000:51:00.0", "0000:52:00.0", "0000:53:00.0", "0000:54:00.0", "0000:67:00.0", "0000:68:00.0", "0000:69:00.0", "0000:6a:00.0", "0000:6b:00.0", "0000:6c:00.0", "0000:6d:00.0", "0000:6e:00.0"], "driver": "vfio-pci", "iodepth": 32, "iommu": "on", "iops": 408257.4411606, "iosize": 131072, "label": "vfio", "lat_ns": 1254176.0224186624, "memory": "host", "mibs": 51034.246718215945, "repeat": 5, "runner": "fio", "runtime": 30, "rw": "read", "tail_lat_ns": {"p99_9": 1286144.0, "p99_99": 1306624.0, "p99_999": 1561600.0}}}, {"devcount": 16, "iodepth": 1, "iops_delta_pct": 2.5630841610904875, "iosize": 131072, "memory": "host", "mibs_delta_pct": 2.5630858763020354, "runner": "xnvmeperf", "rw": "read", "uio": {"backend": "upcie", "devcount": 16, "devices": [], "driver": "uio_pci_generic", "iodepth": 1, "iommu": "off", "iops": 352799.73, "iosize": 131072, "label": "uio", "memory": "host", "mibs": 44099.966, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "read"}, "vfio": {"backend": "upcie", "devcount": 16, "devices": [], "driver": "vfio-pci", "iodepth": 1, "iommu": "on", "iops": 361842.284, "iosize": 131072, "label": "vfio", "memory": "host", "mibs": 45230.286, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "read"}}, {"devcount": 16, "iodepth": 2, "iops_delta_pct": 2.5444370017593565, "iosize": 131072, "memory": "host", "mibs_delta_pct": 2.5444396192831986, "runner": "xnvmeperf", "rw": "read", "uio": {"backend": "upcie", "devcount": 16, "devices": [], "driver": "uio_pci_generic", "iodepth": 2, "iommu": "off", "iops": 391761.24199999997, "iosize": 131072, "label": "uio", "memory": "host", "mibs": 48970.154, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "read"}, "vfio": {"backend": "upcie", "devcount": 16, "devices": [], "driver": "vfio-pci", "iodepth": 2, "iommu": "on", "iops": 401729.36, "iosize": 131072, "label": "vfio", "memory": "host", "mibs": 50216.17, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "read"}}, {"devcount": 16, "iodepth": 4, "iops_delta_pct": 2.5550492200057953, "iosize": 131072, "memory": "host", "mibs_delta_pct": 2.555052387475357, "runner": "xnvmeperf", "rw": "read", "uio": {"backend": "upcie", "devcount": 16, "devices": [], "driver": "uio_pci_generic", "iodepth": 4, "iommu": "off", "iops": 391757.77599999995, "iosize": 131072, "label": "uio", "memory": "host", "mibs": 48969.72, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "read"}, "vfio": {"backend": "upcie", "devcount": 16, "devices": [], "driver": "vfio-pci", "iodepth": 4, "iommu": "on", "iops": 401767.38, "iosize": 131072, "label": "vfio", "memory": "host", "mibs": 50220.922, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "read"}}, {"devcount": 16, "iodepth": 8, "iops_delta_pct": 2.548594206543606, "iosize": 131072, "memory": "host", "mibs_delta_pct": 2.5485900964195363, "runner": "xnvmeperf", "rw": "read", "uio": {"backend": "upcie", "devcount": 16, "devices": [], "driver": "uio_pci_generic", "iodepth": 8, "iommu": "off", "iops": 391762.956, "iosize": 131072, "label": "uio", "memory": "host", "mibs": 48970.369999999995, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "read"}, "vfio": {"backend": "upcie", "devcount": 16, "devices": [], "driver": "vfio-pci", "iodepth": 8, "iommu": "on", "iops": 401747.404, "iosize": 131072, "label": "vfio", "memory": "host", "mibs": 50218.424, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "read"}}, {"devcount": 16, "iodepth": 16, "iops_delta_pct": 2.549693466716509, "iosize": 131072, "memory": "host", "mibs_delta_pct": 2.549693951203469, "runner": "xnvmeperf", "rw": "read", "uio": {"backend": "upcie", "devcount": 16, "devices": [], "driver": "uio_pci_generic", "iodepth": 16, "iommu": "off", "iops": 391757.13200000004, "iosize": 131072, "label": "uio", "memory": "host", "mibs": 48969.64200000001, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "read"}, "vfio": {"backend": "upcie", "devcount": 16, "devices": [], "driver": "vfio-pci", "iodepth": 16, "iommu": "on", "iops": 401745.738, "iosize": 131072, "label": "vfio", "memory": "host", "mibs": 50218.218, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "read"}}, {"devcount": 16, "iodepth": 32, "iops_delta_pct": 2.549991741830167, "iosize": 131072, "memory": "host", "mibs_delta_pct": 2.5499896997505767, "runner": "xnvmeperf", "rw": "read", "uio": {"backend": "upcie", "devcount": 16, "devices": [], "driver": "uio_pci_generic", "iodepth": 32, "iommu": "off", "iops": 391757.504, "iosize": 131072, "label": "uio", "memory": "host", "mibs": 48969.688, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "read"}, "vfio": {"backend": "upcie", "devcount": 16, "devices": [], "driver": "vfio-pci", "iodepth": 32, "iommu": "on", "iops": 401747.288, "iosize": 131072, "label": "vfio", "memory": "host", "mibs": 50218.409999999996, "repeat": 5, "runner": "xnvmeperf", "runtime": 30, "rw": "read"}}], "label": "xNVMe/uPCIe Hugepage IOMMU Overhead"}];
+const rows = datasets.flatMap(dataset => (
+  dataset.data.map(row => ({ ...row, datasetLabel: dataset.label }))
+));
+const firstRow = rows[0] || {};
+const kernelNvme = firstRow.uio?.driver === "nvme" && firstRow.vfio?.driver === "nvme";
+const sideLabels = kernelNvme
+  ? { uio: "Off", vfio: "On" }
+  : { uio: "UIO", vfio: "VFIO" };
+const charts = buildCharts(rows);
+const holder = document.getElementById("charts");
+const renderedCharts = [];
+
+function pctDelta(base, value) {
+  if (!base) {
+    return null;
+  }
+  return (value - base) / base * 100.0;
+}
+
+function chartMetric(entries, title, unit, valueForSide) {
+  const chartRows = entries.map(item => {
+    const uio = valueForSide(item.uio);
+    const vfio = valueForSide(item.vfio);
+    return {
+      iodepth: item.iodepth,
+      uio,
+      vfio,
+      delta: pctDelta(uio, vfio),
+    };
+  });
+
+  return {
+    title,
+    rw: entries[0].rw,
+    iosize: entries[0].iosize,
+    devcount: entries[0].devcount || 1,
+    memory: entries[0].memory || "host",
+    unit,
+    labels: chartRows.map(row => row.iodepth),
+    uio: chartRows.map(row => row.uio),
+    vfio: chartRows.map(row => row.vfio),
+    rows: chartRows,
+  };
+}
+
+function buildCharts(items) {
+  const groups = new Map();
+  items.forEach(item => {
+    // Buffers in host memory and buffers in GPU memory are different
+    // experiments, so they never share a chart.
+    const key = [
+      item.runner, item.memory || "host", item.rw, item.iosize, item.devcount || 1,
+    ].join("|");
+    if (!groups.has(key)) {
+      groups.set(key, []);
+    }
+    groups.get(key).push(item);
+  });
+
+  const runnerOrder = { xnvmeperf: 0, fio: 1 };
+  const charts = [];
+  [...groups.values()]
+    .sort((a, b) => (
+      (a[0].memory || "host").localeCompare(b[0].memory || "host")
+      || (runnerOrder[a[0].runner] ?? 99) - (runnerOrder[b[0].runner] ?? 99)
+      || a[0].rw.localeCompare(b[0].rw)
+      || Number(a[0].iosize) - Number(b[0].iosize)
+      || Number(a[0].devcount || 1) - Number(b[0].devcount || 1)
+    ))
+    .forEach(entries => {
+      entries.sort((a, b) => Number(a.iodepth) - Number(b.iodepth));
+      const runner = entries[0].runner;
+      charts.push(chartMetric(entries, `${runner} IOPS`, "IOPS", side => side.iops));
+      charts.push(chartMetric(entries, `${runner} bandwidth`, "MiB/s", side => side.mibs));
+      if (runner !== "fio") {
+        return;
+      }
+      charts.push(
+        chartMetric(entries, "fio mean latency", "us", side => side.lat_ns / 1000.0)
+      );
+      [
+        ["p99_9", "fio P99.9 latency"],
+        ["p99_99", "fio P99.99 latency"],
+        ["p99_999", "fio P99.999 latency"],
+      ].forEach(([key, label]) => {
+        charts.push(
+          chartMetric(entries, label, "us", side => side.tail_lat_ns[key] / 1000.0)
+        );
+      });
+    });
+  return charts;
+}
+
+charts.forEach((chart, idx) => {
+  const card = document.createElement("section");
+  card.className = "panel chart-card";
+  const header = document.createElement("div");
+  header.className = "chart-header";
+  const titleBlock = document.createElement("div");
+  const title = document.createElement("div");
+  title.className = "chart-title";
+  title.textContent = chart.title;
+  const subtitle = document.createElement("p");
+  subtitle.className = "chart-subtitle";
+  const buffers = chart.memory === "gpu" ? "GPU memory" : "host memory";
+  subtitle.textContent = `${chart.rw}, ${chart.iosize} bytes, ${chart.devcount} device${chart.devcount === 1 ? "" : "s"}, buffers in ${buffers}`;
+  titleBlock.appendChild(title);
+  titleBlock.appendChild(subtitle);
+  const badge = document.createElement("div");
+  badge.className = "badge";
+  badge.innerHTML = `
+    <span class="legend-dot" style="background: var(--accent-uio)"></span> ${sideLabels.uio}
+    <span class="legend-dot" style="background: var(--accent-vfio)"></span> ${sideLabels.vfio}
+  `;
+  header.appendChild(titleBlock);
+  header.appendChild(badge);
+  const wrap = document.createElement("div");
+  wrap.className = "chart-wrap";
+  const canvas = document.createElement("canvas");
+  canvas.id = `chart-${idx}`;
+  wrap.appendChild(canvas);
+  const table = document.createElement("table");
+  table.innerHTML = `
+    <thead>
+      <tr>
+        <th>IO depth</th>
+        <th>Devices</th>
+        <th>${sideLabels.uio} ${chart.unit}</th>
+        <th>${sideLabels.vfio} ${chart.unit}</th>
+        <th>Delta %</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${chart.rows.map(row => `
+        <tr>
+          <td>${row.iodepth}</td>
+          <td>${chart.devcount}</td>
+          <td>${Number(row.uio).toFixed(2)}</td>
+          <td>${Number(row.vfio).toFixed(2)}</td>
+          <td>${formatDelta(row.delta)}</td>
+        </tr>
+      `).join("")}
+    </tbody>`;
+  const tableWrap = document.createElement("div");
+  tableWrap.className = "table-wrap";
+  tableWrap.appendChild(table);
+  card.appendChild(header);
+  card.appendChild(wrap);
+  card.appendChild(tableWrap);
+  holder.appendChild(card);
+  renderedCharts.push({ canvas, chart });
+});
+
+renderedCharts.forEach(({ canvas, chart }) => drawChart(canvas, chart));
+
+function formatDelta(value) {
+  if (value === null || value === undefined) {
+    return "N/A";
+  }
+  const number = Number(value);
+  if (Number.isNaN(number)) {
+    return "N/A";
+  }
+  const cls = number >= 0 ? "delta-pos" : "delta-neg";
+  const sign = number >= 0 ? "+" : "";
+  return `<span class="${cls}">${sign}${number.toFixed(2)}%</span>`;
+}
+
+function formatMetric(value, unit) {
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return "";
+  }
+  if (unit === "IOPS" || unit === "MiB/s") {
+    return formatCompact(value);
+  }
+  return value >= 100 ? Math.round(value).toLocaleString() : value.toFixed(2);
+}
+
+function formatCompact(value) {
+  const absValue = Math.abs(value);
+  if (absValue >= 1_000_000_000) {
+    return trimFixed(value / 1_000_000_000, 2) + "G";
+  }
+  if (absValue >= 1_000_000) {
+    return trimFixed(value / 1_000_000, 2) + "M";
+  }
+  if (absValue >= 1_000) {
+    return trimFixed(value / 1_000, 1) + "K";
+  }
+  return value >= 100 ? Math.round(value).toLocaleString() : value.toFixed(1);
+}
+
+function trimFixed(value, digits) {
+  return value.toFixed(digits).replace(/\.0+$|(\.\d*[1-9])0+$/, "$1");
+}
+
+function setCanvasSize(canvas) {
+  const rect = canvas.getBoundingClientRect();
+  const width = Math.max(320, Math.floor(rect.width));
+  const height = Math.max(280, Math.floor(rect.height || 300));
+  const dpr = window.devicePixelRatio || 1;
+  const targetWidth = Math.round(width * dpr);
+  const targetHeight = Math.round(height * dpr);
+  if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+  }
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, width, height };
+}
+
+function drawRoundedRect(ctx, x, y, w, h, r, fillStyle) {
+  const radius = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.arcTo(x + w, y, x + w, y + h, radius);
+  ctx.arcTo(x + w, y + h, x, y + h, radius);
+  ctx.arcTo(x, y + h, x, y, radius);
+  ctx.arcTo(x, y, x + w, y, radius);
+  ctx.closePath();
+  ctx.fillStyle = fillStyle;
+  ctx.fill();
+}
+
+function drawChart(canvas, chart) {
+  const { ctx, width, height } = setCanvasSize(canvas);
+  ctx.clearRect(0, 0, width, height);
+
+  const margin = { top: 20, right: 18, bottom: 52, left: 88 };
+  const plot = {
+    x: margin.left,
+    y: margin.top,
+    w: width - margin.left - margin.right,
+    h: height - margin.top - margin.bottom,
+  };
+  const values = [...chart.uio, ...chart.vfio].map(Number);
+  const maxValue = Math.max(1, ...values) * 1.08;
+  const tickCount = 4;
+
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, width, height);
+  ctx.strokeStyle = "#dce3ec";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(plot.x, plot.y);
+  ctx.lineTo(plot.x, plot.y + plot.h);
+  ctx.lineTo(plot.x + plot.w, plot.y + plot.h);
+  ctx.stroke();
+
+  ctx.save();
+  ctx.fillStyle = "#6d7481";
+  ctx.font = "12px Segoe UI, Noto Sans, sans-serif";
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+  for (let i = 0; i <= tickCount; i += 1) {
+    const value = maxValue * i / tickCount;
+    const y = plot.y + plot.h - plot.h * i / tickCount;
+    ctx.strokeStyle = i === 0 ? "#cbd5e1" : "rgba(220, 227, 236, 0.7)";
+    ctx.beginPath();
+    ctx.moveTo(plot.x, y);
+    ctx.lineTo(plot.x + plot.w, y);
+    ctx.stroke();
+    ctx.fillText(formatMetric(value, chart.unit), plot.x - 10, y);
+  }
+  ctx.restore();
+
+  const groupWidth = plot.w / Math.max(chart.labels.length, 1);
+  const groupBarWidth = Math.min(plot.w * 0.4, groupWidth * 0.72);
+  const barWidth = groupBarWidth / 2;
+
+  chart.labels.forEach((label, idx) => {
+    const center = plot.x + idx * groupWidth + groupWidth / 2;
+    const left = center - groupBarWidth / 2;
+    [
+      { value: Number(chart.uio[idx]), color: "#d96b2b" },
+      { value: Number(chart.vfio[idx]), color: "#2457c5" },
+    ].forEach((series, seriesIdx) => {
+      const barHeight = series.value / maxValue * plot.h;
+      const x = left + seriesIdx * barWidth + 2;
+      const y = plot.y + plot.h - barHeight;
+      drawRoundedRect(ctx, x, y, barWidth - 4, barHeight, 5, series.color);
+    });
+
+    ctx.save();
+    ctx.fillStyle = "#1e2430";
+    ctx.font = "12px Segoe UI, Noto Sans, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.fillText(`qd ${label}`, center, plot.y + plot.h + 10);
+    ctx.restore();
+  });
+
+  ctx.save();
+  ctx.translate(18, plot.y + plot.h / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillStyle = "#6d7481";
+  ctx.font = "12px Segoe UI, Noto Sans, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(chart.unit, 0, 0);
+  ctx.restore();
+}
+
+let resizeTimer = null;
+window.addEventListener("resize", () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    renderedCharts.forEach(({ canvas, chart }) => drawChart(canvas, chart));
+  }, 80);
+});
+</script>
+</body>
+</html>]]></ac:plain-text-body>
+</ac:structured-macro>

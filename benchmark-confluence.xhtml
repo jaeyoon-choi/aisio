@@ -1,0 +1,342 @@
+<p>This report compares an IOMMU-off run against an IOMMU-on run. The uPCIe path uses <code>uio_pci_generic</code> and <code>vfio-pci</code>; the kernel NVMe 4KB-page path uses raw <code>fio</code> through the <code>nvme</code> driver. Buffers sit in either host memory or GPU memory (hugepage).</p>
+<h2>Charts</h2>
+<ac:structured-macro ac:name="panel">
+<ac:parameter ac:name="title">xnvmeperf IOPS</ac:parameter>
+<ac:rich-text-body>
+<p>randread, 4096 bytes, 16 devices, buffers in GPU memory</p>
+<table><tbody>
+<tr><th>IO depth</th><th>Devices</th><th>UIO IOPS</th><th>VFIO IOPS</th><th>Delta %</th></tr>
+<tr><td>1</td><td>16</td><td>1781532.88</td><td>1771636.26</td><td>-0.56%</td></tr>
+<tr><td>2</td><td>16</td><td>2930220.92</td><td>2943723.96</td><td>+0.46%</td></tr>
+<tr><td>4</td><td>16</td><td>3862486.08</td><td>3865284.28</td><td>+0.07%</td></tr>
+<tr><td>8</td><td>16</td><td>5081889.71</td><td>5083720.70</td><td>+0.04%</td></tr>
+<tr><td>16</td><td>16</td><td>5162486.22</td><td>5162601.97</td><td>+0.00%</td></tr>
+<tr><td>32</td><td>16</td><td>5164372.22</td><td>5164438.89</td><td>+0.00%</td></tr>
+</tbody></table>
+</ac:rich-text-body>
+</ac:structured-macro>
+<ac:structured-macro ac:name="panel">
+<ac:parameter ac:name="title">xnvmeperf bandwidth</ac:parameter>
+<ac:rich-text-body>
+<p>randread, 4096 bytes, 16 devices, buffers in GPU memory</p>
+<table><tbody>
+<tr><th>IO depth</th><th>Devices</th><th>UIO MiB/s</th><th>VFIO MiB/s</th><th>Delta %</th></tr>
+<tr><td>1</td><td>16</td><td>6959.11</td><td>6920.45</td><td>-0.56%</td></tr>
+<tr><td>2</td><td>16</td><td>11446.18</td><td>11498.92</td><td>+0.46%</td></tr>
+<tr><td>4</td><td>16</td><td>15087.84</td><td>15098.77</td><td>+0.07%</td></tr>
+<tr><td>8</td><td>16</td><td>19851.13</td><td>19858.29</td><td>+0.04%</td></tr>
+<tr><td>16</td><td>16</td><td>20165.96</td><td>20166.41</td><td>+0.00%</td></tr>
+<tr><td>32</td><td>16</td><td>20173.33</td><td>20173.59</td><td>+0.00%</td></tr>
+</tbody></table>
+</ac:rich-text-body>
+</ac:structured-macro>
+<ac:structured-macro ac:name="panel">
+<ac:parameter ac:name="title">xnvmeperf IOPS</ac:parameter>
+<ac:rich-text-body>
+<p>read, 131072 bytes, 16 devices, buffers in GPU memory</p>
+<table><tbody>
+<tr><th>IO depth</th><th>Devices</th><th>UIO IOPS</th><th>VFIO IOPS</th><th>Delta %</th></tr>
+<tr><td>1</td><td>16</td><td>162844.65</td><td>162841.03</td><td>-0.00%</td></tr>
+<tr><td>2</td><td>16</td><td>162832.74</td><td>162832.01</td><td>-0.00%</td></tr>
+<tr><td>4</td><td>16</td><td>162832.65</td><td>162830.14</td><td>-0.00%</td></tr>
+<tr><td>8</td><td>16</td><td>162834.92</td><td>162831.03</td><td>-0.00%</td></tr>
+<tr><td>16</td><td>16</td><td>162829.96</td><td>162830.36</td><td>+0.00%</td></tr>
+<tr><td>32</td><td>16</td><td>162825.95</td><td>162824.18</td><td>-0.00%</td></tr>
+</tbody></table>
+</ac:rich-text-body>
+</ac:structured-macro>
+<ac:structured-macro ac:name="panel">
+<ac:parameter ac:name="title">xnvmeperf bandwidth</ac:parameter>
+<ac:rich-text-body>
+<p>read, 131072 bytes, 16 devices, buffers in GPU memory</p>
+<table><tbody>
+<tr><th>IO depth</th><th>Devices</th><th>UIO MiB/s</th><th>VFIO MiB/s</th><th>Delta %</th></tr>
+<tr><td>1</td><td>16</td><td>20355.58</td><td>20355.13</td><td>-0.00%</td></tr>
+<tr><td>2</td><td>16</td><td>20354.09</td><td>20354.00</td><td>-0.00%</td></tr>
+<tr><td>4</td><td>16</td><td>20354.08</td><td>20353.77</td><td>-0.00%</td></tr>
+<tr><td>8</td><td>16</td><td>20354.37</td><td>20353.88</td><td>-0.00%</td></tr>
+<tr><td>16</td><td>16</td><td>20353.74</td><td>20353.79</td><td>+0.00%</td></tr>
+<tr><td>32</td><td>16</td><td>20353.24</td><td>20353.02</td><td>-0.00%</td></tr>
+</tbody></table>
+</ac:rich-text-body>
+</ac:structured-macro>
+<ac:structured-macro ac:name="panel">
+<ac:parameter ac:name="title">xnvmeperf IOPS</ac:parameter>
+<ac:rich-text-body>
+<p>randread, 4096 bytes, 16 devices, buffers in host memory</p>
+<table><tbody>
+<tr><th>IO depth</th><th>Devices</th><th>UIO IOPS</th><th>VFIO IOPS</th><th>Delta %</th></tr>
+<tr><td>1</td><td>16</td><td>1792986.99</td><td>1792088.47</td><td>-0.05%</td></tr>
+<tr><td>2</td><td>16</td><td>3284563.16</td><td>3283918.02</td><td>-0.02%</td></tr>
+<tr><td>4</td><td>16</td><td>6388784.14</td><td>6408164.14</td><td>+0.30%</td></tr>
+<tr><td>8</td><td>16</td><td>9667989.70</td><td>9913154.00</td><td>+2.54%</td></tr>
+<tr><td>16</td><td>16</td><td>12226519.44</td><td>12557542.60</td><td>+2.71%</td></tr>
+<tr><td>32</td><td>16</td><td>12228826.22</td><td>12558178.98</td><td>+2.69%</td></tr>
+</tbody></table>
+</ac:rich-text-body>
+</ac:structured-macro>
+<ac:structured-macro ac:name="panel">
+<ac:parameter ac:name="title">xnvmeperf bandwidth</ac:parameter>
+<ac:rich-text-body>
+<p>randread, 4096 bytes, 16 devices, buffers in host memory</p>
+<table><tbody>
+<tr><th>IO depth</th><th>Devices</th><th>UIO MiB/s</th><th>VFIO MiB/s</th><th>Delta %</th></tr>
+<tr><td>1</td><td>16</td><td>7003.86</td><td>7000.35</td><td>-0.05%</td></tr>
+<tr><td>2</td><td>16</td><td>12830.32</td><td>12827.80</td><td>-0.02%</td></tr>
+<tr><td>4</td><td>16</td><td>24956.19</td><td>25031.89</td><td>+0.30%</td></tr>
+<tr><td>8</td><td>16</td><td>37765.59</td><td>38723.26</td><td>+2.54%</td></tr>
+<tr><td>16</td><td>16</td><td>47759.84</td><td>49052.90</td><td>+2.71%</td></tr>
+<tr><td>32</td><td>16</td><td>47768.85</td><td>49055.39</td><td>+2.69%</td></tr>
+</tbody></table>
+</ac:rich-text-body>
+</ac:structured-macro>
+<ac:structured-macro ac:name="panel">
+<ac:parameter ac:name="title">xnvmeperf IOPS</ac:parameter>
+<ac:rich-text-body>
+<p>read, 131072 bytes, 16 devices, buffers in host memory</p>
+<table><tbody>
+<tr><th>IO depth</th><th>Devices</th><th>UIO IOPS</th><th>VFIO IOPS</th><th>Delta %</th></tr>
+<tr><td>1</td><td>16</td><td>352799.73</td><td>361842.28</td><td>+2.56%</td></tr>
+<tr><td>2</td><td>16</td><td>391761.24</td><td>401729.36</td><td>+2.54%</td></tr>
+<tr><td>4</td><td>16</td><td>391757.78</td><td>401767.38</td><td>+2.56%</td></tr>
+<tr><td>8</td><td>16</td><td>391762.96</td><td>401747.40</td><td>+2.55%</td></tr>
+<tr><td>16</td><td>16</td><td>391757.13</td><td>401745.74</td><td>+2.55%</td></tr>
+<tr><td>32</td><td>16</td><td>391757.50</td><td>401747.29</td><td>+2.55%</td></tr>
+</tbody></table>
+</ac:rich-text-body>
+</ac:structured-macro>
+<ac:structured-macro ac:name="panel">
+<ac:parameter ac:name="title">xnvmeperf bandwidth</ac:parameter>
+<ac:rich-text-body>
+<p>read, 131072 bytes, 16 devices, buffers in host memory</p>
+<table><tbody>
+<tr><th>IO depth</th><th>Devices</th><th>UIO MiB/s</th><th>VFIO MiB/s</th><th>Delta %</th></tr>
+<tr><td>1</td><td>16</td><td>44099.97</td><td>45230.29</td><td>+2.56%</td></tr>
+<tr><td>2</td><td>16</td><td>48970.15</td><td>50216.17</td><td>+2.54%</td></tr>
+<tr><td>4</td><td>16</td><td>48969.72</td><td>50220.92</td><td>+2.56%</td></tr>
+<tr><td>8</td><td>16</td><td>48970.37</td><td>50218.42</td><td>+2.55%</td></tr>
+<tr><td>16</td><td>16</td><td>48969.64</td><td>50218.22</td><td>+2.55%</td></tr>
+<tr><td>32</td><td>16</td><td>48969.69</td><td>50218.41</td><td>+2.55%</td></tr>
+</tbody></table>
+</ac:rich-text-body>
+</ac:structured-macro>
+<ac:structured-macro ac:name="panel">
+<ac:parameter ac:name="title">fio IOPS</ac:parameter>
+<ac:rich-text-body>
+<p>randread, 4096 bytes, 16 devices, buffers in host memory</p>
+<table><tbody>
+<tr><th>IO depth</th><th>Devices</th><th>UIO IOPS</th><th>VFIO IOPS</th><th>Delta %</th></tr>
+<tr><td>1</td><td>16</td><td>1759549.11</td><td>1759616.04</td><td>+0.00%</td></tr>
+<tr><td>2</td><td>16</td><td>3176837.52</td><td>3178003.55</td><td>+0.04%</td></tr>
+<tr><td>4</td><td>16</td><td>6187119.64</td><td>6208693.66</td><td>+0.35%</td></tr>
+<tr><td>8</td><td>16</td><td>9553659.66</td><td>9970861.57</td><td>+4.37%</td></tr>
+<tr><td>16</td><td>16</td><td>12235496.78</td><td>12717626.68</td><td>+3.94%</td></tr>
+<tr><td>32</td><td>16</td><td>12248921.23</td><td>12771361.23</td><td>+4.27%</td></tr>
+</tbody></table>
+</ac:rich-text-body>
+</ac:structured-macro>
+<ac:structured-macro ac:name="panel">
+<ac:parameter ac:name="title">fio bandwidth</ac:parameter>
+<ac:rich-text-body>
+<p>randread, 4096 bytes, 16 devices, buffers in host memory</p>
+<table><tbody>
+<tr><th>IO depth</th><th>Devices</th><th>UIO MiB/s</th><th>VFIO MiB/s</th><th>Delta %</th></tr>
+<tr><td>1</td><td>16</td><td>6873.24</td><td>6873.50</td><td>+0.00%</td></tr>
+<tr><td>2</td><td>16</td><td>12409.52</td><td>12414.08</td><td>+0.04%</td></tr>
+<tr><td>4</td><td>16</td><td>24168.44</td><td>24252.72</td><td>+0.35%</td></tr>
+<tr><td>8</td><td>16</td><td>37319.00</td><td>38948.69</td><td>+4.37%</td></tr>
+<tr><td>16</td><td>16</td><td>47794.94</td><td>49678.26</td><td>+3.94%</td></tr>
+<tr><td>32</td><td>16</td><td>47847.41</td><td>49888.19</td><td>+4.27%</td></tr>
+</tbody></table>
+</ac:rich-text-body>
+</ac:structured-macro>
+<ac:structured-macro ac:name="panel">
+<ac:parameter ac:name="title">fio mean latency</ac:parameter>
+<ac:rich-text-body>
+<p>randread, 4096 bytes, 16 devices, buffers in host memory</p>
+<table><tbody>
+<tr><th>IO depth</th><th>Devices</th><th>UIO us</th><th>VFIO us</th><th>Delta %</th></tr>
+<tr><td>1</td><td>16</td><td>8.88</td><td>8.88</td><td>+0.01%</td></tr>
+<tr><td>2</td><td>16</td><td>9.86</td><td>9.86</td><td>-0.03%</td></tr>
+<tr><td>4</td><td>16</td><td>10.13</td><td>10.09</td><td>-0.34%</td></tr>
+<tr><td>8</td><td>16</td><td>13.17</td><td>12.60</td><td>-4.26%</td></tr>
+<tr><td>16</td><td>16</td><td>20.70</td><td>19.91</td><td>-3.83%</td></tr>
+<tr><td>32</td><td>16</td><td>41.58</td><td>39.88</td><td>-4.09%</td></tr>
+</tbody></table>
+</ac:rich-text-body>
+</ac:structured-macro>
+<ac:structured-macro ac:name="panel">
+<ac:parameter ac:name="title">fio P99.9 latency</ac:parameter>
+<ac:rich-text-body>
+<p>randread, 4096 bytes, 16 devices, buffers in host memory</p>
+<table><tbody>
+<tr><th>IO depth</th><th>Devices</th><th>UIO us</th><th>VFIO us</th><th>Delta %</th></tr>
+<tr><td>1</td><td>16</td><td>10.32</td><td>10.47</td><td>+1.47%</td></tr>
+<tr><td>2</td><td>16</td><td>11.18</td><td>11.32</td><td>+1.30%</td></tr>
+<tr><td>4</td><td>16</td><td>11.88</td><td>11.99</td><td>+0.94%</td></tr>
+<tr><td>8</td><td>16</td><td>18.21</td><td>17.61</td><td>-3.30%</td></tr>
+<tr><td>16</td><td>16</td><td>32.59</td><td>31.96</td><td>-1.94%</td></tr>
+<tr><td>32</td><td>16</td><td>59.21</td><td>57.00</td><td>-3.73%</td></tr>
+</tbody></table>
+</ac:rich-text-body>
+</ac:structured-macro>
+<ac:structured-macro ac:name="panel">
+<ac:parameter ac:name="title">fio P99.99 latency</ac:parameter>
+<ac:rich-text-body>
+<p>randread, 4096 bytes, 16 devices, buffers in host memory</p>
+<table><tbody>
+<tr><th>IO depth</th><th>Devices</th><th>UIO us</th><th>VFIO us</th><th>Delta %</th></tr>
+<tr><td>1</td><td>16</td><td>11.40</td><td>11.54</td><td>+1.24%</td></tr>
+<tr><td>2</td><td>16</td><td>12.36</td><td>12.54</td><td>+1.46%</td></tr>
+<tr><td>4</td><td>16</td><td>13.76</td><td>13.78</td><td>+0.09%</td></tr>
+<tr><td>8</td><td>16</td><td>22.41</td><td>21.65</td><td>-3.40%</td></tr>
+<tr><td>16</td><td>16</td><td>38.53</td><td>38.60</td><td>+0.18%</td></tr>
+<tr><td>32</td><td>16</td><td>78.90</td><td>76.29</td><td>-3.31%</td></tr>
+</tbody></table>
+</ac:rich-text-body>
+</ac:structured-macro>
+<ac:structured-macro ac:name="panel">
+<ac:parameter ac:name="title">fio P99.999 latency</ac:parameter>
+<ac:rich-text-body>
+<p>randread, 4096 bytes, 16 devices, buffers in host memory</p>
+<table><tbody>
+<tr><th>IO depth</th><th>Devices</th><th>UIO us</th><th>VFIO us</th><th>Delta %</th></tr>
+<tr><td>1</td><td>16</td><td>27.55</td><td>27.29</td><td>-0.95%</td></tr>
+<tr><td>2</td><td>16</td><td>30.94</td><td>31.96</td><td>+3.27%</td></tr>
+<tr><td>4</td><td>16</td><td>35.52</td><td>34.46</td><td>-3.00%</td></tr>
+<tr><td>8</td><td>16</td><td>44.59</td><td>43.67</td><td>-2.08%</td></tr>
+<tr><td>16</td><td>16</td><td>62.85</td><td>64.60</td><td>+2.77%</td></tr>
+<tr><td>32</td><td>16</td><td>99.45</td><td>98.55</td><td>-0.91%</td></tr>
+</tbody></table>
+</ac:rich-text-body>
+</ac:structured-macro>
+<ac:structured-macro ac:name="panel">
+<ac:parameter ac:name="title">fio IOPS</ac:parameter>
+<ac:rich-text-body>
+<p>read, 131072 bytes, 16 devices, buffers in host memory</p>
+<table><tbody>
+<tr><th>IO depth</th><th>Devices</th><th>UIO IOPS</th><th>VFIO IOPS</th><th>Delta %</th></tr>
+<tr><td>1</td><td>16</td><td>355431.26</td><td>366810.61</td><td>+3.20%</td></tr>
+<tr><td>2</td><td>16</td><td>392473.93</td><td>409014.67</td><td>+4.21%</td></tr>
+<tr><td>4</td><td>16</td><td>391929.92</td><td>408265.45</td><td>+4.17%</td></tr>
+<tr><td>8</td><td>16</td><td>391698.25</td><td>407832.87</td><td>+4.12%</td></tr>
+<tr><td>16</td><td>16</td><td>391659.40</td><td>408105.40</td><td>+4.20%</td></tr>
+<tr><td>32</td><td>16</td><td>391591.62</td><td>408257.44</td><td>+4.26%</td></tr>
+</tbody></table>
+</ac:rich-text-body>
+</ac:structured-macro>
+<ac:structured-macro ac:name="panel">
+<ac:parameter ac:name="title">fio bandwidth</ac:parameter>
+<ac:rich-text-body>
+<p>read, 131072 bytes, 16 devices, buffers in host memory</p>
+<table><tbody>
+<tr><th>IO depth</th><th>Devices</th><th>UIO MiB/s</th><th>VFIO MiB/s</th><th>Delta %</th></tr>
+<tr><td>1</td><td>16</td><td>44428.91</td><td>45851.33</td><td>+3.20%</td></tr>
+<tr><td>2</td><td>16</td><td>49059.31</td><td>51126.90</td><td>+4.21%</td></tr>
+<tr><td>4</td><td>16</td><td>48991.44</td><td>51033.38</td><td>+4.17%</td></tr>
+<tr><td>8</td><td>16</td><td>48962.75</td><td>50979.58</td><td>+4.12%</td></tr>
+<tr><td>16</td><td>16</td><td>48958.42</td><td>51014.17</td><td>+4.20%</td></tr>
+<tr><td>32</td><td>16</td><td>48951.02</td><td>51034.25</td><td>+4.26%</td></tr>
+</tbody></table>
+</ac:rich-text-body>
+</ac:structured-macro>
+<ac:structured-macro ac:name="panel">
+<ac:parameter ac:name="title">fio mean latency</ac:parameter>
+<ac:rich-text-body>
+<p>read, 131072 bytes, 16 devices, buffers in host memory</p>
+<table><tbody>
+<tr><th>IO depth</th><th>Devices</th><th>UIO us</th><th>VFIO us</th><th>Delta %</th></tr>
+<tr><td>1</td><td>16</td><td>44.81</td><td>43.42</td><td>-3.10%</td></tr>
+<tr><td>2</td><td>16</td><td>81.32</td><td>78.05</td><td>-4.03%</td></tr>
+<tr><td>4</td><td>16</td><td>163.08</td><td>156.58</td><td>-3.98%</td></tr>
+<tr><td>8</td><td>16</td><td>326.56</td><td>313.71</td><td>-3.94%</td></tr>
+<tr><td>16</td><td>16</td><td>653.39</td><td>627.22</td><td>-4.01%</td></tr>
+<tr><td>32</td><td>16</td><td>1307.22</td><td>1254.18</td><td>-4.06%</td></tr>
+</tbody></table>
+</ac:rich-text-body>
+</ac:structured-macro>
+<ac:structured-macro ac:name="panel">
+<ac:parameter ac:name="title">fio P99.9 latency</ac:parameter>
+<ac:rich-text-body>
+<p>read, 131072 bytes, 16 devices, buffers in host memory</p>
+<table><tbody>
+<tr><th>IO depth</th><th>Devices</th><th>UIO us</th><th>VFIO us</th><th>Delta %</th></tr>
+<tr><td>1</td><td>16</td><td>46.34</td><td>45.32</td><td>-2.18%</td></tr>
+<tr><td>2</td><td>16</td><td>82.57</td><td>80.60</td><td>-2.39%</td></tr>
+<tr><td>4</td><td>16</td><td>168.96</td><td>164.86</td><td>-2.42%</td></tr>
+<tr><td>8</td><td>16</td><td>336.28</td><td>328.09</td><td>-2.44%</td></tr>
+<tr><td>16</td><td>16</td><td>667.65</td><td>651.26</td><td>-2.45%</td></tr>
+<tr><td>32</td><td>16</td><td>1318.91</td><td>1286.14</td><td>-2.48%</td></tr>
+</tbody></table>
+</ac:rich-text-body>
+</ac:structured-macro>
+<ac:structured-macro ac:name="panel">
+<ac:parameter ac:name="title">fio P99.99 latency</ac:parameter>
+<ac:rich-text-body>
+<p>read, 131072 bytes, 16 devices, buffers in host memory</p>
+<table><tbody>
+<tr><th>IO depth</th><th>Devices</th><th>UIO us</th><th>VFIO us</th><th>Delta %</th></tr>
+<tr><td>1</td><td>16</td><td>48.49</td><td>47.56</td><td>-1.90%</td></tr>
+<tr><td>2</td><td>16</td><td>88.23</td><td>88.36</td><td>+0.15%</td></tr>
+<tr><td>4</td><td>16</td><td>178.10</td><td>174.41</td><td>-2.07%</td></tr>
+<tr><td>8</td><td>16</td><td>341.66</td><td>346.83</td><td>+1.51%</td></tr>
+<tr><td>16</td><td>16</td><td>673.89</td><td>660.79</td><td>-1.94%</td></tr>
+<tr><td>32</td><td>16</td><td>1406.77</td><td>1306.62</td><td>-7.12%</td></tr>
+</tbody></table>
+</ac:rich-text-body>
+</ac:structured-macro>
+<ac:structured-macro ac:name="panel">
+<ac:parameter ac:name="title">fio P99.999 latency</ac:parameter>
+<ac:rich-text-body>
+<p>read, 131072 bytes, 16 devices, buffers in host memory</p>
+<table><tbody>
+<tr><th>IO depth</th><th>Devices</th><th>UIO us</th><th>VFIO us</th><th>Delta %</th></tr>
+<tr><td>1</td><td>16</td><td>65.02</td><td>68.50</td><td>+5.34%</td></tr>
+<tr><td>2</td><td>16</td><td>105.83</td><td>108.97</td><td>+2.97%</td></tr>
+<tr><td>4</td><td>16</td><td>245.57</td><td>339.99</td><td>+38.45%</td></tr>
+<tr><td>8</td><td>16</td><td>450.59</td><td>427.98</td><td>-5.02%</td></tr>
+<tr><td>16</td><td>16</td><td>863.13</td><td>798.77</td><td>-7.46%</td></tr>
+<tr><td>32</td><td>16</td><td>1679.77</td><td>1561.60</td><td>-7.03%</td></tr>
+</tbody></table>
+</ac:rich-text-body>
+</ac:structured-macro>
+<h2>Summary</h2>
+<table><tbody>
+<tr><th>Runner</th><th>Buffers</th><th>RW</th><th>IO size</th><th>Devices</th><th>IO depth</th><th>UIO IOPS</th><th>VFIO IOPS</th><th>IOPS delta %</th><th>UIO MiB/s</th><th>VFIO MiB/s</th><th>MiB/s delta %</th><th>UIO mean us</th><th>VFIO mean us</th><th>Latency delta %</th></tr>
+<tr><td>xnvmeperf</td><td>gpu</td><td>randread</td><td>4096</td><td>16</td><td>1</td><td>1781532.88</td><td>1771636.26</td><td>-0.56</td><td>6959.11</td><td>6920.45</td><td>-0.56</td><td>N/A</td><td>N/A</td><td>N/A</td></tr>
+<tr><td>xnvmeperf</td><td>gpu</td><td>randread</td><td>4096</td><td>16</td><td>2</td><td>2930220.92</td><td>2943723.96</td><td>0.46</td><td>11446.18</td><td>11498.92</td><td>0.46</td><td>N/A</td><td>N/A</td><td>N/A</td></tr>
+<tr><td>xnvmeperf</td><td>gpu</td><td>randread</td><td>4096</td><td>16</td><td>4</td><td>3862486.08</td><td>3865284.28</td><td>0.07</td><td>15087.84</td><td>15098.77</td><td>0.07</td><td>N/A</td><td>N/A</td><td>N/A</td></tr>
+<tr><td>xnvmeperf</td><td>gpu</td><td>randread</td><td>4096</td><td>16</td><td>8</td><td>5081889.71</td><td>5083720.70</td><td>0.04</td><td>19851.13</td><td>19858.29</td><td>0.04</td><td>N/A</td><td>N/A</td><td>N/A</td></tr>
+<tr><td>xnvmeperf</td><td>gpu</td><td>randread</td><td>4096</td><td>16</td><td>16</td><td>5162486.22</td><td>5162601.97</td><td>0.00</td><td>20165.96</td><td>20166.41</td><td>0.00</td><td>N/A</td><td>N/A</td><td>N/A</td></tr>
+<tr><td>xnvmeperf</td><td>gpu</td><td>randread</td><td>4096</td><td>16</td><td>32</td><td>5164372.22</td><td>5164438.89</td><td>0.00</td><td>20173.33</td><td>20173.59</td><td>0.00</td><td>N/A</td><td>N/A</td><td>N/A</td></tr>
+<tr><td>xnvmeperf</td><td>gpu</td><td>read</td><td>131072</td><td>16</td><td>1</td><td>162844.65</td><td>162841.03</td><td>-0.00</td><td>20355.58</td><td>20355.13</td><td>-0.00</td><td>N/A</td><td>N/A</td><td>N/A</td></tr>
+<tr><td>xnvmeperf</td><td>gpu</td><td>read</td><td>131072</td><td>16</td><td>2</td><td>162832.74</td><td>162832.01</td><td>-0.00</td><td>20354.09</td><td>20354.00</td><td>-0.00</td><td>N/A</td><td>N/A</td><td>N/A</td></tr>
+<tr><td>xnvmeperf</td><td>gpu</td><td>read</td><td>131072</td><td>16</td><td>4</td><td>162832.65</td><td>162830.14</td><td>-0.00</td><td>20354.08</td><td>20353.77</td><td>-0.00</td><td>N/A</td><td>N/A</td><td>N/A</td></tr>
+<tr><td>xnvmeperf</td><td>gpu</td><td>read</td><td>131072</td><td>16</td><td>8</td><td>162834.92</td><td>162831.03</td><td>-0.00</td><td>20354.37</td><td>20353.88</td><td>-0.00</td><td>N/A</td><td>N/A</td><td>N/A</td></tr>
+<tr><td>xnvmeperf</td><td>gpu</td><td>read</td><td>131072</td><td>16</td><td>16</td><td>162829.96</td><td>162830.36</td><td>0.00</td><td>20353.74</td><td>20353.79</td><td>0.00</td><td>N/A</td><td>N/A</td><td>N/A</td></tr>
+<tr><td>xnvmeperf</td><td>gpu</td><td>read</td><td>131072</td><td>16</td><td>32</td><td>162825.95</td><td>162824.18</td><td>-0.00</td><td>20353.24</td><td>20353.02</td><td>-0.00</td><td>N/A</td><td>N/A</td><td>N/A</td></tr>
+<tr><td>fio</td><td>host</td><td>randread</td><td>4096</td><td>16</td><td>1</td><td>1759549.11</td><td>1759616.04</td><td>0.00</td><td>6873.24</td><td>6873.50</td><td>0.00</td><td>8.88</td><td>8.88</td><td>0.01</td></tr>
+<tr><td>fio</td><td>host</td><td>randread</td><td>4096</td><td>16</td><td>2</td><td>3176837.52</td><td>3178003.55</td><td>0.04</td><td>12409.52</td><td>12414.08</td><td>0.04</td><td>9.86</td><td>9.86</td><td>-0.03</td></tr>
+<tr><td>fio</td><td>host</td><td>randread</td><td>4096</td><td>16</td><td>4</td><td>6187119.64</td><td>6208693.66</td><td>0.35</td><td>24168.44</td><td>24252.72</td><td>0.35</td><td>10.13</td><td>10.09</td><td>-0.34</td></tr>
+<tr><td>fio</td><td>host</td><td>randread</td><td>4096</td><td>16</td><td>8</td><td>9553659.66</td><td>9970861.57</td><td>4.37</td><td>37319.00</td><td>38948.69</td><td>4.37</td><td>13.17</td><td>12.60</td><td>-4.26</td></tr>
+<tr><td>fio</td><td>host</td><td>randread</td><td>4096</td><td>16</td><td>16</td><td>12235496.78</td><td>12717626.68</td><td>3.94</td><td>47794.94</td><td>49678.26</td><td>3.94</td><td>20.70</td><td>19.91</td><td>-3.83</td></tr>
+<tr><td>fio</td><td>host</td><td>randread</td><td>4096</td><td>16</td><td>32</td><td>12248921.23</td><td>12771361.23</td><td>4.27</td><td>47847.41</td><td>49888.19</td><td>4.27</td><td>41.58</td><td>39.88</td><td>-4.09</td></tr>
+<tr><td>xnvmeperf</td><td>host</td><td>randread</td><td>4096</td><td>16</td><td>1</td><td>1792986.99</td><td>1792088.47</td><td>-0.05</td><td>7003.86</td><td>7000.35</td><td>-0.05</td><td>N/A</td><td>N/A</td><td>N/A</td></tr>
+<tr><td>xnvmeperf</td><td>host</td><td>randread</td><td>4096</td><td>16</td><td>2</td><td>3284563.16</td><td>3283918.02</td><td>-0.02</td><td>12830.32</td><td>12827.80</td><td>-0.02</td><td>N/A</td><td>N/A</td><td>N/A</td></tr>
+<tr><td>xnvmeperf</td><td>host</td><td>randread</td><td>4096</td><td>16</td><td>4</td><td>6388784.14</td><td>6408164.14</td><td>0.30</td><td>24956.19</td><td>25031.89</td><td>0.30</td><td>N/A</td><td>N/A</td><td>N/A</td></tr>
+<tr><td>xnvmeperf</td><td>host</td><td>randread</td><td>4096</td><td>16</td><td>8</td><td>9667989.70</td><td>9913154.00</td><td>2.54</td><td>37765.59</td><td>38723.26</td><td>2.54</td><td>N/A</td><td>N/A</td><td>N/A</td></tr>
+<tr><td>xnvmeperf</td><td>host</td><td>randread</td><td>4096</td><td>16</td><td>16</td><td>12226519.44</td><td>12557542.60</td><td>2.71</td><td>47759.84</td><td>49052.90</td><td>2.71</td><td>N/A</td><td>N/A</td><td>N/A</td></tr>
+<tr><td>xnvmeperf</td><td>host</td><td>randread</td><td>4096</td><td>16</td><td>32</td><td>12228826.22</td><td>12558178.98</td><td>2.69</td><td>47768.85</td><td>49055.39</td><td>2.69</td><td>N/A</td><td>N/A</td><td>N/A</td></tr>
+<tr><td>fio</td><td>host</td><td>read</td><td>131072</td><td>16</td><td>1</td><td>355431.26</td><td>366810.61</td><td>3.20</td><td>44428.91</td><td>45851.33</td><td>3.20</td><td>44.81</td><td>43.42</td><td>-3.10</td></tr>
+<tr><td>fio</td><td>host</td><td>read</td><td>131072</td><td>16</td><td>2</td><td>392473.93</td><td>409014.67</td><td>4.21</td><td>49059.31</td><td>51126.90</td><td>4.21</td><td>81.32</td><td>78.05</td><td>-4.03</td></tr>
+<tr><td>fio</td><td>host</td><td>read</td><td>131072</td><td>16</td><td>4</td><td>391929.92</td><td>408265.45</td><td>4.17</td><td>48991.44</td><td>51033.38</td><td>4.17</td><td>163.08</td><td>156.58</td><td>-3.98</td></tr>
+<tr><td>fio</td><td>host</td><td>read</td><td>131072</td><td>16</td><td>8</td><td>391698.25</td><td>407832.87</td><td>4.12</td><td>48962.75</td><td>50979.58</td><td>4.12</td><td>326.56</td><td>313.71</td><td>-3.94</td></tr>
+<tr><td>fio</td><td>host</td><td>read</td><td>131072</td><td>16</td><td>16</td><td>391659.40</td><td>408105.40</td><td>4.20</td><td>48958.42</td><td>51014.17</td><td>4.20</td><td>653.39</td><td>627.22</td><td>-4.01</td></tr>
+<tr><td>fio</td><td>host</td><td>read</td><td>131072</td><td>16</td><td>32</td><td>391591.62</td><td>408257.44</td><td>4.26</td><td>48951.02</td><td>51034.25</td><td>4.26</td><td>1307.22</td><td>1254.18</td><td>-4.06</td></tr>
+<tr><td>xnvmeperf</td><td>host</td><td>read</td><td>131072</td><td>16</td><td>1</td><td>352799.73</td><td>361842.28</td><td>2.56</td><td>44099.97</td><td>45230.29</td><td>2.56</td><td>N/A</td><td>N/A</td><td>N/A</td></tr>
+<tr><td>xnvmeperf</td><td>host</td><td>read</td><td>131072</td><td>16</td><td>2</td><td>391761.24</td><td>401729.36</td><td>2.54</td><td>48970.15</td><td>50216.17</td><td>2.54</td><td>N/A</td><td>N/A</td><td>N/A</td></tr>
+<tr><td>xnvmeperf</td><td>host</td><td>read</td><td>131072</td><td>16</td><td>4</td><td>391757.78</td><td>401767.38</td><td>2.56</td><td>48969.72</td><td>50220.92</td><td>2.56</td><td>N/A</td><td>N/A</td><td>N/A</td></tr>
+<tr><td>xnvmeperf</td><td>host</td><td>read</td><td>131072</td><td>16</td><td>8</td><td>391762.96</td><td>401747.40</td><td>2.55</td><td>48970.37</td><td>50218.42</td><td>2.55</td><td>N/A</td><td>N/A</td><td>N/A</td></tr>
+<tr><td>xnvmeperf</td><td>host</td><td>read</td><td>131072</td><td>16</td><td>16</td><td>391757.13</td><td>401745.74</td><td>2.55</td><td>48969.64</td><td>50218.22</td><td>2.55</td><td>N/A</td><td>N/A</td><td>N/A</td></tr>
+<tr><td>xnvmeperf</td><td>host</td><td>read</td><td>131072</td><td>16</td><td>32</td><td>391757.50</td><td>401747.29</td><td>2.55</td><td>48969.69</td><td>50218.41</td><td>2.55</td><td>N/A</td><td>N/A</td><td>N/A</td></tr>
+</tbody></table>
