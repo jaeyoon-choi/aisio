@@ -1,0 +1,417 @@
+<ac:structured-macro ac:name="toc"><ac:parameter ac:name="maxLevel">3</ac:parameter></ac:structured-macro>
+<p>작성일 2026-09-18, 갱신 2026-09-29. 브랜치 <code>gpu-iommu-map-size</code>(<code>c46577e</code>)의 도구로 개발 PC에서 측정한 결과다. 7.5절은 같은 PC에서 다른 목적으로 잰 결과를 교차 확인용으로 옮긴 것이다.</p>
+<h2>1. 요약</h2>
+<p><strong>질문.</strong> IOMMU 오버헤드 벤치마크에서 GPU 메모리 버퍼는 IOMMU를 켜든 끄든 성능 차이가 거의 없었다. 그 이유를 설명하려면 NVMe가 GPU 메모리를 P2P DMA로 읽을 때 IOMMU가 그 창을 어떤 크기의 페이지로 매핑하는지 알아야 했다.</p>
+<p><strong>답.</strong> 2 MiB다. GPU 메모리 1 GiB는 IOMMU 페이지 테이블에 2 MiB 엔트리 512개로 들어간다. 이 값은 커널이 실제로 고른 페이지 크기를 kprobe로 직접 읽어 확인했다. 이전 기록은 upcie-cuda 소스의 상수를 근거로 삼았을 뿐이다.</p>
+<p><strong>왜 1 GiB가 아닌가.</strong> 매핑 호출은 1 GiB 한 번이고 하드웨어(VT-d)도 1 GiB 페이지를 지원한다. 하지만 커널은 IOVA와 물리 주소가 둘 다 정렬된 가장 큰 페이지만 쓸 수 있다. 이 GPU의 BAR 메모리 물리 주소(0x480f600000)는 2 MiB 정렬까지만 맞아서 2 MiB가 상한이 된다.</p>
+<p><strong>2 MiB가 나오는 조건은 두 가지다.</strong></p>
+<ul>
+<li>매핑 호출 단위가 2 MiB 이상이어야 한다. 64 KiB 단위로 호출하는 경로(GDS, BaM 기본 모드, uPCIe 이전 테스트)는 전부 4 KiB 엔트리가 됐다. 같은 1 GiB라도 엔트리가 512개가 아니라 262,144개가 된다.</li>
+<li>물리 주소가 2 MiB 정렬이어야 한다. 이 PC의 GPU는 모든 실행에서 이 조건을 만족했다.</li>
+</ul>
+<p>벤치마크가 쓰는 upcie-cuda는 2 MiB 단위로 호출하므로 두 조건을 모두 만족한다.</p>
+<p><strong>측정값.</strong></p>
+<table><tbody>
+<tr>
+<th>관측</th>
+<th>결과</th>
+</tr>
+<tr>
+<td><code>iommu:map</code> tracepoint</td>
+<td>1 GiB 호출 한 번, 물리 주소 0x480f600000</td>
+</tr>
+<tr>
+<td>드라이버가 받은 페이지 (kprobe)</td>
+<td>2 MiB x 512</td>
+</tr>
+<tr>
+<td>페이지 테이블 레벨 (kprobe)</td>
+<td>레벨 2(2 MiB)만 쓰임, 레벨 3(1 GiB)은 없음</td>
+</tr>
+<tr>
+<td>다른 경로 교차 확인 (BaM, <code>dma_map_resource</code>)</td>
+<td>1 GiB는 2 MiB x 512, 4 GiB는 2 MiB x 2048</td>
+</tr>
+<tr>
+<td>64 KiB 단위 호출 경로</td>
+<td>전부 4 KiB 엔트리</td>
+</tr>
+</tbody>
+</table>
+<p><strong>벤치마크에 주는 의미.</strong> GPU 창은 기동 시 한 번 2 MiB 엔트리 512개로 매핑되고, I/O 도중에는 매핑이 바뀌지 않는다. 그래서 GPU 메모리 조건에서 IOMMU 오버헤드가 거의 없다는 벤치마크 결과는 매핑 구조와 맞는다. 다만 IOTLB miss를 직접 잰 것은 아니다. PCIe 링크가 먼저 포화해서 차이가 가려졌을 가능성도 이 측정으로는 배제할 수 없다.</p>
+<p><strong>바로잡은 이전 기록.</strong> 이전 기록은 "NVMe 명의의 dma-buf 매핑은 NVIDIA 사설 경로라 커널 tracepoint에 안 보인다"고 했다. 실제로는 IOMMU를 켠 상태에서 <code>iommu_map</code> 한 번으로 그대로 보인다. 이전에 안 보인 것은 sid가 그때 IOMMU off나 passthrough 상태였기 때문으로 추정한다. 또 이전 기록은 misc 경로의 64 KiB 조각을 NVIDIA가 GPU 메모리를 내보내는 페이지 크기로 보았다. 실제로는 NVIDIA 드라이버가 버퍼를 받는 장치의 최대 DMA 세그먼트 크기로 자르고, misc 장치는 이 값을 설정하지 않아 커널 기본값 64 KiB가 쓰인 것이다. 이 사실은 커널과 NVIDIA 드라이버 소스로 확인했다.</p>
+<p><strong>확인하지 못한 것.</strong> 확인하지 못한 항목은 세 가지다.</p>
+<ul>
+<li>sid 서버에서 같은 결과가 나오는지 다시 돌려 보지 않았다.</li>
+<li>벤치마크의 실제 upcie-cuda 매핑 경로는 kprobe로 직접 추적하지 않았다.</li>
+<li>IOTLB 카운터는 읽지 않았다.</li>
+</ul>
+<p><strong>브랜치 변경.</strong> <code>gpu-iommu-map-size</code> 브랜치를 프로브와 트레이스의 두 커밋으로 정리했다. 트레이스 태스크는 한 번 실행하면 페이지 크기 요약까지 콘솔에 낸다. 트레이스로 매핑을 볼 수 없는 장비에서는 시작 전에 이유를 적고 중단한다. 기록은 전용 tracefs 인스턴스에서 하므로 전역 트레이스 설정과 다른 사람의 트레이스를 건드리지 않는다.</p>
+<p>아래 절은 어떻게 쟀는지와 근거를 자세히 적은 것이다.</p>
+<h2>2. 배경과 질문</h2>
+<p>자매 브랜치 <code>iommu-overhead-gpu</code>에는 IOMMU 오버헤드 벤치마크가 있다. NVMe SSD가 DMA로 데이터를 옮기는 버퍼를 준비해 두고, IOMMU를 켠 조건과 끈 조건에서 같은 I/O를 돌려 처리량을 비교한다. 버퍼를 GPU 메모리에 둔 조건에서는 두 조건의 차이가 거의 0이었다.</p>
+<p>IOMMU는 장치가 보내는 DMA 주소를 실제 물리 주소로 번역하는 하드웨어다. CPU의 MMU가 프로세스의 가상 주소를 번역하듯, IOMMU는 장치가 쓰는 주소를 번역한다. 이 장치 쪽 주소를 IOVA(I/O virtual address)라고 부른다. 커널은 장치마다 IOVA에서 물리 주소로 가는 페이지 테이블을 만들고, IOMMU는 DMA가 들어올 때마다 이 테이블을 따라간다. 번역 결과는 IOTLB라는 캐시에 남으므로, 같은 페이지로 다시 DMA가 오면 테이블을 다시 걷지 않는다. IOMMU 오버헤드는 주로 두 곳에서 나온다. 하나는 IOTLB miss가 날 때 테이블을 걷는 비용이고, 다른 하나는 매핑을 만들고 지우는 비용이다.</p>
+<p>차이가 0에 가까운 이유로는 두 가지 설명이 가능했다.</p>
+<ul>
+<li><strong>번역이 싸다.</strong> GPU 메모리가 큰 페이지로 매핑되어 있어서 IOTLB 엔트리 몇 개로 버퍼 전체가 덮이고, miss가 거의 나지 않는다.</li>
+<li><strong>링크가 먼저 막힌다.</strong> GPU의 PCIe 링크가 처리량의 천장이라서, IOMMU를 켜든 끄든 같은 지점에서 포화한다.</li>
+</ul>
+<p>첫째 설명이 맞는지는 매핑에 쓰인 페이지 크기에 달려 있다. 같은 1 GiB 버퍼라도 4 KiB 페이지로 매핑하면 번역 엔트리가 262,144개 필요하고, 2 MiB 페이지로 매핑하면 512개, 1 GiB 페이지로 매핑하면 1개로 충분하다. IOTLB는 용량이 제한된 캐시이므로, 엔트리 수가 수백 배 차이 나면 miss 빈도도 크게 달라진다.</p>
+<p>이전 세션은 upcie-cuda 소스에서 매핑 단위 상수 <code>DMAMEM_CUDA_REGISTRY_GRANULARITY</code>(2 MiB)를 찾아 "2 MiB"라고 결론을 냈다. 하지만 upcie-cuda가 2 MiB 단위로 매핑을 요청한다고 해서 커널이 그대로 2 MiB 페이지를 쓴다는 보장은 없다. 커널은 요청을 더 작은 페이지로 쪼갤 수 있기 때문이다. 이 보고서는 커널이 실제로 쓴 페이지 크기를 측정한다. 측정 결과를 읽으려면 먼저 커널이 페이지 크기를 어떻게 고르는지 알아야 한다.</p>
+<h2>3. IOMMU 페이지 크기 결정 규칙</h2>
+<p>Intel의 IOMMU 구현인 VT-d는 CPU와 같은 다단계 페이지 테이블을 쓴다. 테이블의 가장 아래 단계(레벨 1) 엔트리는 4 KiB를 가리킨다. 한 단계 위(레벨 2) 엔트리는 원래 아래 테이블을 가리키지만, 대신 2 MiB 영역을 직접 가리킬 수도 있다. 그 위(레벨 3) 엔트리는 1 GiB 영역을 직접 가리킬 수 있다. 2 MiB와 1 GiB 페이지를 대페이지(superpage)라고 부른다. 하드웨어가 어떤 대페이지를 지원하는지는 VT-d의 capability 레지스터에 적혀 있고, 이 PC의 VT-d는 2 MiB와 1 GiB를 모두 지원한다고 보고한다.</p>
+<p>커널 코드가 <code>iommu_map(iova, paddr, size)</code>를 호출하면, 커널 공통 계층의 <code>iommu_pgsize()</code>가 먼저 페이지 크기를 정한다. 조건을 모두 만족하는 가장 큰 크기를 고르며, 조건은 세 가지다.</p>
+<ol>
+<li>하드웨어가 지원하는 크기여야 한다. 이 PC에서는 4 KiB, 2 MiB, 1 GiB다.</li>
+<li>남은 매핑 크기보다 크지 않아야 한다. 64 KiB를 매핑하는데 2 MiB 페이지를 쓸 수는 없다.</li>
+<li>IOVA와 물리 주소가 둘 다 그 크기에 정렬되어 있어야 한다. 한쪽이라도 어긋나면 한 단계 작은 크기로 내려간다.</li>
+</ol>
+<p>그다음 공통 계층은 Intel 드라이버의 <code>intel_iommu_map_pages()</code>를 "이 크기의 페이지를 몇 개" 형태로 호출하고, 드라이버가 페이지 테이블에 엔트리를 쓴다.</p>
+<p>실제 숫자를 넣으면 이렇다. 이 PC의 GPU는 자기 메모리를 PCIe BAR1이라는 주소 창을 통해 다른 장치에 보여준다. BAR1은 물리 주소 0x4800000000에서 시작하는 32 GiB 창이다. 이번 측정에서 CUDA가 할당한 1 GiB 버퍼는 그 창의 시작점에서 246 MiB 떨어진 0x480f600000에 놓였다. 246 MiB는 2 MiB의 123배이므로 2 MiB 정렬은 맞지만, 1 GiB의 배수는 아니다.</p>
+<table><tbody>
+<tr>
+<th>경우</th>
+<th>IOVA</th>
+<th>물리 주소</th>
+<th>호출 크기</th>
+<th>커널이 고르는 페이지</th>
+</tr>
+<tr>
+<td>이번 측정의 GPU 버퍼</td>
+<td>0x3f80000000 (1 GiB 정렬)</td>
+<td>0x480f600000 (2 MiB 정렬)</td>
+<td>1 GiB</td>
+<td>2 MiB x 512</td>
+</tr>
+<tr>
+<td>물리 주소가 BAR1 시작점이었다면 (가정)</td>
+<td>0x3f80000000 (1 GiB 정렬)</td>
+<td>0x4800000000 (1 GiB 정렬)</td>
+<td>1 GiB</td>
+<td>1 GiB x 1</td>
+</tr>
+<tr>
+<td>64 KiB 단위로 나눠 호출하는 경로</td>
+<td>64 KiB 정렬</td>
+<td>64 KiB 정렬</td>
+<td>64 KiB</td>
+<td>4 KiB x 16</td>
+</tr>
+</tbody>
+</table>
+<p>첫 줄에서 IOVA는 1 GiB 정렬이지만 물리 주소가 2 MiB 정렬까지만 맞으므로, 조건 3 때문에 2 MiB가 상한이 된다. 둘째 줄은 규칙상 예상일 뿐이고 이번에 관측한 경우는 아니다. 셋째 줄은 조건 2 때문에 주소 정렬과 무관하게 4 KiB가 된다. 64 KiB는 VT-d가 지원하는 크기가 아니므로 그보다 작은 4 KiB로 내려간다.</p>
+<p>정리하면 GPU 메모리가 2 MiB 페이지로 매핑되려면 두 가지가 필요하다. 매핑 호출 단위가 2 MiB 이상이어야 하고, GPU 버퍼의 물리 주소가 2 MiB 정렬이어야 한다. 이 규칙대로라면 이 PC에서는 2 MiB가 나와야 한다. 다음 절부터는 실제로 그런지 어떻게 쟀는지 설명한다.</p>
+<h2>4. 측정 방법</h2>
+<h3>4.1 GPU 버퍼를 NVMe에 매핑하는 경로</h3>
+<p>NVMe가 GPU 메모리를 CPU 메모리를 거치지 않고 직접 읽고 쓰는 것을 P2P(peer-to-peer) DMA라고 한다. 이를 위해서는 GPU 메모리의 BAR1 주소를 NVMe의 IOMMU 페이지 테이블에 매핑해야 한다.</p>
+<p>이번 측정은 이 매핑을 dma-buf로 만든다. dma-buf는 한 드라이버가 가진 버퍼를 다른 드라이버에 넘기는 리눅스 커널의 표준 방식이다. 버퍼를 내주는 쪽을 exporter, 받는 쪽을 importer라고 한다. 여기서 exporter는 NVIDIA 드라이버이고, importer는 uPCIe의 <code>dmabuf_import</code> 커널 모듈이다. 이 모듈은 버퍼를 받을 때 어느 장치의 명의로 받을지 정할 수 있다.</p>
+<p>주소가 만들어지는 곳은 커널 함수 <code>dma_buf_map_attachment()</code>다. 모듈이 이 함수를 부르면 커널은 요청을 exporter인 NVIDIA 드라이버의 콜백으로 넘기고, NVIDIA 드라이버는 두 단계로 주소 목록을 만든다(<code>nv-dmabuf.c</code>의 <code>nv_dma_buf_map_pfns()</code>).</p>
+<ol>
+<li>버퍼의 물리 범위를 받는 장치의 최대 DMA 세그먼트 크기로 자른다. 이 값은 장치 드라이버가 설정하며, 설정하지 않은 장치는 커널 기본값 64 KiB를 쓴다.</li>
+<li>조각마다 <code>dma_map_resource(받는 장치, 물리 주소, 길이)</code>를 불러 그 장치가 쓸 DMA 주소를 받는다. 받는 장치가 IOMMU 뒤에 있으면 커널이 그 장치의 IOMMU 페이지 테이블에 매핑을 만들고 IOVA를 돌려준다. IOMMU가 없으면 물리 주소를 그대로 돌려준다.</li>
+</ol>
+<p>측정용 프로그램 <code>dmabuf_import_probe</code>(이하 프로브)는 CUDA로 GPU 메모리 1 GiB를 할당하고, dma-buf로 내보낸 뒤 두 가지 명의로 다시 받아들인다.</p>
+<ul>
+<li><strong>misc 경로</strong>: 실제 PCI 장치가 아닌 모듈 자신의 가상 장치 명의로 받는다. 이 장치는 IOMMU에 속하지 않고 최대 세그먼트 크기도 설정하지 않았다. 그래서 64 KiB로 잘린 물리 주소 목록이 돌아온다. upcie-cuda도 GPU 버퍼의 물리 주소를 알아낼 때 똑같이 misc 장치 명의로 받는다.</li>
+<li><strong><code>--bdf</code> 경로</strong>: 지정한 NVMe(여기서는 0000:02:00.0)의 명의로 받는다. nvme 드라이버는 최대 세그먼트 크기를 약 4 GiB로 설정하므로 버퍼가 잘리지 않는다. IOMMU를 켜면 커널이 그 NVMe의 IOMMU 페이지 테이블에 실제 매핑을 만든다. 이번 측정의 대상은 이 경로다.</li>
+</ul>
+<p>벤치마크가 쓰는 upcie-cuda는 misc 경로로 물리 주소 목록을 얻은 뒤, 그 목록을 2 MiB 단위 표로 정리한다. IOMMU를 켠 조건에서는 NVMe를 vfio 드라이버에 붙이고, uPCIe의 <code>iommu_map_pa</code> 모듈을 통해 그 물리 주소를 2 MiB 단위로 매핑한다. IOMMU를 끈 조건에서는 NVMe를 uio 드라이버에 붙이고 GPU 메모리의 물리 주소를 그대로 쓴다. 두 경로 모두 결국 커널의 <code>iommu_map()</code>을 호출하므로 3절의 규칙이 똑같이 적용된다. 다만 벤치마크 경로 자체를 추적한 것은 아니며, 이 점은 11절에 한계로 남겼다.</p>
+<h3>4.2 세 층의 관측 지점</h3>
+<p>매핑을 세 층에서 관찰한다. 위로 갈수록 사용자 공간에 가깝고, 아래로 갈수록 실제 페이지 테이블에 가깝다.</p>
+<table><tbody>
+<tr>
+<th>층</th>
+<th>도구</th>
+<th>보이는 것</th>
+</tr>
+<tr>
+<td>사용자 공간</td>
+<td>프로브</td>
+<td><code>dmabuf_import</code>가 돌려준 <code>(주소, 길이)</code> 목록</td>
+</tr>
+<tr>
+<td>커널 공통 계층</td>
+<td>tracepoint <code>iommu:map</code>, <code>iommu:unmap</code></td>
+<td><code>iommu_map()</code> 호출 한 건의 IOVA, 물리 주소, 크기</td>
+</tr>
+<tr>
+<td>Intel 드라이버</td>
+<td>kprobe <code>intel_iommu_map_pages</code>, <code>pfn_to_dma_pte</code></td>
+<td>커널이 고른 페이지 크기와 개수, 페이지 테이블 레벨</td>
+</tr>
+</tbody>
+</table>
+<p>tracepoint는 커널 코드에 미리 박혀 있는 관측 지점이다. <code>iommu:map</code>은 <code>iommu_map()</code>이 한 번 불릴 때마다 한 줄을 남긴다. 그런데 이 줄에 적히는 크기는 호출 크기이지 페이지 크기가 아니다. 1 GiB 호출 한 줄만 보고는 1 GiB 페이지 1개인지 2 MiB 페이지 512개인지 알 수 없다.</p>
+<p>그래서 kprobe를 추가로 건다. kprobe는 커널 함수의 입구에 동적으로 거는 관측 지점으로, 함수가 받은 인자를 읽을 수 있다. 두 함수에 건다.</p>
+<ul>
+<li><code>intel_iommu_map_pages(domain, iova, paddr, pgsize, pgcount, ...)</code>: 공통 계층이 고른 페이지 크기(<code>pgsize</code>)와 개수(<code>pgcount</code>)를 받는다. 3절의 규칙이 낸 결과를 그대로 보여준다.</li>
+<li><code>pfn_to_dma_pte(domain, iov_pfn, &amp;level, ...)</code>: 드라이버가 페이지 테이블에서 엔트리를 쓸 자리를 찾을 때 부르는 함수로, 몇 번째 레벨에 쓸지를 인자로 받는다. 레벨 1은 4 KiB, 2는 2 MiB, 3은 1 GiB다. 이 함수는 엔트리마다 불리지 않고 새 테이블 구간을 시작할 때만 불리므로, 호출 횟수보다 레벨 값이 의미를 가진다.</li>
+</ul>
+<p>첫째 kprobe는 커널이 무엇을 요청했는지를, 둘째 kprobe는 드라이버가 실제로 어느 레벨에 썼는지를 보여준다. 둘이 일치하면 결론이 선다.</p>
+<h2>5. 실험 환경</h2>
+<table><tbody>
+<tr>
+<th>항목</th>
+<th>값</th>
+</tr>
+<tr>
+<td>장비</td>
+<td>개발 PC <code>jaeyoon-pc</code>, Intel Core i9-14900K</td>
+</tr>
+<tr>
+<td>GPU</td>
+<td>NVIDIA RTX PRO 4000 Blackwell, 0000:01:00.0, open kernel module 580.178.04, BAR1 32 GiB</td>
+</tr>
+<tr>
+<td>커널</td>
+<td>6.8.12-dmabuf, <code>CONFIG_INTEL_IOMMU=y</code>, scalable mode 기본 켜짐, <code>CONFIG_KPROBE_EVENTS=y</code></td>
+</tr>
+<tr>
+<td>IOMMU</td>
+<td>VT-d 유닛 2개, 2 MiB와 1 GiB 대페이지 지원</td>
+</tr>
+<tr>
+<td>NVMe</td>
+<td>0000:02:00.0, Samsung 980 PRO, 여분 디스크, <code>nvme</code> 드라이버</td>
+</tr>
+<tr>
+<td>uPCIe 모듈</td>
+<td><code>upcie-experimental-dkms</code> 0.9.0 (<code>dmabuf_import</code>, <code>iommu_map_pa</code>)</td>
+</tr>
+<tr>
+<td>CUDA</td>
+<td>12.8 (nvcc), 드라이버는 CUDA 13.0</td>
+</tr>
+<tr>
+<td>실행</td>
+<td>cijoe 0.9.58, ssh 없이 로컬에서 root로 실행</td>
+</tr>
+</tbody>
+</table>
+<p>측정 도구는 원래 서버 <code>sid</code>에서 돌리도록 만들어졌다. 이 PC에서 돌리기 위해 ssh 설정을 뺀 cijoe 설정과, 대상 NVMe를 0000:02:00.0으로 바꾼 태스크 사본을 썼다. 이 사본은 저장소에 넣지 않았다. 대상 NVMe로 루트 디스크가 아닌 여분 디스크를 고른 것은, 측정 중에 매핑이 만들어졌다 지워져도 시스템 디스크에 영향을 주지 않기 위해서다.</p>
+<h2>6. 실험 절차</h2>
+<ol>
+<li><strong>IOMMU off 기준선</strong>: <code>intel_iommu=off</code>로 부팅한 상태에서 프로브를 misc 경로와 <code>--bdf</code> 경로로 돌린다. 트레이스 태스크도 같이 돌린다. 번역이 없을 때 프로브가 무엇을 돌려주는지, 트레이스가 어떻게 끝나는지를 보기 위한 단계다.</li>
+<li><strong>IOMMU on 전환</strong>: <code>/etc/default/grub</code>을 <code>intel_iommu=on</code>으로 바꾸고 재부팅한다. passthrough 옵션(<code>iommu=pt</code>)은 주지 않는다. passthrough 모드에서는 IOVA가 물리 주소와 같게 고정되어 실제 번역 매핑이 생기지 않기 때문이다. 재부팅 후 NVMe 0000:02:00.0이 번역을 하는 도메인(DMA-FQ)에 들어갔는지 sysfs로 확인한다.</li>
+<li><strong>tracepoint 측정</strong>: <code>iommu:map</code>과 <code>iommu:unmap</code>을 켠 채로 프로브를 <code>--bdf</code> 경로로 실행하고, 전체 트레이스를 파일로 남긴다.</li>
+<li><strong>kprobe 측정</strong>: 4.2절의 kprobe 두 개를 건 채로 같은 프로브를 다시 돌린다.</li>
+</ol>
+<p>버퍼 크기는 모든 단계에서 1 GiB다. 4단계는 처음에 손으로 짠 스크립트로 했고, 그 뒤 브랜치의 트레이스 태스크에 kprobe를 합쳐 다시 돌려 같은 값이 나오는 것을 확인했다.</p>
+<h2>7. 결과</h2>
+<h3>7.1 프로브가 돌려준 주소 목록</h3>
+<table><tbody>
+<tr>
+<th>경로</th>
+<th>IOMMU off</th>
+<th>IOMMU on</th>
+</tr>
+<tr>
+<td>misc</td>
+<td>64 KiB x 16384, 전부 연속, 0x480f600000부터 (물리 주소)</td>
+<td>같음</td>
+</tr>
+<tr>
+<td><code>--bdf</code></td>
+<td>1 GiB 한 덩어리, 0x480f600000 (물리 주소)</td>
+<td>1 GiB 한 덩어리, 0x3fc0000000 (IOVA)</td>
+</tr>
+</tbody>
+</table>
+<p>misc 경로는 IOMMU 상태와 관계없이 물리 주소를 64 KiB 단위로 준다. 64 KiB는 GPU 메모리의 성질이 아니라 misc 장치에 최대 DMA 세그먼트 크기가 설정되지 않아 쓰인 커널 기본값이다. 이 장치는 IOMMU에 속하지 않으므로, 이 목록은 IOMMU 매핑과 관계가 없다.</p>
+<p><code>--bdf</code> 경로는 IOMMU를 끄면 물리 주소를, 켜면 IOVA를 준다. 켰을 때 주소가 0x3fc0000000으로 바뀐 것 자체가 NVMe의 IOMMU 페이지 테이블에 매핑이 새로 생겼다는 증거다. 한 덩어리로 나온 것은 조각을 나중에 합쳐서가 아니다. nvme 드라이버가 최대 세그먼트 크기를 약 4 GiB로 설정해 두어서, NVIDIA 드라이버가 처음부터 1 GiB를 한 조각으로 넘겼기 때문이다. 다만 한 덩어리로 보인다고 해서 1 GiB 페이지 하나라는 뜻은 아니다. 그것은 다음 두 층에서 확인한다.</p>
+<h3>7.2 tracepoint</h3>
+<p>IOMMU off에서는 map과 unmap 이벤트가 하나도 없었다. IOMMU on에서는 프로브가 도는 동안 5327건이 기록됐고 버퍼 유실은 없었다. 그중 GPU 버퍼에 해당하는 것은 다음 두 줄이다.</p>
+<ac:structured-macro ac:name="code"><ac:parameter ac:name="language">text</ac:parameter><ac:plain-text-body><![CDATA[map:   iova=0x3fc0000000 - 0x4000000000 paddr=0x480f600000 size=1073741824
+unmap: iova=0x3fc0000000 - 0x4000000000 size=1073741824   (6 µs 뒤)]]></ac:plain-text-body></ac:structured-macro>
+<p><code>--bdf</code> 가져오기가 1 GiB 크기의 <code>iommu_map()</code> 호출 한 번으로 나타났다. unmap이 곧바로 따라오는 것은 프로브가 주소를 읽고 나서 바로 버퍼를 놓기 때문이다.</p>
+<p>나머지 이벤트는 GPU 버퍼와 관계가 없다. 대부분은 CUDA가 초기화하면서 호스트 메모리를 GPU에 매핑한 것이다. 4 KiB가 4324건으로 가장 많았고 2 MiB가 4건, 수 MiB에서 40 MiB 사이가 몇 건이었다. 이 구성은 실행할 때마다 달랐다. 그 밖에 같은 시각에 다른 장치(무선랜, 파일시스템 저널 등)가 만든 매핑이 섞여 있다.</p>
+<h3>7.3 kprobe</h3>
+<table><tbody>
+<tr>
+<th>관측</th>
+<th>값</th>
+</tr>
+<tr>
+<td><code>intel_iommu_map_pages</code></td>
+<td>iova=0x3f80000000 paddr=0x480f600000 pgsize=2097152 pgcount=512</td>
+</tr>
+<tr>
+<td><code>pfn_to_dma_pte</code>, GPU 버퍼의 IOVA 범위 안</td>
+<td>레벨 2 호출 2건, 레벨 3 호출 0건</td>
+</tr>
+</tbody>
+</table>
+<p>1 GiB 호출이 드라이버에는 "2 MiB 페이지 512개"로 도착했고, 드라이버는 레벨 2에 엔트리를 썼다. 레벨 3(1 GiB)을 쓴 호출은 없었다. 3절 표의 첫 줄에서 예상한 것과 정확히 같다.</p>
+<p>IOVA가 7.2절(0x3fc0000000)과 다른 것은 IOVA 할당기가 실행마다 다른 자리를 주기 때문이다. 두 값 모두 1 GiB 정렬이고 물리 주소는 같으므로 결과에는 영향이 없다.</p>
+<h3>7.4 kprobe 기록의 검증과 판정</h3>
+<p>kprobe 값은 함수 인자를 인자 위치(<code>$arg2</code>~<code>$arg5</code>)로 읽은 것이다. 커널마다 인자 순서가 달라질 수 있으므로, 값이 그럴듯해 보인다는 것만으로는 믿을 수 없다. 그래서 트레이스 태스크는 kprobe 기록을 서로 독립적인 관측 지점과 대조한 뒤에만 판정을 낸다. 하나라도 어긋나면 태스크가 실패한다.</p>
+<table><tbody>
+<tr>
+<th>검사</th>
+<th>대조 대상</th>
+<th>이 PC의 결과</th>
+</tr>
+<tr>
+<td>페이지 크기가 VT-d 크기인가</td>
+<td>4 KiB, 2 MiB, 1 GiB</td>
+<td>2 MiB, 통과</td>
+</tr>
+<tr>
+<td>페이지가 호출 전체를 덮는가</td>
+<td>pgsize x pgcount, tracepoint의 size, 프로브의 길이</td>
+<td>셋 다 1 GiB, 통과</td>
+</tr>
+<tr>
+<td>호출들이 이어지는가</td>
+<td>연속한 <code>map_pages</code> 호출의 IOVA와 물리 주소</td>
+<td>호출 1건, 통과</td>
+</tr>
+<tr>
+<td>물리 주소가 같은가</td>
+<td>kprobe의 paddr, tracepoint의 paddr, 프로브 misc 경로의 첫 물리 주소</td>
+<td>셋 다 0x480f600000, 통과</td>
+</tr>
+<tr>
+<td>레벨이 페이지 크기와 맞는가</td>
+<td><code>pfn_to_dma_pte</code> 레벨과 pgsize에 대응하는 레벨</td>
+<td>레벨 2, 통과</td>
+</tr>
+</tbody>
+</table>
+<p>인자 위치가 틀렸다면 이 대조를 통과할 수 없다. 예를 들어 pgsize와 pgcount를 바꿔 읽은 기록을 넣으면 첫 번째와 다섯 번째 검사가 실패한다. 이 경우를 포함해 여러 가짜 기록으로 판정 로직을 시험했다.</p>
+<p>검사를 모두 통과하면 판정이 나온다. 이 PC에서 실제로 돌린 출력은 다음과 같다.</p>
+<ac:structured-macro ac:name="code"><ac:parameter ac:name="language">text</ac:parameter><ac:plain-text-body><![CDATA[mapping: 1 GiB as 512 x 2 MiB
+page size: 2 MiB, capped because IOVA 0x3f80000000 (2 GiB-aligned) and physical 0x480f600000 (2 MiB-aligned) line up only on 2 MiB boundaries
+translations to cover the buffer: 512]]></ac:plain-text-body></ac:structured-macro>
+<p>판정은 3절의 규칙을 그대로 계산한다. 크기 P의 페이지를 쓰려면 IOVA와 물리 주소의 차이가 P의 배수여야 하고, P로 정렬된 P 크기 구간이 범위 안에 들어가야 한다. 두 조건이 허용하는 크기보다 실제 페이지가 작으면 판정은 "IOMMU나 이 도메인이 더 큰 페이지를 주지 않는다"고 적는다. 같으면 무엇이 그 크기를 정했는지 적는다.</p>
+<h3>7.5 다른 매핑 경로의 교차 확인</h3>
+<p>같은 PC, 같은 커널, 같은 NVMe에서 2026-09-22와 09-23에 다른 목적(특허 근거 수집)으로 잰 결과가 있다. 측정 방법은 같은 <code>intel_iommu_map_pages</code> kprobe와 <code>iommu:map</code> tracepoint다. 이 보고서의 결론과 관련된 두 가지만 옮긴다.</p>
+<p>첫째는 dma-buf를 거치지 않는 경로에서도 같은 결과가 나오는지다. GPU 기반 스토리지 프레임워크인 BaM의 커널 모듈(<code>libnvm.ko</code>)을 고쳐, GPU 메모리 풀 전체를 <code>dma_map_resource()</code> 한 번으로 매핑하게 했다.</p>
+<table><tbody>
+<tr>
+<th>풀 크기</th>
+<th>물리 주소</th>
+<th>IOVA</th>
+<th>드라이버가 받은 페이지</th>
+</tr>
+<tr>
+<td>1 GiB</td>
+<td>0x480f600000</td>
+<td>0x3f40000000 (1 GiB 정렬)</td>
+<td>2 MiB x 512</td>
+</tr>
+<tr>
+<td>4 GiB</td>
+<td>0x480f600000</td>
+<td>0x3d00000000 (1 GiB 정렬)</td>
+<td>2 MiB x 2048</td>
+</tr>
+<tr>
+<td>1 GiB, GPU 메모리를 흩뜨린 뒤 할당</td>
+<td>0x490f600000</td>
+<td>0x3f40000000 (1 GiB 정렬)</td>
+<td>2 MiB x 512</td>
+</tr>
+</tbody>
+</table>
+<p>세 경우 모두 IOVA는 1 GiB 정렬이었고 물리 주소는 2 MiB 정렬까지만 맞았다. 결과도 모두 2 MiB였고 1 GiB 페이지는 한 번도 나오지 않았다. GPU 메모리를 일부러 흩뜨린 뒤에도 물리 주소는 0x...0f600000으로 끝났다. 이 GPU에서는 버퍼 시작 주소가 1 GiB 경계에서 246 MiB 떨어지는 패턴이 반복된다는 뜻이다.</p>
+<p>둘째는 매핑 호출을 64 KiB 단위로 하는 경로들이다. GPU Direct Storage(GDS), BaM 기본 모드, uPCIe의 이전 GPU 테스트가 여기에 해당한다. 이 경로들은 GPU 메모리에 대해 64 KiB 크기의 <code>iommu_map()</code>만 불렀다. uPCIe 테스트와 GDS는 128 MiB를 2048번에 나눠 매핑했고, BaM 기본 모드는 약 4 MiB를 66번에 나눠 매핑했다. 3절 표의 셋째 줄대로 이 호출들은 전부 4 KiB 엔트리 16개씩이 됐다.</p>
+<h2>8. 해석</h2>
+<h3>8.1 측정과 규칙의 일치</h3>
+<p>측정은 3절의 규칙과 모든 경우에 맞았다.</p>
+<table><tbody>
+<tr>
+<th>경우</th>
+<th>규칙이 예상한 페이지</th>
+<th>측정한 페이지</th>
+</tr>
+<tr>
+<td>dma-buf <code>--bdf</code>, 1 GiB 한 번</td>
+<td>2 MiB</td>
+<td>2 MiB x 512</td>
+</tr>
+<tr>
+<td>BaM <code>dma_map_resource</code>, 1 GiB와 4 GiB 한 번</td>
+<td>2 MiB</td>
+<td>2 MiB x 512, 2 MiB x 2048</td>
+</tr>
+<tr>
+<td>GDS, BaM 기본, uPCIe 이전 테스트, 64 KiB씩</td>
+<td>4 KiB</td>
+<td>4 KiB</td>
+</tr>
+</tbody>
+</table>
+<p>따라서 2 MiB라는 결과는 upcie-cuda가 정한 상수에서 나온 것이 아니다. 이 GPU가 버퍼를 어느 물리 주소에 두느냐가 정한 값이다. upcie-cuda가 1 GiB 단위로 매핑을 요청했더라도 이 주소에서는 2 MiB로 쪼개졌을 것이고, BaM 실험이 바로 그 경우를 보여준다. 반대로 upcie-cuda가 64 KiB 단위로 요청했다면 4 KiB 엔트리 262,144개가 됐을 것이다. upcie-cuda의 2 MiB 단위는 이 GPU에서 얻을 수 있는 가장 큰 페이지를 놓치지 않는 선택이다.</p>
+<h3>8.2 벤치마크에 주는 의미</h3>
+<p>upcie-cuda는 벤치마크를 시작할 때 GPU 버퍼 전체를 한 번에 매핑하고, I/O 도중에는 매핑을 바꾸지 않는다. 이 동작은 upcie-cuda 코드를 읽어 확인한 것이다. 그러므로 I/O 도중에 드는 IOMMU 비용은 번역 비용뿐이고, 매핑을 만들고 지우는 비용은 없다.</p>
+<p>번역 비용도 작을 가능성이 높다. 1 GiB 버퍼 전체가 2 MiB 엔트리 512개로 덮이므로, I/O가 버퍼 안의 일부 영역을 반복해서 쓰는 한 IOTLB miss는 처음 몇 번 이후 거의 나지 않는다. IOMMU를 끈 조건(uio)에서는 번역 자체가 없다. 두 조건의 차이는 IOTLB가 채워지는 초기 구간 정도이고, 벤치마크가 재는 정상 상태 처리량에는 드러나기 어렵다.</p>
+<p>즉 2절의 첫째 설명(번역이 싸다)은 매핑 구조와 맞는다. 하지만 이것은 매핑 구조에서 추론한 것이지 IOTLB miss를 잰 결과가 아니다. 또 둘째 설명(링크가 먼저 막힌다)이 동시에 참일 가능성도 이 측정으로는 배제할 수 없다. 두 설명을 가르는 방법은 11절에 적었다.</p>
+<h2>9. 이전 기록과의 차이</h2>
+<table><tbody>
+<tr>
+<th>이전 기록</th>
+<th>이번 측정</th>
+</tr>
+<tr>
+<td><code>--bdf</code> 경로는 NVIDIA 사설 dma-buf 경로라 <code>iommu:map</code>에 안 보인다</td>
+<td>IOMMU를 켜면 <code>iommu_map()</code> 한 번으로 그대로 보인다</td>
+</tr>
+<tr>
+<td><code>--bdf</code>의 주소 목록은 BAR 물리 주소 1 GiB</td>
+<td>IOMMU를 켜면 IOVA다. 물리 주소가 나온 것은 IOMMU가 꺼져 있었거나 passthrough였다는 뜻이다</td>
+</tr>
+<tr>
+<td>misc 경로의 64 KiB는 NVIDIA의 export 페이지 크기이고, <code>--bdf</code> 경로에서는 커널이 이 조각들을 1 GiB로 합친다</td>
+<td>64 KiB는 misc 장치의 최대 DMA 세그먼트 크기(커널 기본값)다. NVMe는 이 값이 커서 NVIDIA 드라이버가 처음부터 한 조각으로 넘긴다</td>
+</tr>
+<tr>
+<td>CUDA 초기화는 2 MiB 정렬 단위로 매핑한다</td>
+<td>크기가 실행마다 다르고 4 KiB가 대부분이다. 재현되지 않았다</td>
+</tr>
+<tr>
+<td>매핑 단위 2 MiB의 근거는 upcie-cuda 상수</td>
+<td>커널이 고른 페이지 크기를 kprobe로 직접 봤다</td>
+</tr>
+</tbody>
+</table>
+<p>첫 줄이 가장 중요하다. 이전 기록은 sid에서 <code>--bdf</code> 가져오기가 tracepoint에 보이지 않았다는 관찰에서 "NVIDIA가 커널을 우회한다"고 해석했다. 하지만 이번 측정에서는 IOMMU를 켜자 그대로 보였고, 끄자 사라졌다. sid에서 안 보였던 것은 그때 sid가 IOMMU off나 passthrough 상태였기 때문일 가능성이 높다. sid의 <code>--bdf</code> 결과가 물리 주소였다는 기록이 그 정황이다.</p>
+<p>셋째 줄의 잘못된 해석은 두 경로의 조각 크기를 GPU 메모리 쪽 성질로 본 데서 나왔다. NVIDIA 드라이버 소스를 보면 조각 크기는 받는 장치가 정한다. 같은 버퍼가 misc 장치에는 64 KiB로, NVMe에는 한 조각으로 넘어간 것은 두 장치의 설정이 다르기 때문이다.</p>
+<h2>10. 브랜치에 반영한 변경</h2>
+<p>브랜치는 main 위의 커밋 두 개로 정리했다. 측정 중에 발견한 문제는 모두 이 두 커밋에 반영되어 있다. 타깃의 tracepoint와 IOMMU 그룹을 훑어보는 조사 태스크도 만들었지만 PR에서는 뺐다. 트레이스 실행에 필요한 조건은 트레이스 태스크가 대상 장치에 대해 더 정확하게 확인하기 때문이다.</p>
+<table><tbody>
+<tr>
+<th>커밋</th>
+<th>내용</th>
+<th>측정 중에 고친 문제</th>
+</tr>
+<tr>
+<td><code>1938442</code> feat(bench): probe how a CUDA dma-buf is mapped for an NVMe</td>
+<td>프로브 C 소스, 실행 스크립트, 태스크</td>
+<td>할당 단위 출력이 <code>cuMemAlloc</code>과 무관하다는 표시. <code>GET_MAP</code> 개수 검사를 <code>DESCRIBE</code> 세그먼트 수 대조로 교체. 타깃의 임시 경로를 실행마다 새 디렉터리로 변경. 64 KiB 조각의 원인 설명 정정. 가져오기마다 버퍼 전체, GPU 메모리 여부, 세그먼트 수를 검사하고 어긋나면 실패. <code>--bdf</code> 가져오기가 IOMMU로 번역됐는지 misc 경로의 물리 주소와 비교해 판정</td>
+</tr>
+<tr>
+<td><code>c46577e</code> feat(bench): trace the IOMMU page size behind a GPU dma-buf mapping</td>
+<td>트레이스 스크립트와 태스크</td>
+<td>"tracepoint에 안 보인다"는 문서 정정. 콘솔 필터를 64 KiB에서 2 MiB로 올림. kprobe 두 개로 페이지 크기를 기록하고, 다른 관측 지점과 대조한 뒤 매핑 단위와 그 원인을 판정. 대조가 어긋나면 실패. 요약은 프로브 프로세스의 줄만 셈. bdf 형식이 틀리거나, IOMMU가 없거나, passthrough 도메인이거나, nvme 드라이버에 붙어 있지 않으면 시작 전에 중단. 전용 tracefs 인스턴스와 실행마다 이름이 다른 kprobe를 쓰고 끝나면 지움. 프로브에 실행 시간 제한. 코드 문서에서 측정 결과 서술을 뺌. 대상 NVMe를 하드코딩하지 않고 <code>configs/datasets.toml</code>의 데이터셋 장치에서 받음</td>
+</tr>
+</tbody>
+</table>
+<p>이제 <code>tasks/trace_iommu_gpu.yaml</code>을 한 번 돌리면 7.2절과 7.3절의 결과가 같이 나온다. kprobe가 거는 함수 이름은 Linux 6.8 기준이며, 다른 커널에서 등록이 실패하면 요약만 빠지고 나머지는 그대로 돈다.</p>
+<h2>11. 확인하지 못한 것과 다음 단계</h2>
+<ul>
+<li><strong>sid 재확인</strong>: sid에서 IOMMU를 켠 채로 같은 트레이스를 돌리지 않았다. 9절의 설명은 정황에서 나온 추정이다. sid를 <code>intel_iommu=on</code>(passthrough 없음)으로 부팅하고 트레이스 태스크를 한 번 돌리면 확인된다.</li>
+<li><strong>1 GiB 대페이지</strong>: 어느 실행에서도 1 GiB 페이지는 나오지 않았다. 이 GPU의 버퍼 물리 주소가 매번 1 GiB 경계에서 246 MiB 떨어졌기 때문이다. 하드웨어는 1 GiB를 지원하므로, 버퍼가 1 GiB 정렬 주소에 오는 GPU라면 결과가 달라질 수 있다. 그런 GPU로는 확인하지 않았다.</li>
+<li><strong>벤치마크 경로</strong>: upcie-cuda가 실제로 쓰는 경로(<code>iommu_map_pa_add</code>, <code>/dev/iommu_map_pa</code>)는 직접 추적하지 않았다. 7.5절에서 추적한 uPCIe 경로는 64 KiB 단위의 이전 테스트이고 벤치마크 경로가 아니다. 같은 <code>iommu_map()</code>을 부르므로 같은 규칙이 적용된다고 보지만, 벤치마크를 돌리면서 같은 kprobe를 걸면 직접 확인할 수 있다.</li>
+<li><strong>IOTLB miss</strong>: 8.2절의 IOTLB 논의는 추론이다. IOTLB miss 카운터는 읽지 않았다. 커널에는 VT-d 성능 카운터 지원(<code>CONFIG_INTEL_IOMMU_PERF_EVENTS</code>)이 켜져 있지만, 이 PC에서는 perf 이벤트 장치(<code>dmar*</code>)가 나타나지 않는다. 이 PC의 VT-d가 카운터를 보고하지 않는 것으로 보인다. sid에서 카운터가 보이는지 확인하는 것이 다음 단계다.</li>
+<li><strong>링크 포화</strong>: 2절의 둘째 설명은 검증하지 않았다. PCIe 링크가 포화하지 않는 작은 I/O 크기나 낮은 큐 깊이에서 IOMMU on과 off를 비교하면, 링크가 가리던 차이가 드러나는지 볼 수 있다.</li>
+</ul>
+<h2>12. 자료 위치</h2>
+<ul>
+<li>이번 측정의 원본 출력(프로브, 트레이스, kprobe 트레이스), 로컬 실행용 설정, kprobe 프로토타입 스크립트는 <code>/data/aisio/results-jaeyoon-pc/gpu-iommu-map-size/</code>에 있다.</li>
+<li>7.5절의 원본 로그와 스크립트는 <code>/data/aisio/upcie-doc/patent/exp/</code>에 있다. BaM 단일 매핑은 <code>bam-probe-single-range-2026-09-22.txt</code>, 경로별 매핑 호출 수는 <code>iommu-map-count-2026-09-23.txt</code>다. <code>single_range</code> 옵션을 넣은 BaM 모듈 수정은 <code>/data/aisio/bam</code>에 커밋되지 않은 채로 있다.</li>
+<li>3절 규칙의 커널 소스 근거는 <code>/usr/src/linux-source-6.8.0/drivers/iommu/iommu.c</code>의 <code>iommu_pgsize()</code>와 <code>drivers/iommu/intel/iommu.c</code>의 <code>hardware_largepage_caps()</code>, <code>__domain_mapping()</code>이다.</li>
+<li>4.1절 조각 크기의 근거는 세 곳이다. NVIDIA 드라이버는 <code>/usr/src/nvidia-580.178.04/nvidia/nv-dmabuf.c</code>의 <code>nv_dma_buf_map_pfns()</code>에서 버퍼를 자르고, <code>nv-dma.c</code>의 <code>nv_dma_map_peer()</code>에서 <code>dma_map_resource()</code>를 부른다. 커널 기본값 64 KiB는 <code>include/linux/dma-mapping.h</code>의 <code>dma_get_max_seg_size()</code>에 있다. nvme 드라이버의 설정은 <code>drivers/nvme/host/pci.c</code>의 <code>dma_set_max_seg_size(&amp;pdev-&gt;dev, 0xffffffff)</code>다.</li>
+<li>upcie-cuda가 misc 장치 명의로 물리 주소를 얻는 코드는 <code>/data/aisio/xnvme/toolbox/third-party/linux/upcie/dmamem_cuda.h</code>의 <code>dmabuf_import_attach()</code> 호출이다.</li>
+<li>브랜치는 <code>jaeyoon/gpu-iommu-map-size</code>이고, 작업 트리는 <code>/data/aisio/aisio/.claude/worktrees/gpu-iommu-map-size</code>다.</li>
+</ul>
