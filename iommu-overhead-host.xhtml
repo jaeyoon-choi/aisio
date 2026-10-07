@@ -1,0 +1,61 @@
+<ac:structured-macro ac:name="toc"><ac:parameter ac:name="maxLevel">2</ac:parameter></ac:structured-macro>
+<h2>판정</h2>
+<p><ac:structured-macro ac:name="status"><ac:parameter ac:name="colour">Green</ac:parameter><ac:parameter ac:name="title">측정 완료</ac:parameter></ac:structured-macro> 호스트 메모리 버퍼에서 uio(IOMMU off) 대비 vfio(IOMMU on)의 IOMMU 오버헤드는 측정 노이즈 이하다. 24쌍(러너 2 × 패턴 2 × qdepth 6) 전체의 IOPS delta가 -0.01% ~ +4.32%다. 저 qdepth(randread q1/q2)는 delta가 0% 근처고, +2~4% 값은 uio/vfio가 서로 다른 부트·런에서 나온 실행 간 편차지, IOMMU를 켜서 빨라진 것이 아니다.</p>
+<h2>조건</h2>
+<ul>
+<li>머신: sid(192.168.100.4). NVMe 16대, 호스트 메모리 버퍼(<code>upcie</code>)</li>
+<li>디바이스: <code>0000:4d:00.0 ~ 0000:54:00.0</code>, <code>0000:67:00.0 ~ 0000:6e:00.0</code></li>
+<li>부트: uio = <code>intel_iommu=off</code>, vfio = <code>intel_iommu=on iommu.strict=1</code></li>
+<li>경로: uio는 <code>uio_pci_generic</code>, vfio는 <code>vfio-pci</code> + iommufd</li>
+<li>스택: xNVMe + uPCIe(호스트 메모리)</li>
+<li>워크로드: randread 4K, read 128K, qdepth 1/2/4/8/16/32, 런타임 30 s × 5회</li>
+<li>러너: xnvmeperf(단일 프로세스에서 16대 개방) / fio(디바이스당 별도 프로세스)</li>
+</ul>
+<h2>측정</h2>
+<p>IOPS는 16대 합산, 5회 반복 평균. delta = (vfio - uio) / uio (%).</p>
+<p><strong>xnvmeperf</strong></p>
+<table><tbody>
+<tr><th>rw</th><th>qdepth</th><th>uio IOPS</th><th>vfio IOPS</th><th>delta</th></tr>
+<tr><td>randread (4K)</td><td>1</td><td>1,792,152</td><td>1,792,116</td><td>-0.00</td></tr>
+<tr><td>randread (4K)</td><td>2</td><td>3,284,504</td><td>3,283,407</td><td>-0.03</td></tr>
+<tr><td>randread (4K)</td><td>4</td><td>6,385,781</td><td>6,406,853</td><td>+0.33</td></tr>
+<tr><td>randread (4K)</td><td>8</td><td>9,672,831</td><td>9,920,067</td><td>+2.56</td></tr>
+<tr><td>randread (4K)</td><td>16</td><td>12,226,550</td><td>12,557,891</td><td>+2.71</td></tr>
+<tr><td>randread (4K)</td><td>32</td><td>12,228,651</td><td>12,558,546</td><td>+2.70</td></tr>
+<tr><td>read (128K)</td><td>1</td><td>352,678</td><td>362,055</td><td>+2.66</td></tr>
+<tr><td>read (128K)</td><td>2</td><td>391,762</td><td>401,749</td><td>+2.55</td></tr>
+<tr><td>read (128K)</td><td>4</td><td>391,762</td><td>401,735</td><td>+2.55</td></tr>
+<tr><td>read (128K)</td><td>8</td><td>391,762</td><td>401,745</td><td>+2.55</td></tr>
+<tr><td>read (128K)</td><td>16</td><td>391,765</td><td>401,747</td><td>+2.55</td></tr>
+<tr><td>read (128K)</td><td>32</td><td>391,760</td><td>401,751</td><td>+2.55</td></tr>
+</tbody></table>
+<p><strong>fio</strong></p>
+<table><tbody>
+<tr><th>rw</th><th>qdepth</th><th>uio IOPS</th><th>vfio IOPS</th><th>delta</th></tr>
+<tr><td>randread (4K)</td><td>1</td><td>1,759,807</td><td>1,759,677</td><td>-0.01</td></tr>
+<tr><td>randread (4K)</td><td>2</td><td>3,176,951</td><td>3,178,165</td><td>+0.04</td></tr>
+<tr><td>randread (4K)</td><td>4</td><td>6,186,019</td><td>6,209,923</td><td>+0.39</td></tr>
+<tr><td>randread (4K)</td><td>8</td><td>9,681,351</td><td>10,017,998</td><td>+3.48</td></tr>
+<tr><td>randread (4K)</td><td>16</td><td>12,234,276</td><td>12,720,452</td><td>+3.97</td></tr>
+<tr><td>randread (4K)</td><td>32</td><td>12,251,025</td><td>12,772,235</td><td>+4.25</td></tr>
+<tr><td>read (128K)</td><td>1</td><td>355,338</td><td>367,323</td><td>+3.37</td></tr>
+<tr><td>read (128K)</td><td>2</td><td>392,425</td><td>408,667</td><td>+4.14</td></tr>
+<tr><td>read (128K)</td><td>4</td><td>391,862</td><td>408,083</td><td>+4.14</td></tr>
+<tr><td>read (128K)</td><td>8</td><td>391,598</td><td>408,258</td><td>+4.25</td></tr>
+<tr><td>read (128K)</td><td>16</td><td>391,510</td><td>407,710</td><td>+4.14</td></tr>
+<tr><td>read (128K)</td><td>32</td><td>391,541</td><td>408,454</td><td>+4.32</td></tr>
+</tbody></table>
+<h2>근거</h2>
+<ul>
+<li>원시 결과: <code>aisio-sid-run/out-measure-host/artifacts/iommu-overhead/uio/*.json</code>(1020개), <code>.../vfio/*.json</code>(1020개)</li>
+<li>집계: <code>aisio-sid-run/out-measure-host/artifacts/benchmark-results.json</code>(24쌍), <code>benchmark-results.html</code></li>
+<li>수집 워크플로: <code>tasks/bench_iommu_overhead_host.yaml</code>(uio_host·vfio_host, 리부트 2회)</li>
+<li>집계 스크립트: <code>scripts/iommu_overhead_combine.py</code>, <code>scripts/bench_visualize.py</code>(템플릿 <code>iommu-overhead</code>)</li>
+</ul>
+<h2>한계</h2>
+<ul>
+<li>fio의 +2 ~ +4%는 uio/vfio가 서로 다른 부트·런에서 따로 수집된 데 따른 실행 간 편차다.</li>
+<li>read 128K는 qdepth 1부터 PCIe/NVMe 링크를 포화시킨다. 그 구간 delta는 링크가 말한 것이지 번역 비용이 아니다. 호스트 조건은 randread가 최대 약 12.8M IOPS까지 올라가 GPU 조건(약 5.3M)보다 해석 가능 구간이 넓다.</li>
+</ul>
+<h2>요청</h2>
+<ac:structured-macro ac:name="info"><ac:rich-text-body><p>호스트 메모리 조건(uio_host·vfio_host) 수집은 끝났다. GPU 조건과 합친 4-조건 결과는 <code>iommu-overhead-combined.xhtml</code>에 정리했다.</p></ac:rich-text-body></ac:structured-macro>
