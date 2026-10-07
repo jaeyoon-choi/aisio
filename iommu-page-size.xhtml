@@ -1,0 +1,36 @@
+<ac:structured-macro ac:name="toc"><ac:parameter ac:name="maxLevel">2</ac:parameter></ac:structured-macro>
+<h2>개요</h2>
+<p>IOMMU-off(<code>uio_pci_generic</code>)와 IOMMU-on(<code>vfio-pci</code> + iommufd)의 GPU 메모리 버퍼 오버헤드가 측정 노이즈 이하로 나온 이유를, GPU 버퍼가 IOMMU에 올라가는 <strong>매핑 단위(페이지 크기)</strong>에서 확인한 결과다. 대상은 <code>upcie-cuda</code> 백엔드가 GPU 힙을 NVMe의 IOMMU 도메인에 매핑하는 경로다.</p>
+<h2>판정</h2>
+<p><ac:structured-macro ac:name="status"><ac:parameter ac:name="colour">Green</ac:parameter><ac:parameter ac:name="title">2 MiB</ac:parameter></ac:structured-macro> GPU 힙의 IOMMU 매핑 단위는 <strong>2 MiB</strong>다. uPCIe가 <code>DMAMEM_CUDA_REGISTRY_GRANULARITY</code>(<code>2UL &lt;&lt; 20</code>)로 힙 전체를 <code>iommu_map_pa_add</code> 한 번에 등록하며, 이는 디바이스의 <code>alloc_granularity</code>(BAR1 large-page, L4에서 2 MiB)와 일치한다. IOMMU-off(uio) 경로에서는 매핑이 아예 없고 GPU BAR2 물리주소를 그대로 쓴다. 두 경우 모두 실행 중 per-page 번역이 생기지 않는다.</p>
+<h2>경로별 매핑</h2>
+<table><tbody>
+<tr><th>경로</th><th>모드/트리거</th><th>매핑</th><th>번역</th></tr>
+<tr><td>uio (IOMMU off)</td><td><code>uio_pci_generic</code> → <code>UIO_LUT</code></td><td>없음 — LUT가 BAR2 물리주소</td><td>없음(identity)</td></tr>
+<tr><td>vfio (IOMMU on)</td><td><code>vfio-pci</code>+iommufd → <code>VFIO_CDEV</code></td><td><code>iommu_map_pa_add</code> 1회, 2 MiB × N (1 GiB → 512)</td><td>IOTLB 2 MiB leaf</td></tr>
+<tr><td>dma-buf export/misc import (참고)</td><td><code>dmabuf_import_attach</code>(레거시)</td><td>64 KiB × N 열거 — 매핑 단위 아님</td><td>없음</td></tr>
+</tbody></table>
+<h2>검증</h2>
+<ul>
+<li><strong>코드</strong>: <code>xnvme_be_upcie_cuda_dev.c</code>의 <code>_cuda_dev_dmem_init()</code>이 <code>xnvme_be_upcie_gpu_map_required()</code>(= 모드 != <code>UIO_LUT</code>)로 분기한다. vfio면 <code>dmamem_from_cuda_iommu_map_pa()</code> → <code>dmamem_register()</code> → bulk <code>iommu_map_pa_add()</code>, 단위 <code>DMAMEM_CUDA_REGISTRY_GRANULARITY = 2 MiB</code> (<code>upcie/dmamem_cuda.h</code>). uio면 <code>state-&gt;dmem</code>이 BAR2 물리주소 LUT를 그대로 쓴다.</li>
+<li><strong>ftrace</strong>: <code>tasks/trace_iommu_gpu.yaml</code>로 <code>iommu:map</code>/<code>iommu:unmap</code>을 덤프. 2 MiB-aligned IOVA·물리주소의 superpage leaf가 관찰된다(Intel VT-d는 2 MiB 정렬 연속 범위를 2 MiB 페이지 하나로 매핑).</li>
+<li><strong>kprobe(별도 머신)</strong>: RTX PRO 4000 Blackwell, Linux 6.8, <code>intel_iommu=on</code>에서 1 GiB 버퍼가 <code>iommu_map</code> 1회로 <code>pgsize=2 MiB, pgcount=512</code>, 페이지테이블 level 2에 기록됐다. BAR 주소 <code>0x480f600000</code>이 2 MiB 정렬이나 1 GiB 정렬은 아니라, VT-d가 1 GiB를 지원해도 2 MiB가 최대다.</li>
+<li><strong>probe</strong>: <code>tasks/probe_dmabuf_import.yaml</code>의 <code>GET_MAP</code>은 misc(무 IOMMU) 64 KiB × 16384와 <code>--bdf</code> 단일 세그먼트를 보여준다. 둘 다 export 측 뷰일 뿐 매핑 단위가 아니다.</li>
+</ul>
+<h2>왜 오버헤드가 안 보이는가</h2>
+<ul>
+<li>vfio: attach 시 map-once(2 MiB superpage), 실행 중 unmap이 없어 <code>iommu.strict=1</code>의 즉시 invalidation이 발동하지 않는다.</li>
+<li>uio: 번역 자체가 없다.</li>
+<li>두 경우 모두 per-page walk가 없다. read 128K는 qdepth 1에서 이미 GPU PCIe 링크를 포화시켜, 그 구간 delta 0%는 링크가 말한 것이다.</li>
+</ul>
+<h2>근거 산출</h2>
+<ul>
+<li>probe: <code>tasks/probe_dmabuf_import.yaml</code>, <code>scripts/dmabuf_import_probe.py</code>, <code>auxiliary/dmabuf_import_probe.c</code></li>
+<li>trace: <code>tasks/trace_iommu_gpu.yaml</code>, <code>scripts/iommu_trace_gpu.py</code></li>
+<li>PR: 「Gpu iommu map size」(<code>gpu-iommu-map-size</code>)</li>
+</ul>
+<h2>한계</h2>
+<ul>
+<li>2 MiB는 uPCIe가 힙을 등록하는 단위이자 L4의 <code>alloc_granularity</code>다. 다른 GPU/드라이버에서 이 값이 다르면 매핑 단위도 달라질 수 있다.</li>
+<li>kprobe 수치는 RTX PRO 4000 Blackwell에서 측정한 것으로, 위 코드·ftrace(sid) 결과와 별개 머신이다.</li>
+</ul>
