@@ -19,7 +19,7 @@
 
 | 질문 | 결론 | 근거 |
 | --- | --- | --- |
-| iommufd가 디바이스 메모리(dma-buf)를 IOAS에 매핑할 수 있는가 | **부분 지원** VFIO PCI dma-buf의 단일 MMIO 구간만 | UAPI 주석(v7.2 `298ab7e6f163`), `pages.c`의 `symbol_get` 경로 |
+| iommufd가 디바이스 메모리(dma-buf)를 IOAS에 매핑할 수 있는가 | **부분 지원** VFIO PCI dma-buf의 단일 MMIO 구간만 | UAPI 주석(v7.2 [298ab7e6f163](https://github.com/torvalds/linux/commit/298ab7e6f163)), `pages.c`의 `symbol_get` 경로 |
 | CUDA/NVIDIA GPU dma-buf는 매핑되는가 | **미지원** `-EOPNOTSUPP` | `vfio_pci_dmabuf.c` 127행의 exporter ops 검사 |
 | 일반 exporter를 여는 작업은 머지되었는가 | **미머지** 두 RFC 경합 | master, for-next, linux-next에 PAL 심볼 없음. mm provider는 2026-10-06 RFC |
 | 사설 연결을 NVIDIA용으로 하나 더 두는 길은 있는가 | **없음** | iommufd 메인테이너의 2026-10-12 발언 |
@@ -139,11 +139,11 @@ iommufd의 dma-buf 경로도 `BATCH_MMIO`로 모은 뒤 `IOMMU_MMIO`를 붙여 `
 
 | 릴리스 | 머지 윈도 | 릴리스 날짜 | 내용 | 커밋 |
 | --- | --- | --- | --- | --- |
-| v6.13 | 2024-11 | 2025-01-19 | `IOMMU_IOAS_MAP_FILE` (memfd) | `f4986a72d6e4` |
-| v6.19 | 2025-12 | 2026-02-08 | dma-buf(MMIO) 매핑, `phys_vec`, vfio-pci dma-buf export와 P2P 기본 활성화 | `44ebaa1744fd`, `71db84a092c3`, `96ce2aeb15bd`, `3114c674401e`, `3aa31a8bb11e`, `35c3503908d3` |
-| v7.1 | 2026-04 | 2026-06-14 | dma-buf revoke/pin 정비 | `8c5f9645c389`, `be6d4c9e9d71`, `6ffe939bf94f`, `95308225e5ba` |
-| v7.2 | 2026-06 | 2026-08-16 | UAPI 주석 정정, access 경로에서 dma-buf 거부 | `298ab7e6f163`, `5f3fc0ad9a41` |
-| v7.3-rc1 | 2026-08 | (rc7 2026-10-11) | noiommu용 `IOMMU_IOAS_NOIOMMU_GET_PA` (호스트 메모리 전용, 본 주제와 무관) | `60decab325a4` |
+| v6.13 | 2024-11 | 2025-01-19 | `IOMMU_IOAS_MAP_FILE` (memfd) | [f4986a72d6e4](https://github.com/torvalds/linux/commit/f4986a72d6e4) |
+| v6.19 | 2025-12 | 2026-02-08 | dma-buf(MMIO) 매핑, `phys_vec`, vfio-pci dma-buf export와 P2P 기본 활성화 | [44ebaa1744fd](https://github.com/torvalds/linux/commit/44ebaa1744fd), [71db84a092c3](https://github.com/torvalds/linux/commit/71db84a092c3), [96ce2aeb15bd](https://github.com/torvalds/linux/commit/96ce2aeb15bd), [3114c674401e](https://github.com/torvalds/linux/commit/3114c674401e), [3aa31a8bb11e](https://github.com/torvalds/linux/commit/3aa31a8bb11e), [35c3503908d3](https://github.com/torvalds/linux/commit/35c3503908d3) |
+| v7.1 | 2026-04 | 2026-06-14 | dma-buf revoke/pin 정비 | [8c5f9645c389](https://github.com/torvalds/linux/commit/8c5f9645c389), [be6d4c9e9d71](https://github.com/torvalds/linux/commit/be6d4c9e9d71), [6ffe939bf94f](https://github.com/torvalds/linux/commit/6ffe939bf94f), [95308225e5ba](https://github.com/torvalds/linux/commit/95308225e5ba) |
+| v7.2 | 2026-06 | 2026-08-16 | UAPI 주석 정정, access 경로에서 dma-buf 거부 | [298ab7e6f163](https://github.com/torvalds/linux/commit/298ab7e6f163), [5f3fc0ad9a41](https://github.com/torvalds/linux/commit/5f3fc0ad9a41) |
+| v7.3-rc1 | 2026-08 | (rc7 2026-10-11) | noiommu용 `IOMMU_IOAS_NOIOMMU_GET_PA` (호스트 메모리 전용, 본 주제와 무관) | [60decab325a4](https://github.com/torvalds/linux/commit/60decab325a4) |
 
 ### 4.1 v6.13: IOMMU_IOAS_MAP_FILE (memfd)
 
@@ -151,21 +151,21 @@ Oracle의 Steve Sistare가 라이브 마이그레이션을 위해 추가하였�
 
 ### 4.2 v6.19: 디바이스 메모리(dma-buf/MMIO) 도입
 
-NVIDIA의 Jason Gunthorpe가 주도한 묶음이 같은 ioctl로 dma-buf를 받게 하였다. `71db84a092c3`의 메시지가 범위를 정확히 적는다. "DMABUF pages are not supported for accesses, and for now can only be used with the VFIO DMABUF exporter. ... There is no pinned page accounting done for DMABUF maps. The DMABUF attachment exists so long as the dmabuf is mapped into an IOAS." 같은 묶음에서 vfio-pci가 BAR 구간을 dma-buf로 내보내는 기능(`VFIO_DEVICE_FEATURE_DMA_BUF`)과 iommufd용 전용 함수 `vfio_pci_dma_buf_iommufd_map()`, 그리고 `phys_vec` 공용 타입이 들어왔다.
+NVIDIA의 Jason Gunthorpe가 주도한 묶음이 같은 ioctl로 dma-buf를 받게 하였다. [71db84a092c3](https://github.com/torvalds/linux/commit/71db84a092c3)의 메시지가 범위를 정확히 적는다. "DMABUF pages are not supported for accesses, and for now can only be used with the VFIO DMABUF exporter. ... There is no pinned page accounting done for DMABUF maps. The DMABUF attachment exists so long as the dmabuf is mapped into an IOAS." 같은 묶음에서 vfio-pci가 BAR 구간을 dma-buf로 내보내는 기능(`VFIO_DEVICE_FEATURE_DMA_BUF`)과 iommufd용 전용 함수 `vfio_pci_dma_buf_iommufd_map()`, 그리고 `phys_vec` 공용 타입이 들어왔다.
 
 iommufd와 vfio 사이의 이 전용 함수가 사설 연결(private interconnect)이다. `pages.c`의 주석은 "iommufd and vfio have a circular dependency. Future work for a phys based private interconnect will remove this."라고 적는다. v6.19는 출발점이지 완성점이 아니다.
 
 ### 4.3 v7.1: revoke/pin 정비
 
-NVIDIA의 Leon Romanovsky가 `dma_buf_move_notify()`를 `dma_buf_invalidate_mappings()`로 개명하고, `dma_buf_attach_revocable()`을 추가하여 vfio exporter가 revoke를 따르는 pinned importer를 받게 하였으며, iommufd가 사설 경로 대신 일반 `dma_buf_pin()` 흐름을 타게 하였다. `6ffe939bf94f`는 이것이 "IOMMUFD가 VFIO dma-buf에 대한 사설 인터페이스를 없애는 데 필요한 두 항목 중 하나"라고 적고, `8c5f9645c389`는 나머지 하나를 명시한다. "This isn't enough to allow IOMMUFD to work with other exporters, it still needs a way to get the physical address list which is another series." 그 "another series"가 §6.1의 PAL RFC다.
+NVIDIA의 Leon Romanovsky가 `dma_buf_move_notify()`를 `dma_buf_invalidate_mappings()`로 개명하고, `dma_buf_attach_revocable()`을 추가하여 vfio exporter가 revoke를 따르는 pinned importer를 받게 하였으며, iommufd가 사설 경로 대신 일반 `dma_buf_pin()` 흐름을 타게 하였다. [6ffe939bf94f](https://github.com/torvalds/linux/commit/6ffe939bf94f)는 이것이 "IOMMUFD가 VFIO dma-buf에 대한 사설 인터페이스를 없애는 데 필요한 두 항목 중 하나"라고 적고, [8c5f9645c389](https://github.com/torvalds/linux/commit/8c5f9645c389)는 나머지 하나를 명시한다. "This isn't enough to allow IOMMUFD to work with other exporters, it still needs a way to get the physical address list which is another series." 그 "another series"가 §6.1의 PAL RFC다.
 
 ### 4.4 v7.2에서 v7.3-rc: 현재 상태
 
-v7.2의 `298ab7e6f163`은 UAPI 주석을 현실에 맞게 고쳤다. 현재 문구는 다음과 같다.
+v7.2의 [298ab7e6f163](https://github.com/torvalds/linux/commit/298ab7e6f163)은 UAPI 주석을 현실에 맞게 고쳤다. 현재 문구는 다음과 같다.
 
 > Set an IOVA mapping from a memfd file. On kernels with dma-buf support, supported dma-buf files may also be accepted. This is not a generic dma-buf import path; currently supported dma-bufs include single-range VFIO PCI dma-bufs exported through VFIO_DEVICE_FEATURE_DMA_BUF, and other dma-bufs may be rejected.
 
-코드도 같다. `pages.c`는 selftest 전용 mock exporter(`CONFIG_IOMMUFD_TEST`)를 제외하면 vfio 심볼로만 물리주소를 얻고, `vfio_pci_dmabuf.c`의 주석은 성공 조건을 "There is one physical range and it is pointing to MMIO"로 적는다. 인트리에서 GPU 메모리를 이 경로로 넣는 유일한 예는 v6.19의 nvgrace-gpu vfio variant 드라이버(`5415d887db0e`)인데, GPU를 vfio에 바인딩해야 하므로 CUDA와 공존하지 못한다. 지금까지가 머지된 것이다. 이제 무엇이 막고 있는지 본다.
+코드도 같다. `pages.c`는 selftest 전용 mock exporter(`CONFIG_IOMMUFD_TEST`)를 제외하면 vfio 심볼로만 물리주소를 얻고, `vfio_pci_dmabuf.c`의 주석은 성공 조건을 "There is one physical range and it is pointing to MMIO"로 적는다. 인트리에서 GPU 메모리를 이 경로로 넣는 유일한 예는 v6.19의 nvgrace-gpu vfio variant 드라이버([5415d887db0e](https://github.com/torvalds/linux/commit/5415d887db0e))인데, GPU를 vfio에 바인딩해야 하므로 CUDA와 공존하지 못한다. 지금까지가 머지된 것이다. 이제 무엇이 막고 있는지 본다.
 
 ## 5. 제약 요인
 
@@ -191,7 +191,7 @@ iommufd는 DMA API를 쓰지 않고 `iommu_map()`에 물리주소를 직접 넣�
 
 본 팀 관점에서 중요한 사실 세 가지가 RFC에 명시되어 있다. 첫째, PAL importer는 모듈 로더(`EXPORT_SYMBOL_FOR_MODULES(dma_buf_pal_map_phys, "iommufd")`)로 iommufd만 허용되고, KVM은 같은 타입이 필요하다고 적혔으나 이 RFC에서는 허용되지 않았다. exporter는 누구나 구현할 수 있으며, 그 사유로 "DPDK/SPDK가 GPU 메모리를 VFIO/iommufd에 연결하는 용도"를 든다. 둘째, PAL 엔트리는 모두 MMIO로 간주되어 `IOMMU_MMIO`로 매핑된다. 셋째, patch 23이 iommufd의 vfio 함수 호출을 PAL로 바꾸고 patch 24가 다중 구간을 지원한다. 즉 §5의 요인과 두 조건을 모두 푼다.
 
-그러나 브랜치 `jgunthorpe/linux dmabuf_map_type`의 마지막 커밋은 2026년 3월 1일이고, master, iommufd for-next, linux-next 어디에도 PAL 심볼이 없다.
+그러나 브랜치 [jgunthorpe/linux dmabuf_map_type](https://github.com/jgunthorpe/linux/tree/dmabuf_map_type)의 마지막 커밋은 2026년 3월 1일이고, master, iommufd for-next, linux-next 어디에도 PAL 심볼이 없다.
 
 ### 6.2 mm memory provider (Fred Griffoul, Amazon)
 
@@ -205,19 +205,19 @@ Griffoul은 2026년 10월 5일 `[RFC 0/6] KVM: guest_memfd: back guest_memfd wit
 
 | 날짜 | 누가 | 내용 | 출처 |
 | --- | --- | --- | --- |
-| 2026-02-18 | Gunthorpe | PAL RFC 26편 게시 | `0-v1-b5cab63049c0+191af-dmabuf_map_type_jgg@nvidia.com` |
-| 2026-03-01 | Gunthorpe | 브랜치 마지막 커밋 | `jgunthorpe/linux dmabuf_map_type` |
-| 2026-04-13 | König | patch 21(PAL)에 "pretty big NO-GO". importer의 물리주소 직접 접근 반대. "iommufd가 왜 물리주소가 필요한가" | `c413710b-4c28-4ed8-88ec-aeb8c4482011@amd.com` |
-| 2026-04-13 | Gunthorpe | "CPU iommu hw only works in physical address." 목표 경로 둘: VFIO에서 KVM, 그리고 GPU/RDMA 드라이버에서 iommufd("SPDK and DPDK type userspace drivers to work with GPU memory. This is becoming a popular topic") | `20260413121628.GE2588311@nvidia.com` |
-| 2026-04-22 | König | dma-buf 안에 그런 인터페이스를 두는 것 자체를 반대. 대안: exporter가 iommufd의 `iommu_domain`에 직접 매핑하는 `dma_buf_map_attachment_iommu()` | `fd8065ce-fd0e-4df5-9c80-8e9603657cfe@amd.com`, `f6d38a08-009c-4efe-9dc3-6bcf00ac35f7@amd.com` |
-| 2026-04-22 | Gunthorpe | 절충안: exporter는 PAL, importer는 `iommu_domain`, 둘을 잇는 converter는 dma-buf core만 가진다. König은 mapping type 체계 자체에는 "Yes, absolutely" | `20260422150000.GK3199414@nvidia.com`, `e67426b9-4ded-4f6c-8309-7f847adb4540@amd.com` |
-| 2026-05-09 | Xu Yilun | 이 방식은 KVM에 맞지 않는다(KVM은 주소 공간 관리자이자 매퍼) | `af7GzASJiASopYiN@yilunxu-OptiPlex-7050` |
-| 2026-05-11 | Gunthorpe | 동의. PAL 스레드의 마지막 메시지 | `20260511224841.GA1197107@nvidia.com` |
-| 2026-07-20 | Woodhouse | guest_memfd provider RFC v2. iommufd 연결은 dma-buf | `20260720111259.122911-1-dwmw2@infradead.org` |
-| 2026-10-05 | Griffoul, König | dma-buf `get_phys()` RFC와 당일 NAK. König: exporter 전용 사설 인터페이스는 괜찮고 `symbol_get()`이 "아마 옳은 방법" | `20261005095552.52748-1-griffoul@gmail.com`, `a04f17cc-f59a-4240-81c8-29776eee3a2e@amd.com`, `f0077cec-10fe-400a-b229-f7434e297364@amd.com` |
-| 2026-10-06 | Griffoul | mm memory provider RFC 9편 | `20261006183235.16576-1-griffoul@gmail.com` |
-| 2026-10-12 | Gunthorpe | "I don't want to keep expanding this hack in iommufd. ... I don't want to hardwire every exporter into iommufd." 현행 vfio 사설 연결은 범용 해법을 끌어내기 위한 것이지 확장할 대상이 아니다 | `20261012144616.GF14213@ziepe.ca` |
-| 2026-10-12 | Griffoul | iommufd 쪽 exporter registry 안은 포기. mm 경로가 Gunthorpe가 생각하는 범용 인터페이스인지 질문. 답 없음 | `20261012152946.63489-1-griffoul@gmail.com` |
+| 2026-02-18 | Gunthorpe | PAL RFC 26편 게시 | [0-v1-b5cab63049c0+191af-dmabuf_map_type_jgg@nvidia.com](https://lore.kernel.org/all/0-v1-b5cab63049c0+191af-dmabuf_map_type_jgg@nvidia.com/) |
+| 2026-03-01 | Gunthorpe | 브랜치 마지막 커밋 | [jgunthorpe/linux dmabuf_map_type](https://github.com/jgunthorpe/linux/tree/dmabuf_map_type) |
+| 2026-04-13 | König | patch 21(PAL)에 "pretty big NO-GO". importer의 물리주소 직접 접근 반대. "iommufd가 왜 물리주소가 필요한가" | [c413710b-4c28-4ed8-88ec-aeb8c4482011@amd.com](https://lore.kernel.org/all/c413710b-4c28-4ed8-88ec-aeb8c4482011@amd.com/) |
+| 2026-04-13 | Gunthorpe | "CPU iommu hw only works in physical address." 목표 경로 둘: VFIO에서 KVM, 그리고 GPU/RDMA 드라이버에서 iommufd("SPDK and DPDK type userspace drivers to work with GPU memory. This is becoming a popular topic") | [20260413121628.GE2588311@nvidia.com](https://lore.kernel.org/all/20260413121628.GE2588311@nvidia.com/) |
+| 2026-04-22 | König | dma-buf 안에 그런 인터페이스를 두는 것 자체를 반대. 대안: exporter가 iommufd의 `iommu_domain`에 직접 매핑하는 `dma_buf_map_attachment_iommu()` | [fd8065ce-fd0e-4df5-9c80-8e9603657cfe@amd.com](https://lore.kernel.org/all/fd8065ce-fd0e-4df5-9c80-8e9603657cfe@amd.com/), [f6d38a08-009c-4efe-9dc3-6bcf00ac35f7@amd.com](https://lore.kernel.org/all/f6d38a08-009c-4efe-9dc3-6bcf00ac35f7@amd.com/) |
+| 2026-04-22 | Gunthorpe | 절충안: exporter는 PAL, importer는 `iommu_domain`, 둘을 잇는 converter는 dma-buf core만 가진다. König은 mapping type 체계 자체에는 "Yes, absolutely" | [20260422150000.GK3199414@nvidia.com](https://lore.kernel.org/all/20260422150000.GK3199414@nvidia.com/), [e67426b9-4ded-4f6c-8309-7f847adb4540@amd.com](https://lore.kernel.org/all/e67426b9-4ded-4f6c-8309-7f847adb4540@amd.com/) |
+| 2026-05-09 | Xu Yilun | 이 방식은 KVM에 맞지 않는다(KVM은 주소 공간 관리자이자 매퍼) | [af7GzASJiASopYiN@yilunxu-OptiPlex-7050](https://lore.kernel.org/all/af7GzASJiASopYiN@yilunxu-OptiPlex-7050/) |
+| 2026-05-11 | Gunthorpe | 동의. PAL 스레드의 마지막 메시지 | [20260511224841.GA1197107@nvidia.com](https://lore.kernel.org/all/20260511224841.GA1197107@nvidia.com/) |
+| 2026-07-20 | Woodhouse | guest_memfd provider RFC v2. iommufd 연결은 dma-buf | [20260720111259.122911-1-dwmw2@infradead.org](https://lore.kernel.org/all/20260720111259.122911-1-dwmw2@infradead.org/) |
+| 2026-10-05 | Griffoul, König | dma-buf `get_phys()` RFC와 당일 NAK. König: exporter 전용 사설 인터페이스는 괜찮고 `symbol_get()`이 "아마 옳은 방법" | [20261005095552.52748-1-griffoul@gmail.com](https://lore.kernel.org/all/20261005095552.52748-1-griffoul@gmail.com/), [a04f17cc-f59a-4240-81c8-29776eee3a2e@amd.com](https://lore.kernel.org/all/a04f17cc-f59a-4240-81c8-29776eee3a2e@amd.com/), [f0077cec-10fe-400a-b229-f7434e297364@amd.com](https://lore.kernel.org/all/f0077cec-10fe-400a-b229-f7434e297364@amd.com/) |
+| 2026-10-06 | Griffoul | mm memory provider RFC 9편 | [20261006183235.16576-1-griffoul@gmail.com](https://lore.kernel.org/all/20261006183235.16576-1-griffoul@gmail.com/) |
+| 2026-10-12 | Gunthorpe | "I don't want to keep expanding this hack in iommufd. ... I don't want to hardwire every exporter into iommufd." 현행 vfio 사설 연결은 범용 해법을 끌어내기 위한 것이지 확장할 대상이 아니다 | [20261012144616.GF14213@ziepe.ca](https://lore.kernel.org/all/20261012144616.GF14213@ziepe.ca/) |
+| 2026-10-12 | Griffoul | iommufd 쪽 exporter registry 안은 포기. mm 경로가 Gunthorpe가 생각하는 범용 인터페이스인지 질문. 답 없음 | [20261012152946.63489-1-griffoul@gmail.com](https://lore.kernel.org/all/20261012152946.63489-1-griffoul@gmail.com/) |
 
 표에서 읽을 수 있는 것은 두 가지다. PAL 스레드는 절충안이 나온 채 5월에 멈췄고, 10월에 쟁점이 "누가 물리주소를 확인하는가"에서 "범용 훅을 dma-buf, iommufd 사설 연결, mm 중 어디에 두는가"로 옮겨 갔다. 두 메인테이너는 서로 상대 쪽 서브시스템에 훅을 두자고 한다. König은 dma-buf 밖(iommufd 사설 또는 mm)을, Gunthorpe는 dma-buf 안(pluggable한 `iommu_domain` 채우기)을 말한다.
 
@@ -279,23 +279,23 @@ Griffoul은 2026년 10월 5일 `[RFC 0/6] KVM: guest_memfd: back guest_memfd wit
 
 | 시점 | 사건 | 출처 |
 | --- | --- | --- |
-| 2025-07-30 | vfio/pci MMIO 영역 dma-buf export 시리즈 논의(exporter 측) | `20250730135846.2208fe89.alex.williamson@redhat.com` |
-| 2025-10-27 | iommufd dma-buf 지원 시리즈 v1 게시 | `0-v1-64bed2430cdb+31b-iommufd_dmabuf_jgg@nvidia.com` |
-| 2025-11-21 | 시리즈 v2 게시 → v6.19 머지 | `0-v2-b2c110338e3f+5c2-iommufd_dmabuf_jgg@nvidia.com` |
-| 2026-02-18 | PAL RFC 00/26 게시 | `0-v1-b5cab63049c0+191af-dmabuf_map_type_jgg@nvidia.com` |
-| 2026-03-01 | PAL 브랜치 마지막 커밋(이후 정체) | `jgunthorpe/linux dmabuf_map_type` |
-| 2026-04-13 | König: patch 21(PAL) "pretty big NO-GO" | `c413710b-4c28-4ed8-88ec-aeb8c4482011@amd.com` |
-| 2026-04-22 | König 대안(`dma_buf_map_attachment_iommu`)·"Yes, absolutely"; jgg 3단계 절충안 | `fd8065ce-fd0e-4df5-9c80-8e9603657cfe@amd.com`, `e67426b9-4ded-4f6c-8309-7f847adb4540@amd.com`, `20260422150000.GK3199414@nvidia.com` |
-| 2026-05-09 | Xu Yilun: 이 방식은 KVM에 맞지 않음 | `af7GzASJiASopYiN@yilunxu-OptiPlex-7050` |
-| 2026-05-11 | jgg 동의 — PAL 스레드 종료 | `20260511224841.GA1197107@nvidia.com` |
-| 2026-07-08 | (버그) dma-buf iopt_pages가 access pin 경로로 — lockdep | `E8540D7D05768C91+8b2ef227-3368-494e-909d-7b28e1489dfb@smail.nju.edu.cn` |
-| 2026-07-20 | Woodhouse guest_memfd provider RFC v2 | `20260720111259.122911-1-dwmw2@infradead.org` |
-| 2026-08-30 | v7.2: UAPI 정정 + access 경로에서 dma-buf 거부 | `298ab7e6f163`, `5f3fc0ad9a41` |
-| 2026-09-08 | fgds RFC(GPU↔NVMe 직접 I/O, 우회 접근) | `20260908131545.105987-1-liwang@kylinos.cn` |
-| 2026-10-05 | Griffoul dma-buf `get_phys()` RFC + König 당일 NAK | `20261005095552.52748-1-griffoul@gmail.com`, `a04f17cc-f59a-4240-81c8-29776eee3a2e@amd.com`, `f0077cec-10fe-400a-b229-f7434e297364@amd.com` |
-| 2026-10-06 | Griffoul mm memory provider RFC 0/9 | `20261006183235.16576-1-griffoul@gmail.com` |
-| 2026-10-10 | Aneesh Kumar confidential-computing 시리즈 | `20261010072504.536230-1-aneesh.kumar@kernel.org` |
-| 2026-10-12 | Gunthorpe "exporter별 사설 연결을 더 늘리지 않음"; Griffoul registry 포기 | `20261012144616.GF14213@ziepe.ca`, `20261012152946.63489-1-griffoul@gmail.com` |
+| 2025-07-30 | vfio/pci MMIO 영역 dma-buf export 시리즈 논의(exporter 측) | [20250730135846.2208fe89.alex.williamson@redhat.com](https://lore.kernel.org/all/20250730135846.2208fe89.alex.williamson@redhat.com/) |
+| 2025-10-27 | iommufd dma-buf 지원 시리즈 v1 게시 | [0-v1-64bed2430cdb+31b-iommufd_dmabuf_jgg@nvidia.com](https://lore.kernel.org/all/0-v1-64bed2430cdb+31b-iommufd_dmabuf_jgg@nvidia.com/) |
+| 2025-11-21 | 시리즈 v2 게시 → v6.19 머지 | [0-v2-b2c110338e3f+5c2-iommufd_dmabuf_jgg@nvidia.com](https://lore.kernel.org/all/0-v2-b2c110338e3f+5c2-iommufd_dmabuf_jgg@nvidia.com/) |
+| 2026-02-18 | PAL RFC 00/26 게시 | [0-v1-b5cab63049c0+191af-dmabuf_map_type_jgg@nvidia.com](https://lore.kernel.org/all/0-v1-b5cab63049c0+191af-dmabuf_map_type_jgg@nvidia.com/) |
+| 2026-03-01 | PAL 브랜치 마지막 커밋(이후 정체) | [jgunthorpe/linux dmabuf_map_type](https://github.com/jgunthorpe/linux/tree/dmabuf_map_type) |
+| 2026-04-13 | König: patch 21(PAL) "pretty big NO-GO" | [c413710b-4c28-4ed8-88ec-aeb8c4482011@amd.com](https://lore.kernel.org/all/c413710b-4c28-4ed8-88ec-aeb8c4482011@amd.com/) |
+| 2026-04-22 | König 대안(`dma_buf_map_attachment_iommu`)·"Yes, absolutely"; jgg 3단계 절충안 | [fd8065ce-fd0e-4df5-9c80-8e9603657cfe@amd.com](https://lore.kernel.org/all/fd8065ce-fd0e-4df5-9c80-8e9603657cfe@amd.com/), [e67426b9-4ded-4f6c-8309-7f847adb4540@amd.com](https://lore.kernel.org/all/e67426b9-4ded-4f6c-8309-7f847adb4540@amd.com/), [20260422150000.GK3199414@nvidia.com](https://lore.kernel.org/all/20260422150000.GK3199414@nvidia.com/) |
+| 2026-05-09 | Xu Yilun: 이 방식은 KVM에 맞지 않음 | [af7GzASJiASopYiN@yilunxu-OptiPlex-7050](https://lore.kernel.org/all/af7GzASJiASopYiN@yilunxu-OptiPlex-7050/) |
+| 2026-05-11 | jgg 동의 — PAL 스레드 종료 | [20260511224841.GA1197107@nvidia.com](https://lore.kernel.org/all/20260511224841.GA1197107@nvidia.com/) |
+| 2026-07-08 | (버그) dma-buf iopt_pages가 access pin 경로로 — lockdep | [E8540D7D05768C91+8b2ef227-3368-494e-909d-7b28e1489dfb@smail.nju.edu.cn](https://lore.kernel.org/all/E8540D7D05768C91+8b2ef227-3368-494e-909d-7b28e1489dfb@smail.nju.edu.cn/) |
+| 2026-07-20 | Woodhouse guest_memfd provider RFC v2 | [20260720111259.122911-1-dwmw2@infradead.org](https://lore.kernel.org/all/20260720111259.122911-1-dwmw2@infradead.org/) |
+| 2026-08-30 | v7.2: UAPI 정정 + access 경로에서 dma-buf 거부 | [298ab7e6f163](https://github.com/torvalds/linux/commit/298ab7e6f163), [5f3fc0ad9a41](https://github.com/torvalds/linux/commit/5f3fc0ad9a41) |
+| 2026-09-08 | fgds RFC(GPU↔NVMe 직접 I/O, 우회 접근) | [20260908131545.105987-1-liwang@kylinos.cn](https://lore.kernel.org/all/20260908131545.105987-1-liwang@kylinos.cn/) |
+| 2026-10-05 | Griffoul dma-buf `get_phys()` RFC + König 당일 NAK | [20261005095552.52748-1-griffoul@gmail.com](https://lore.kernel.org/all/20261005095552.52748-1-griffoul@gmail.com/), [a04f17cc-f59a-4240-81c8-29776eee3a2e@amd.com](https://lore.kernel.org/all/a04f17cc-f59a-4240-81c8-29776eee3a2e@amd.com/), [f0077cec-10fe-400a-b229-f7434e297364@amd.com](https://lore.kernel.org/all/f0077cec-10fe-400a-b229-f7434e297364@amd.com/) |
+| 2026-10-06 | Griffoul mm memory provider RFC 0/9 | [20261006183235.16576-1-griffoul@gmail.com](https://lore.kernel.org/all/20261006183235.16576-1-griffoul@gmail.com/) |
+| 2026-10-10 | Aneesh Kumar confidential-computing 시리즈 | [20261010072504.536230-1-aneesh.kumar@kernel.org](https://lore.kernel.org/all/20261010072504.536230-1-aneesh.kumar@kernel.org/) |
+| 2026-10-12 | Gunthorpe "exporter별 사설 연결을 더 늘리지 않음"; Griffoul registry 포기 | [20261012144616.GF14213@ziepe.ca](https://lore.kernel.org/all/20261012144616.GF14213@ziepe.ca/), [20261012152946.63489-1-griffoul@gmail.com](https://lore.kernel.org/all/20261012152946.63489-1-griffoul@gmail.com/) |
 
 ## 부록 A. 근거 자료
 
@@ -303,31 +303,31 @@ Griffoul은 2026년 10월 5일 `[RFC 0/6] KVM: guest_memfd: back guest_memfd wit
 
 | 릴리스 | 커밋 | 제목 |
 | --- | --- | --- |
-| v6.13 | `f4986a72d6e4` | iommufd: Add IOMMU_IOAS_MAP_FILE |
-| v6.19 | `44ebaa1744fd` | iommufd: Accept a DMABUF through IOMMU_IOAS_MAP_FILE |
-| v6.19 | `71db84a092c3` | iommufd: Add DMABUF to iopt_pages |
-| v6.19 | `96ce2aeb15bd` | vfio/pci: Add vfio_pci_dma_buf_iommufd_map() |
-| v6.19 | `3114c674401e` | iommufd: Allow MMIO pages in a batch |
-| v6.19 | `3aa31a8bb11e` | dma-buf: provide phys_vec to scatter-gather mapping routine |
-| v6.19 | `35c3503908d3` | vfio/pci: Enable peer-to-peer DMA transactions by default |
-| v6.19 | `5415d887db0e` | vfio/nvgrace: Support get_dmabuf_phys |
-| v7.1 | `8c5f9645c389` | iommufd: Add dma_buf_pin() |
-| v7.1 | `be6d4c9e9d71` | dma-buf: Add dma_buf_attach_revocable() |
-| v7.1 | `6ffe939bf94f` | vfio: Permit VFIO to work with pinned importers |
-| v7.1 | `95308225e5ba` | dma-buf: Rename dma_buf_move_notify() to dma_buf_invalidate_mappings() |
-| v7.2 | `298ab7e6f163` | iommufd: Clarify IOAS_MAP_FILE dma-buf support |
-| v7.2 | `5f3fc0ad9a41` | iommufd: Reject DMABUF pages from the access pin path |
-| v7.3-rc1 | `60decab325a4` | iommufd: Add an ioctl to query PA from IOVA for noiommu mode |
+| v6.13 | [f4986a72d6e4](https://github.com/torvalds/linux/commit/f4986a72d6e4) | iommufd: Add IOMMU_IOAS_MAP_FILE |
+| v6.19 | [44ebaa1744fd](https://github.com/torvalds/linux/commit/44ebaa1744fd) | iommufd: Accept a DMABUF through IOMMU_IOAS_MAP_FILE |
+| v6.19 | [71db84a092c3](https://github.com/torvalds/linux/commit/71db84a092c3) | iommufd: Add DMABUF to iopt_pages |
+| v6.19 | [96ce2aeb15bd](https://github.com/torvalds/linux/commit/96ce2aeb15bd) | vfio/pci: Add vfio_pci_dma_buf_iommufd_map() |
+| v6.19 | [3114c674401e](https://github.com/torvalds/linux/commit/3114c674401e) | iommufd: Allow MMIO pages in a batch |
+| v6.19 | [3aa31a8bb11e](https://github.com/torvalds/linux/commit/3aa31a8bb11e) | dma-buf: provide phys_vec to scatter-gather mapping routine |
+| v6.19 | [35c3503908d3](https://github.com/torvalds/linux/commit/35c3503908d3) | vfio/pci: Enable peer-to-peer DMA transactions by default |
+| v6.19 | [5415d887db0e](https://github.com/torvalds/linux/commit/5415d887db0e) | vfio/nvgrace: Support get_dmabuf_phys |
+| v7.1 | [8c5f9645c389](https://github.com/torvalds/linux/commit/8c5f9645c389) | iommufd: Add dma_buf_pin() |
+| v7.1 | [be6d4c9e9d71](https://github.com/torvalds/linux/commit/be6d4c9e9d71) | dma-buf: Add dma_buf_attach_revocable() |
+| v7.1 | [6ffe939bf94f](https://github.com/torvalds/linux/commit/6ffe939bf94f) | vfio: Permit VFIO to work with pinned importers |
+| v7.1 | [95308225e5ba](https://github.com/torvalds/linux/commit/95308225e5ba) | dma-buf: Rename dma_buf_move_notify() to dma_buf_invalidate_mappings() |
+| v7.2 | [298ab7e6f163](https://github.com/torvalds/linux/commit/298ab7e6f163) | iommufd: Clarify IOAS_MAP_FILE dma-buf support |
+| v7.2 | [5f3fc0ad9a41](https://github.com/torvalds/linux/commit/5f3fc0ad9a41) | iommufd: Reject DMABUF pages from the access pin path |
+| v7.3-rc1 | [60decab325a4](https://github.com/torvalds/linux/commit/60decab325a4) | iommufd: Add an ioctl to query PA from IOVA for noiommu mode |
 
 ### 미머지 시리즈와 스레드
 
 | 구분 | msgid 또는 위치 |
 | --- | --- |
-| PAL RFC 00/26 | `0-v1-b5cab63049c0+191af-dmabuf_map_type_jgg@nvidia.com` (patchwork 시리즈 1055041) |
-| PAL 브랜치 | `https://github.com/jgunthorpe/linux` `dmabuf_map_type`, 끝 c37cf2824740 |
-| Woodhouse RFC v2 00/11 | `20260720111259.122911-1-dwmw2@infradead.org` |
-| Griffoul dma-buf RFC 0/6 | `20261005095552.52748-1-griffoul@gmail.com` |
-| Griffoul mm provider RFC 0/9 | `20261006183235.16576-1-griffoul@gmail.com` (patchwork 시리즈 1180470) |
+| PAL RFC 00/26 | [0-v1-b5cab63049c0+191af-dmabuf_map_type_jgg@nvidia.com](https://lore.kernel.org/all/0-v1-b5cab63049c0+191af-dmabuf_map_type_jgg@nvidia.com/) (patchwork 시리즈 1055041) |
+| PAL 브랜치 | [jgunthorpe/linux dmabuf_map_type](https://github.com/jgunthorpe/linux/tree/dmabuf_map_type), 끝 c37cf2824740 |
+| Woodhouse RFC v2 00/11 | [20260720111259.122911-1-dwmw2@infradead.org](https://lore.kernel.org/all/20260720111259.122911-1-dwmw2@infradead.org/) |
+| Griffoul dma-buf RFC 0/6 | [20261005095552.52748-1-griffoul@gmail.com](https://lore.kernel.org/all/20261005095552.52748-1-griffoul@gmail.com/) |
+| Griffoul mm provider RFC 0/9 | [20261006183235.16576-1-griffoul@gmail.com](https://lore.kernel.org/all/20261006183235.16576-1-griffoul@gmail.com/) (patchwork 시리즈 1180470) |
 | 인용한 답글 | §6.3 표의 출처 열 |
 
 ### 소스 파일
