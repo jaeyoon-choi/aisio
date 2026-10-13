@@ -19,7 +19,7 @@
 
 | 질문 | 결론 | 근거 |
 | --- | --- | --- |
-| iommufd가 디바이스 메모리(dma-buf)를 IOAS에 매핑할 수 있는가 | **부분 지원** VFIO PCI dma-buf의 단일 MMIO 구간만 | UAPI 주석(v7.2 [298ab7e6f163](https://github.com/torvalds/linux/commit/298ab7e6f163)), `pages.c`의 `symbol_get` 경로 |
+| iommufd가 디바이스 메모리(dma-buf)를 IOAS에 매핑할 수 있는가 | **부분 지원** VFIO PCI dma-buf의 단일 MMIO 구간만 | UAPI 주석(v7.2 [298ab7e6f163](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=298ab7e6f163)), `pages.c`의 `symbol_get` 경로 |
 | CUDA/NVIDIA GPU dma-buf는 매핑되는가 | **미지원** `-EOPNOTSUPP` | `vfio_pci_dmabuf.c` 127행의 exporter ops 검사 |
 | 일반 exporter를 여는 작업은 머지되었는가 | **미머지** 두 RFC 경합 | master, for-next, linux-next에 PAL 심볼 없음. mm provider는 2026-10-06 RFC |
 | 사설 연결을 NVIDIA용으로 하나 더 두는 길은 있는가 | **없음** | iommufd 메인테이너의 2026-10-12 발언 |
@@ -139,11 +139,11 @@ iommufd의 dma-buf 경로도 `BATCH_MMIO`로 모은 뒤 `IOMMU_MMIO`를 붙여 `
 
 | 릴리스 | 머지 윈도 | 릴리스 날짜 | 내용 | 커밋 |
 | --- | --- | --- | --- | --- |
-| v6.13 | 2024-11 | 2025-01-19 | `IOMMU_IOAS_MAP_FILE` (memfd) | [f4986a72d6e4](https://github.com/torvalds/linux/commit/f4986a72d6e4) |
-| v6.19 | 2025-12 | 2026-02-08 | dma-buf(MMIO) 매핑, `phys_vec`, vfio-pci dma-buf export와 P2P 기본 활성화 | [44ebaa1744fd](https://github.com/torvalds/linux/commit/44ebaa1744fd), [71db84a092c3](https://github.com/torvalds/linux/commit/71db84a092c3), [96ce2aeb15bd](https://github.com/torvalds/linux/commit/96ce2aeb15bd), [3114c674401e](https://github.com/torvalds/linux/commit/3114c674401e), [3aa31a8bb11e](https://github.com/torvalds/linux/commit/3aa31a8bb11e), [35c3503908d3](https://github.com/torvalds/linux/commit/35c3503908d3) |
-| v7.1 | 2026-04 | 2026-06-14 | dma-buf revoke/pin 정비 | [8c5f9645c389](https://github.com/torvalds/linux/commit/8c5f9645c389), [be6d4c9e9d71](https://github.com/torvalds/linux/commit/be6d4c9e9d71), [6ffe939bf94f](https://github.com/torvalds/linux/commit/6ffe939bf94f), [95308225e5ba](https://github.com/torvalds/linux/commit/95308225e5ba) |
-| v7.2 | 2026-06 | 2026-08-16 | UAPI 주석 정정, access 경로에서 dma-buf 거부 | [298ab7e6f163](https://github.com/torvalds/linux/commit/298ab7e6f163), [5f3fc0ad9a41](https://github.com/torvalds/linux/commit/5f3fc0ad9a41) |
-| v7.3-rc1 | 2026-08 | (rc7 2026-10-11) | noiommu용 `IOMMU_IOAS_NOIOMMU_GET_PA` (호스트 메모리 전용, 본 주제와 무관) | [60decab325a4](https://github.com/torvalds/linux/commit/60decab325a4) |
+| v6.13 | 2024-11 | 2025-01-19 | `IOMMU_IOAS_MAP_FILE` (memfd) | [f4986a72d6e4](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=f4986a72d6e4) |
+| v6.19 | 2025-12 | 2026-02-08 | dma-buf(MMIO) 매핑, `phys_vec`, vfio-pci dma-buf export와 P2P 기본 활성화 | [44ebaa1744fd](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=44ebaa1744fd), [71db84a092c3](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=71db84a092c3), [96ce2aeb15bd](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=96ce2aeb15bd), [3114c674401e](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=3114c674401e), [3aa31a8bb11e](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=3aa31a8bb11e), [35c3503908d3](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=35c3503908d3) |
+| v7.1 | 2026-04 | 2026-06-14 | dma-buf revoke/pin 정비 | [8c5f9645c389](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=8c5f9645c389), [be6d4c9e9d71](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=be6d4c9e9d71), [6ffe939bf94f](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=6ffe939bf94f), [95308225e5ba](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=95308225e5ba) |
+| v7.2 | 2026-06 | 2026-08-16 | UAPI 주석 정정, access 경로에서 dma-buf 거부 | [298ab7e6f163](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=298ab7e6f163), [5f3fc0ad9a41](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=5f3fc0ad9a41) |
+| v7.3-rc1 | 2026-08 | (rc7 2026-10-11) | noiommu용 `IOMMU_IOAS_NOIOMMU_GET_PA` (호스트 메모리 전용, 본 주제와 무관) | [60decab325a4](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=60decab325a4) |
 
 ### 4.1 v6.13: IOMMU_IOAS_MAP_FILE (memfd)
 
@@ -151,21 +151,21 @@ Oracle의 Steve Sistare가 라이브 마이그레이션을 위해 추가하였�
 
 ### 4.2 v6.19: 디바이스 메모리(dma-buf/MMIO) 도입
 
-NVIDIA의 Jason Gunthorpe가 주도한 묶음이 같은 ioctl로 dma-buf를 받게 하였다. [71db84a092c3](https://github.com/torvalds/linux/commit/71db84a092c3)의 메시지가 범위를 정확히 적는다. "DMABUF pages are not supported for accesses, and for now can only be used with the VFIO DMABUF exporter. ... There is no pinned page accounting done for DMABUF maps. The DMABUF attachment exists so long as the dmabuf is mapped into an IOAS." 같은 묶음에서 vfio-pci가 BAR 구간을 dma-buf로 내보내는 기능(`VFIO_DEVICE_FEATURE_DMA_BUF`)과 iommufd용 전용 함수 `vfio_pci_dma_buf_iommufd_map()`, 그리고 `phys_vec` 공용 타입이 들어왔다.
+NVIDIA의 Jason Gunthorpe가 주도한 묶음이 같은 ioctl로 dma-buf를 받게 하였다. [71db84a092c3](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=71db84a092c3)의 메시지가 범위를 정확히 적는다. "DMABUF pages are not supported for accesses, and for now can only be used with the VFIO DMABUF exporter. ... There is no pinned page accounting done for DMABUF maps. The DMABUF attachment exists so long as the dmabuf is mapped into an IOAS." 같은 묶음에서 vfio-pci가 BAR 구간을 dma-buf로 내보내는 기능(`VFIO_DEVICE_FEATURE_DMA_BUF`)과 iommufd용 전용 함수 `vfio_pci_dma_buf_iommufd_map()`, 그리고 `phys_vec` 공용 타입이 들어왔다.
 
 iommufd와 vfio 사이의 이 전용 함수가 사설 연결(private interconnect)이다. `pages.c`의 주석은 "iommufd and vfio have a circular dependency. Future work for a phys based private interconnect will remove this."라고 적는다. v6.19는 출발점이지 완성점이 아니다.
 
 ### 4.3 v7.1: revoke/pin 정비
 
-NVIDIA의 Leon Romanovsky가 `dma_buf_move_notify()`를 `dma_buf_invalidate_mappings()`로 개명하고, `dma_buf_attach_revocable()`을 추가하여 vfio exporter가 revoke를 따르는 pinned importer를 받게 하였으며, iommufd가 사설 경로 대신 일반 `dma_buf_pin()` 흐름을 타게 하였다. [6ffe939bf94f](https://github.com/torvalds/linux/commit/6ffe939bf94f)는 이것이 "IOMMUFD가 VFIO dma-buf에 대한 사설 인터페이스를 없애는 데 필요한 두 항목 중 하나"라고 적고, [8c5f9645c389](https://github.com/torvalds/linux/commit/8c5f9645c389)는 나머지 하나를 명시한다. "This isn't enough to allow IOMMUFD to work with other exporters, it still needs a way to get the physical address list which is another series." 그 "another series"가 §6.1의 PAL RFC다.
+NVIDIA의 Leon Romanovsky가 `dma_buf_move_notify()`를 `dma_buf_invalidate_mappings()`로 개명하고, `dma_buf_attach_revocable()`을 추가하여 vfio exporter가 revoke를 따르는 pinned importer를 받게 하였으며, iommufd가 사설 경로 대신 일반 `dma_buf_pin()` 흐름을 타게 하였다. [6ffe939bf94f](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=6ffe939bf94f)는 이것이 "IOMMUFD가 VFIO dma-buf에 대한 사설 인터페이스를 없애는 데 필요한 두 항목 중 하나"라고 적고, [8c5f9645c389](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=8c5f9645c389)는 나머지 하나를 명시한다. "This isn't enough to allow IOMMUFD to work with other exporters, it still needs a way to get the physical address list which is another series." 그 "another series"가 §6.1의 PAL RFC다.
 
 ### 4.4 v7.2에서 v7.3-rc: 현재 상태
 
-v7.2의 [298ab7e6f163](https://github.com/torvalds/linux/commit/298ab7e6f163)은 UAPI 주석을 현실에 맞게 고쳤다. 현재 문구는 다음과 같다.
+v7.2의 [298ab7e6f163](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=298ab7e6f163)은 UAPI 주석을 현실에 맞게 고쳤다. 현재 문구는 다음과 같다.
 
 > Set an IOVA mapping from a memfd file. On kernels with dma-buf support, supported dma-buf files may also be accepted. This is not a generic dma-buf import path; currently supported dma-bufs include single-range VFIO PCI dma-bufs exported through VFIO_DEVICE_FEATURE_DMA_BUF, and other dma-bufs may be rejected.
 
-코드도 같다. `pages.c`는 selftest 전용 mock exporter(`CONFIG_IOMMUFD_TEST`)를 제외하면 vfio 심볼로만 물리주소를 얻고, `vfio_pci_dmabuf.c`의 주석은 성공 조건을 "There is one physical range and it is pointing to MMIO"로 적는다. 인트리에서 GPU 메모리를 이 경로로 넣는 유일한 예는 v6.19의 nvgrace-gpu vfio variant 드라이버([5415d887db0e](https://github.com/torvalds/linux/commit/5415d887db0e))인데, GPU를 vfio에 바인딩해야 하므로 CUDA와 공존하지 못한다. 지금까지가 머지된 것이다. 이제 무엇이 막고 있는지 본다.
+코드도 같다. `pages.c`는 selftest 전용 mock exporter(`CONFIG_IOMMUFD_TEST`)를 제외하면 vfio 심볼로만 물리주소를 얻고, `vfio_pci_dmabuf.c`의 주석은 성공 조건을 "There is one physical range and it is pointing to MMIO"로 적는다. 인트리에서 GPU 메모리를 이 경로로 넣는 유일한 예는 v6.19의 nvgrace-gpu vfio variant 드라이버([5415d887db0e](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=5415d887db0e))인데, GPU를 vfio에 바인딩해야 하므로 CUDA와 공존하지 못한다. 지금까지가 머지된 것이다. 이제 무엇이 막고 있는지 본다.
 
 ## 5. 제약 요인
 
@@ -290,7 +290,7 @@ Griffoul은 2026년 10월 5일 `[RFC 0/6] KVM: guest_memfd: back guest_memfd wit
 | 2026-05-11 | jgg 동의 — PAL 스레드 종료 | [20260511224841.GA1197107@nvidia.com](https://lore.kernel.org/all/20260511224841.GA1197107@nvidia.com/) |
 | 2026-07-08 | (버그) dma-buf iopt_pages가 access pin 경로로 — lockdep | [E8540D7D05768C91+8b2ef227-3368-494e-909d-7b28e1489dfb@smail.nju.edu.cn](https://lore.kernel.org/all/E8540D7D05768C91+8b2ef227-3368-494e-909d-7b28e1489dfb@smail.nju.edu.cn/) |
 | 2026-07-20 | Woodhouse guest_memfd provider RFC v2 | [20260720111259.122911-1-dwmw2@infradead.org](https://lore.kernel.org/all/20260720111259.122911-1-dwmw2@infradead.org/) |
-| 2026-08-30 | v7.2: UAPI 정정 + access 경로에서 dma-buf 거부 | [298ab7e6f163](https://github.com/torvalds/linux/commit/298ab7e6f163), [5f3fc0ad9a41](https://github.com/torvalds/linux/commit/5f3fc0ad9a41) |
+| 2026-08-30 | v7.2: UAPI 정정 + access 경로에서 dma-buf 거부 | [298ab7e6f163](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=298ab7e6f163), [5f3fc0ad9a41](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=5f3fc0ad9a41) |
 | 2026-09-08 | fgds RFC(GPU↔NVMe 직접 I/O, 우회 접근) | [20260908131545.105987-1-liwang@kylinos.cn](https://lore.kernel.org/all/20260908131545.105987-1-liwang@kylinos.cn/) |
 | 2026-10-05 | Griffoul dma-buf `get_phys()` RFC + König 당일 NAK | [20261005095552.52748-1-griffoul@gmail.com](https://lore.kernel.org/all/20261005095552.52748-1-griffoul@gmail.com/), [a04f17cc-f59a-4240-81c8-29776eee3a2e@amd.com](https://lore.kernel.org/all/a04f17cc-f59a-4240-81c8-29776eee3a2e@amd.com/), [f0077cec-10fe-400a-b229-f7434e297364@amd.com](https://lore.kernel.org/all/f0077cec-10fe-400a-b229-f7434e297364@amd.com/) |
 | 2026-10-06 | Griffoul mm memory provider RFC 0/9 | [20261006183235.16576-1-griffoul@gmail.com](https://lore.kernel.org/all/20261006183235.16576-1-griffoul@gmail.com/) |
@@ -303,21 +303,21 @@ Griffoul은 2026년 10월 5일 `[RFC 0/6] KVM: guest_memfd: back guest_memfd wit
 
 | 릴리스 | 커밋 | 제목 |
 | --- | --- | --- |
-| v6.13 | [f4986a72d6e4](https://github.com/torvalds/linux/commit/f4986a72d6e4) | iommufd: Add IOMMU_IOAS_MAP_FILE |
-| v6.19 | [44ebaa1744fd](https://github.com/torvalds/linux/commit/44ebaa1744fd) | iommufd: Accept a DMABUF through IOMMU_IOAS_MAP_FILE |
-| v6.19 | [71db84a092c3](https://github.com/torvalds/linux/commit/71db84a092c3) | iommufd: Add DMABUF to iopt_pages |
-| v6.19 | [96ce2aeb15bd](https://github.com/torvalds/linux/commit/96ce2aeb15bd) | vfio/pci: Add vfio_pci_dma_buf_iommufd_map() |
-| v6.19 | [3114c674401e](https://github.com/torvalds/linux/commit/3114c674401e) | iommufd: Allow MMIO pages in a batch |
-| v6.19 | [3aa31a8bb11e](https://github.com/torvalds/linux/commit/3aa31a8bb11e) | dma-buf: provide phys_vec to scatter-gather mapping routine |
-| v6.19 | [35c3503908d3](https://github.com/torvalds/linux/commit/35c3503908d3) | vfio/pci: Enable peer-to-peer DMA transactions by default |
-| v6.19 | [5415d887db0e](https://github.com/torvalds/linux/commit/5415d887db0e) | vfio/nvgrace: Support get_dmabuf_phys |
-| v7.1 | [8c5f9645c389](https://github.com/torvalds/linux/commit/8c5f9645c389) | iommufd: Add dma_buf_pin() |
-| v7.1 | [be6d4c9e9d71](https://github.com/torvalds/linux/commit/be6d4c9e9d71) | dma-buf: Add dma_buf_attach_revocable() |
-| v7.1 | [6ffe939bf94f](https://github.com/torvalds/linux/commit/6ffe939bf94f) | vfio: Permit VFIO to work with pinned importers |
-| v7.1 | [95308225e5ba](https://github.com/torvalds/linux/commit/95308225e5ba) | dma-buf: Rename dma_buf_move_notify() to dma_buf_invalidate_mappings() |
-| v7.2 | [298ab7e6f163](https://github.com/torvalds/linux/commit/298ab7e6f163) | iommufd: Clarify IOAS_MAP_FILE dma-buf support |
-| v7.2 | [5f3fc0ad9a41](https://github.com/torvalds/linux/commit/5f3fc0ad9a41) | iommufd: Reject DMABUF pages from the access pin path |
-| v7.3-rc1 | [60decab325a4](https://github.com/torvalds/linux/commit/60decab325a4) | iommufd: Add an ioctl to query PA from IOVA for noiommu mode |
+| v6.13 | [f4986a72d6e4](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=f4986a72d6e4) | iommufd: Add IOMMU_IOAS_MAP_FILE |
+| v6.19 | [44ebaa1744fd](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=44ebaa1744fd) | iommufd: Accept a DMABUF through IOMMU_IOAS_MAP_FILE |
+| v6.19 | [71db84a092c3](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=71db84a092c3) | iommufd: Add DMABUF to iopt_pages |
+| v6.19 | [96ce2aeb15bd](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=96ce2aeb15bd) | vfio/pci: Add vfio_pci_dma_buf_iommufd_map() |
+| v6.19 | [3114c674401e](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=3114c674401e) | iommufd: Allow MMIO pages in a batch |
+| v6.19 | [3aa31a8bb11e](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=3aa31a8bb11e) | dma-buf: provide phys_vec to scatter-gather mapping routine |
+| v6.19 | [35c3503908d3](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=35c3503908d3) | vfio/pci: Enable peer-to-peer DMA transactions by default |
+| v6.19 | [5415d887db0e](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=5415d887db0e) | vfio/nvgrace: Support get_dmabuf_phys |
+| v7.1 | [8c5f9645c389](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=8c5f9645c389) | iommufd: Add dma_buf_pin() |
+| v7.1 | [be6d4c9e9d71](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=be6d4c9e9d71) | dma-buf: Add dma_buf_attach_revocable() |
+| v7.1 | [6ffe939bf94f](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=6ffe939bf94f) | vfio: Permit VFIO to work with pinned importers |
+| v7.1 | [95308225e5ba](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=95308225e5ba) | dma-buf: Rename dma_buf_move_notify() to dma_buf_invalidate_mappings() |
+| v7.2 | [298ab7e6f163](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=298ab7e6f163) | iommufd: Clarify IOAS_MAP_FILE dma-buf support |
+| v7.2 | [5f3fc0ad9a41](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=5f3fc0ad9a41) | iommufd: Reject DMABUF pages from the access pin path |
+| v7.3-rc1 | [60decab325a4](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=60decab325a4) | iommufd: Add an ioctl to query PA from IOVA for noiommu mode |
 
 ### 미머지 시리즈와 스레드
 
