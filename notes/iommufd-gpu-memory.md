@@ -41,7 +41,7 @@ NVMe가 IOMMU 뒤에 있으면 NVMe가 내보내는 주소(IOVA)는 IOMMU 페이
 
 ### 1.2 현행 우회 경로 iommu_map_pa
 
-VFIO와 iommufd가 사용자 공간에 주는 매핑 API는 모두 호스트 가상주소(VA)나 파일(fd)을 입력으로 받는다(§2.2). CUDA 할당은 호스트 주소 공간에 매핑되지 않아 VA가 없고(CUDA 일반론에 따른 추정이다), 파일 경로는 §3에서 보듯 NVIDIA dma-buf를 거부한다. 그래서 upcie는 `experimental/iommu_map_pa` 커널모듈로 이 API들을 건너뛴다.
+VFIO와 iommufd가 사용자 공간에 주는 매핑 API는 모두 호스트 가상주소(VA)나 파일(fd)을 입력으로 받는다(§2.2). CUDA 할당은 호스트 주소 공간에 매핑되지 않아 VA가 없고(CUDA 일반론에 따른 추정이다), 파일 경로는 §3에서 보듯 NVIDIA dma-buf를 거부한다. 그래서 upcie는 [experimental/iommu_map_pa](https://github.com/safl/upcie/tree/v0.9.0/experimental/iommu_map_pa) 커널모듈로 이 API들을 건너뛴다.
 
 이 모듈은 대상 vfio-pci 디바이스가 지금 쓰는 IOMMU 도메인을 `iommu_get_domain_for_dev()`로 얻은 뒤, 사용자 공간이 `dmabuf_import` 모듈로 알아낸 BAR1 물리주소 목록을 커널 내부 함수 `iommu_map()`으로 그 도메인에 직접 넣는다. 디바이스 메모리이므로 `IOMMU_MMIO` 속성으로 넣는다. 동작은 하지만, 모듈의 README가 열거하듯 VFIO/iommufd의 IOVA 회계, 수명주기 관리, 락, dirty tracking을 모두 우회한다. 도메인이 예고 없이 바뀌거나 IOVA가 겹치면 오매핑이나 use-after-free로 이어질 수 있고, README는 "production-safe VFIO extension이 아니다"라고 명시한다. README가 지목한 장기 방향은 "`IOMMU_IOAS_MAP_FILE`에 CUDA dma-buf 지원과 같은 owner-integrated dma-buf 매핑 API"다.
 
