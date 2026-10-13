@@ -25,7 +25,7 @@
 | 사설 연결을 NVIDIA용으로 하나 더 두는 길은 있는가 | **없음** | iommufd 메인테이너의 2026-10-12 발언 |
 | 워크어라운드 대체 시점 | **미정** 당분간 유지 | 위 네 줄의 결과 |
 
-**의미.** `iommu_map_pa`는 VFIO/iommufd의 IOVA 회계, 수명주기, 락, dirty tracking 바깥에서 동작하므로 기술 부채이지만, 현재 용도는 실험과 검증 단계이고 프로덕션 의존은 없다. 업스트림이 어느 설계를 택하든 매핑의 의미(물리주소 목록을 `IOMMU_MMIO`로 등록)는 자체 모듈과 같으므로, 전환 자체의 비용은 크지 않다. 비용은 기다리는 시간이다.
+**의미.** `iommu_map_pa`는 VFIO/iommufd의 IOVA 회계, 수명주기, 락, dirty tracking 바깥에서 동작하므로 기술 부채이지만, 현재 용도는 실험과 검증 단계이고 프로덕션 의존은 없다. 업스트림이 어느 설계를 택하든 매핑의 의미(물리주소 목록을 `IOMMU_MMIO`로 등록)는 자체 모듈과 같으므로, 전환 자체의 비용은 크지 않다. 상류 규약이 정해지면 exporter에 구현하는 일은 큰 재작성이 아니다. 실제 비용은 그 전까지다. 상류가 언제 준비될지 예측할 수 없어, 그때까지 안전하지 않은 자체 모듈을 계속 유지하며 위험을 감수해야 하는 시간이 이 문제의 진짜 비용이다.
 
 **확인하지 못한 것.** NVIDIA dma-buf를 실제로 `IOMMU_IOAS_MAP_FILE`에 넣었을 때 어느 단계에서 어떤 오류로 실패하는지는 소스로 읽은 추론이며 실측하지 않았다(개발 PC 커널 6.8.12는 이 경로가 없다). CUDA 할당에 호스트 VMA가 없다는 서술은 일반론이다. "CUDA를 다룬 업스트림 시리즈가 없다"는 부재 주장은 patchwork 검색에 한정된다. 각 항목의 다음 단계는 부록 B에 적었다.
 
@@ -261,6 +261,41 @@ Griffoul은 2026년 10월 5일 `[RFC 0/6] KVM: guest_memfd: back guest_memfd wit
 | `IOMMU_IOAS_MAP_FILE` UAPI 주석에서 "not a generic dma-buf import path" 삭제 | `include/uapi/linux/iommufd.h` | ③ 완성 |
 
 **전환 착수 조건.** 위 첫째 또는 둘째 신호가 나타나고, NVIDIA 드라이버가 해당 규약을 구현한 릴리스를 내며, 본 팀 커널이 그 릴리스 이상일 때 전환을 시작한다. 세 조건이 모두 갖춰지기 전에는 전환 작업이 업스트림 변경에 따라 다시 바뀔 수 있다.
+
+## 주요 인물
+
+| 인물 | 소속 | 역할 |
+| --- | --- | --- |
+| Jason Gunthorpe | NVIDIA | iommufd·RDMA(InfiniBand) 커널 유지보수자. VFIO/iommufd/dma-buf 사설 연결 설계를 이끌어 온 중심 인물이며, PAL RFC(§6.1)의 제안자. |
+| Fred Griffoul | Amazon | 커널 개발자. guest_memfd·iommufd용 mm memory provider RFC(§6.2)의 제안자. |
+| David Woodhouse | Amazon | 시니어 커널 개발자(Intel IOMMU(VT-d)·MTD·EFI 등 유지보수). Griffoul 시리즈의 기반이 된 guest_memfd provider RFC v2 작성자. |
+| Christian König | AMD | dma-buf(DMA Buffer Sharing)와 AMD GPU(amdgpu) 커널 유지보수자. importer의 물리주소 직접 접근에 반대하는 핵심 리뷰어(§6.3). |
+| Kevin Tian | Intel | iommufd 커널 유지보수자(Jason과 공동). iommufd 시리즈 리뷰어. |
+| Leon Romanovsky | NVIDIA | RDMA(InfiniBand) 커널 유지보수자. dma-buf revoke/pin 정비 시리즈(§4.3)를 주도. |
+| Alex Williamson | Red Hat | VFIO 커널 유지보수자. vfio-pci dma-buf export 시리즈를 리뷰. |
+| Nicolin Chen | NVIDIA | iommufd·VFIO 기여자/리뷰어. |
+
+## GPU DMA 관련 논의 연표
+
+| 시점 | 사건 | 출처 |
+| --- | --- | --- |
+| 2025-07-30 | vfio/pci MMIO 영역 dma-buf export 시리즈 논의(exporter 측) | `20250730135846.2208fe89.alex.williamson@redhat.com` |
+| 2025-10-27 | iommufd dma-buf 지원 시리즈 v1 게시 | `0-v1-64bed2430cdb+31b-iommufd_dmabuf_jgg@nvidia.com` |
+| 2025-11-21 | 시리즈 v2 게시 → v6.19 머지 | `0-v2-b2c110338e3f+5c2-iommufd_dmabuf_jgg@nvidia.com` |
+| 2026-02-18 | PAL RFC 00/26 게시 | `0-v1-b5cab63049c0+191af-dmabuf_map_type_jgg@nvidia.com` |
+| 2026-03-01 | PAL 브랜치 마지막 커밋(이후 정체) | `jgunthorpe/linux dmabuf_map_type` |
+| 2026-04-13 | König: patch 21(PAL) "pretty big NO-GO" | `c413710b-4c28-4ed8-88ec-aeb8c4482011@amd.com` |
+| 2026-04-22 | König 대안(`dma_buf_map_attachment_iommu`)·"Yes, absolutely"; jgg 3단계 절충안 | `fd8065ce-fd0e-4df5-9c80-8e9603657cfe@amd.com`, `e67426b9-4ded-4f6c-8309-7f847adb4540@amd.com`, `20260422150000.GK3199414@nvidia.com` |
+| 2026-05-09 | Xu Yilun: 이 방식은 KVM에 맞지 않음 | `af7GzASJiASopYiN@yilunxu-OptiPlex-7050` |
+| 2026-05-11 | jgg 동의 — PAL 스레드 종료 | `20260511224841.GA1197107@nvidia.com` |
+| 2026-07-08 | (버그) dma-buf iopt_pages가 access pin 경로로 — lockdep | `E8540D7D05768C91+8b2ef227-3368-494e-909d-7b28e1489dfb@smail.nju.edu.cn` |
+| 2026-07-20 | Woodhouse guest_memfd provider RFC v2 | `20260720111259.122911-1-dwmw2@infradead.org` |
+| 2026-08-30 | v7.2: UAPI 정정 + access 경로에서 dma-buf 거부 | `298ab7e6f163`, `5f3fc0ad9a41` |
+| 2026-09-08 | fgds RFC(GPU↔NVMe 직접 I/O, 우회 접근) | `20260908131545.105987-1-liwang@kylinos.cn` |
+| 2026-10-05 | Griffoul dma-buf `get_phys()` RFC + König 당일 NAK | `20261005095552.52748-1-griffoul@gmail.com`, `a04f17cc-f59a-4240-81c8-29776eee3a2e@amd.com`, `f0077cec-10fe-400a-b229-f7434e297364@amd.com` |
+| 2026-10-06 | Griffoul mm memory provider RFC 0/9 | `20261006183235.16576-1-griffoul@gmail.com` |
+| 2026-10-10 | Aneesh Kumar confidential-computing 시리즈 | `20261010072504.536230-1-aneesh.kumar@kernel.org` |
+| 2026-10-12 | Gunthorpe "exporter별 사설 연결을 더 늘리지 않음"; Griffoul registry 포기 | `20261012144616.GF14213@ziepe.ca`, `20261012152946.63489-1-griffoul@gmail.com` |
 
 ## 부록 A. 근거 자료
 
