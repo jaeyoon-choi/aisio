@@ -37,7 +37,7 @@
 
 LLM 추론의 KV 캐시 오프로딩, 모델 로딩, 체크포인팅처럼 GPU 메모리와 저장장치 사이에서 큰 데이터를 옮기는 작업에서는, 데이터를 GPU VRAM에서 호스트 RAM을 거쳐 NVMe로 복사하는 대신 NVMe가 GPU VRAM으로 직접 DMA하는 편이 대역폭과 CPU 부하에서 유리하다. 이 직접 경로를 P2P(peer-to-peer) DMA라고 한다.
 
-NVMe가 IOMMU 뒤에 있으면 NVMe가 내보내는 주소(IOVA)는 IOMMU 페이지 테이블을 거쳐 물리주소로 번역된다. P2P가 성립하려면 그 테이블에 GPU VRAM의 물리주소(실제로는 GPU가 VRAM을 PCIe에 노출하는 BAR1 창의 주소)가 들어 있어야 한다. 규모를 숫자로 잡으면 다음과 같다. 본 팀의 측정에서 GPU의 BAR1은 물리주소 0x4800000000부터 32 GiB이고, CUDA가 할당한 1 GiB 버퍼는 그 안의 0x480f600000에 놓였으며, 이것을 NVMe의 IOMMU에 넣으면 2 MiB 엔트리 512개가 된다. 이 등록을 어느 주체가 어떤 API로 수행하는가가 이 보고서의 주제다.
+NVMe가 IOMMU 뒤에 있으면 NVMe가 내보내는 주소(IOVA)는 IOMMU 페이지 테이블을 거쳐 물리주소로 번역된다. P2P가 성립하려면 그 테이블에 GPU VRAM의 물리주소(실제로는 GPU가 VRAM을 PCIe에 노출하는 BAR1 창의 주소)가 들어 있어야 한다. 규모를 숫자로 잡으면 다음과 같다. 실험에서 GPU의 BAR1은 물리주소 0x4800000000부터 32 GiB이고, CUDA가 할당한 1 GiB 버퍼는 그 안의 0x480f600000에 놓였으며, 이것을 NVMe의 IOMMU에 넣으면 2 MiB 엔트리 512개가 된다. 이 등록을 어느 주체가 어떤 API로 수행하는가가 이 보고서의 주제다.
 
 ### 1.2 현행 우회 경로 iommu_map_pa
 
@@ -90,7 +90,7 @@ VFIO type1은 PFNMAP VMA를 받는다. `vaddr_get_pfns()`는 VMA에 `VM_PFNMAP`�
 
 ### 2.3 매핑 결과
 
-어느 경로로 넣든 페이지 테이블에 들어가는 내용은 같다. 본 팀 측정값으로 적으면 다음과 같다.
+어느 경로로 넣든 페이지 테이블에 들어가는 내용은 같다. 실험에서 측정한 값으로 적으면 다음과 같다.
 
 | 항목 | 값 |
 | --- | --- |
@@ -177,7 +177,7 @@ iommufd가 물리주소를 얻는 방법이 "vfio-pci의 특정 심볼을 `symbo
 
 ### 5.2 단일 구간 조건 (후속 조건)
 
-현행 함수는 구간이 하나일 때만 성공한다(`vfio_pci_dmabuf.c` 134행 주석 "More than one range to iommufd will require proper DMABUF support"). 이 조건은 5.1이 풀린 뒤에야 의미가 있다. 본 팀 측정에서 1 GiB CUDA 버퍼는 구간 하나였지만, NVIDIA exporter(`nv-dmabuf.c`의 `nv_dma_buf_map_pfns()`)는 핸들마다 `memArea.numRanges`개의 구간을 돌려줄 수 있으므로 일반 경로는 다중 구간을 받아야 한다. PAL RFC의 patch 24와 mm provider RFC가 각각 이를 다룬다.
+현행 함수는 구간이 하나일 때만 성공한다(`vfio_pci_dmabuf.c` 134행 주석 "More than one range to iommufd will require proper DMABUF support"). 이 조건은 5.1이 풀린 뒤에야 의미가 있다. 실험에서 1 GiB CUDA 버퍼는 구간 하나였지만, NVIDIA exporter(`nv-dmabuf.c`의 `nv_dma_buf_map_pfns()`)는 핸들마다 `memArea.numRanges`개의 구간을 돌려줄 수 있으므로 일반 경로는 다중 구간을 받아야 한다. PAL RFC의 patch 24와 mm provider RFC가 각각 이를 다룬다.
 
 ### 5.3 물리주소 목록 규약 부재 (근본 조건)
 
