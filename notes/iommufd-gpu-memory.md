@@ -3,7 +3,7 @@
 - 작성일: 2026-10-13
 - 기준 트리: Linux mainline v7.3-rc7 (2026-10-11), iommufd for-next (2026-09-24), linux-next 20261012
 - 메일링리스트 인용 시점: 2026-10-12
-- 본 팀 코드: upcie-experimental 0.9.0 (`iommu_map_pa`, `dmabuf_import`), NVIDIA 580.178.04
+- 본 팀 코드: upcie-experimental 0.9.0 (`iommu_map_pa`, `dmabuf_import`), NVIDIA 드라이버(측정 호스트 기준 580.178.04)
 
 ## 요약
 
@@ -125,13 +125,13 @@ iommufd의 dma-buf 경로도 `BATCH_MMIO`로 모은 뒤 `IOMMU_MMIO`를 붙여 `
 | 단계 | 코드 | 결과 | 확신 |
 | --- | --- | --- | --- |
 | 1-3 | 위와 같다. dma-buf이므로 dma-buf 경로로 간다 | 통과 | 확실 |
-| 4 | `dma_buf_dynamic_attach()`가 NVIDIA의 `nv_dma_buf_attach()`를 부른다. 이 콜백은 importer 장치를 `to_pci_dev()`로 다루고 PCI 토폴로지를 검사한다. iommufd의 importer 장치는 PCI 장치가 아닌 misc 장치다 | 통과로 추정 | 추정. 본 팀의 `dmabuf_import` misc 경로가 같은 종류의 misc 장치로 attach에 성공했다 |
+| 4 | `dma_buf_dynamic_attach()`가 NVIDIA의 `nv_dma_buf_attach()`를 부른다. 이 콜백은 importer가 PCI 장치가 아니면(`!dev_is_pci(attachment->dev)`) 권한만 확보하고 rc=0으로 조기 반환하며, `to_pci_dev()`와 PCI 토폴로지 검사는 PCI importer에만 적용된다. iommufd의 importer 장치는 PCI 장치가 아닌 misc 장치이므로 이 조기 반환 경로를 탄다 | 통과로 추정 | 추정. 본 팀의 `dmabuf_import` misc 경로가 같은 종류의 misc 장치로 attach에 성공했다 |
 | 5 | `dma_buf_pin()`. NVIDIA exporter에는 `pin` 콜백이 없으므로 0을 돌려준다 | 통과 | 확실 |
 | 6 | `symbol_get(vfio_pci_dma_buf_iommufd_map)` | 심볼 획득 | 확실 |
 | 7 | `vfio_pci_dma_buf_iommufd_map()` 127행: `attachment->dmabuf->ops != &vfio_pci_dmabuf_ops` | **`-EOPNOTSUPP`** | 확실 |
 | 8 | `iopt_map_dmabuf()`가 unpin, detach하고 오류를 돌려준다. ioctl은 `-EOPNOTSUPP`로 끝난다 | 거부 | 확실 |
 
-구간 개수 검사(135행)는 7단계의 exporter 검사 뒤에 있으므로, NVIDIA dma-buf는 구간이 하나여도 거부된다. 4단계의 추정은 실측으로 확인해야 하며(부록 B), 4단계에서 먼저 떨어지더라도 결론(거부)은 같다.
+구간 개수 검사(135행)는 7단계의 exporter 검사 뒤에 있으므로, NVIDIA dma-buf는 구간이 하나여도 거부된다. 4단계의 추정은 실측으로 확인해야 하며(부록 B), 4단계에서 먼저 떨어지더라도 결론(거부)은 같다. 인용한 `nv-dmabuf.c`의 거동은 최신 open-gpu-kernel-modules 소스 기준이며, 개발 PC에 설치된 DKMS NVIDIA 570.211.01의 `nv_dma_buf_ops`에는 `.attach`가 없다(측정 호스트는 580.178.04 기준).
 
 ### 3.3 iommu_map_pa 경로와의 대비
 
@@ -211,12 +211,12 @@ Griffoul은 2026년 10월 5일 `[RFC 0/6] KVM: guest_memfd: back guest_memfd wit
 | 2026-03-01 | Gunthorpe | 브랜치 마지막 커밋 | `jgunthorpe/linux dmabuf_map_type` |
 | 2026-04-13 | König | patch 21(PAL)에 "pretty big NO-GO". importer의 물리주소 직접 접근 반대. "iommufd가 왜 물리주소가 필요한가" | `c413710b-4c28-4ed8-88ec-aeb8c4482011@amd.com` |
 | 2026-04-13 | Gunthorpe | "CPU iommu hw only works in physical address." 목표 경로 둘: VFIO에서 KVM, 그리고 GPU/RDMA 드라이버에서 iommufd("SPDK and DPDK type userspace drivers to work with GPU memory. This is becoming a popular topic") | `20260413121628.GE2588311@nvidia.com` |
-| 2026-04-22 | König | dma-buf 안에 그런 인터페이스를 두는 것 자체를 반대. 대안: exporter가 iommufd의 `iommu_domain`에 직접 매핑하는 `dma_buf_map_attachment_iommu()` | `fd8065ce-fd0e-4df5-9c80-8e9603657cfe@amd.com` |
-| 2026-04-22 | Gunthorpe | 절충안: exporter는 PAL, importer는 `iommu_domain`, 둘을 잇는 converter는 dma-buf core만 가진다. König은 mapping type 체계 자체에는 "Yes, absolutely" | `20260422150000.GK3199414@nvidia.com` |
+| 2026-04-22 | König | dma-buf 안에 그런 인터페이스를 두는 것 자체를 반대. 대안: exporter가 iommufd의 `iommu_domain`에 직접 매핑하는 `dma_buf_map_attachment_iommu()` | `fd8065ce-fd0e-4df5-9c80-8e9603657cfe@amd.com`, `f6d38a08-009c-4efe-9dc3-6bcf00ac35f7@amd.com` |
+| 2026-04-22 | Gunthorpe | 절충안: exporter는 PAL, importer는 `iommu_domain`, 둘을 잇는 converter는 dma-buf core만 가진다. König은 mapping type 체계 자체에는 "Yes, absolutely" | `20260422150000.GK3199414@nvidia.com`, `e67426b9-4ded-4f6c-8309-7f847adb4540@amd.com` |
 | 2026-05-09 | Xu Yilun | 이 방식은 KVM에 맞지 않는다(KVM은 주소 공간 관리자이자 매퍼) | `af7GzASJiASopYiN@yilunxu-OptiPlex-7050` |
 | 2026-05-11 | Gunthorpe | 동의. PAL 스레드의 마지막 메시지 | `20260511224841.GA1197107@nvidia.com` |
 | 2026-07-20 | Woodhouse | guest_memfd provider RFC v2. iommufd 연결은 dma-buf | `20260720111259.122911-1-dwmw2@infradead.org` |
-| 2026-10-05 | Griffoul, König | dma-buf `get_phys()` RFC와 당일 NAK. König: exporter 전용 사설 인터페이스는 괜찮고 `symbol_get()`이 "아마 옳은 방법" | `20261005095552.52748-1-griffoul@gmail.com`, `a04f17cc-f59a-4240-81c8-29776eee3a2e@amd.com` |
+| 2026-10-05 | Griffoul, König | dma-buf `get_phys()` RFC와 당일 NAK. König: exporter 전용 사설 인터페이스는 괜찮고 `symbol_get()`이 "아마 옳은 방법" | `20261005095552.52748-1-griffoul@gmail.com`, `a04f17cc-f59a-4240-81c8-29776eee3a2e@amd.com`, `f0077cec-10fe-400a-b229-f7434e297364@amd.com` |
 | 2026-10-06 | Griffoul | mm memory provider RFC 9편 | `20261006183235.16576-1-griffoul@gmail.com` |
 | 2026-10-12 | Gunthorpe | "I don't want to keep expanding this hack in iommufd. ... I don't want to hardwire every exporter into iommufd." 현행 vfio 사설 연결은 범용 해법을 끌어내기 위한 것이지 확장할 대상이 아니다 | `20261012144616.GF14213@ziepe.ca` |
 | 2026-10-12 | Griffoul | iommufd 쪽 exporter registry 안은 포기. mm 경로가 Gunthorpe가 생각하는 범용 인터페이스인지 질문. 답 없음 | `20261012152946.63489-1-griffoul@gmail.com` |
@@ -308,7 +308,7 @@ Griffoul은 2026년 10월 5일 `[RFC 0/6] KVM: guest_memfd: back guest_memfd wit
 | `include/uapi/linux/iommufd.h` | `IOMMU_IOAS_MAP_FILE` 주석 |
 | `upcie-experimental-0.9.0/iommu_map_pa/{README.md, iommu_map_pa.c}`, `dkms.conf` | 자체 모듈의 동작과 제약 |
 | `upcie-experimental-0.9.0/dmabuf_import/dmabuf_import.c` | misc 장치 명의 attach |
-| NVIDIA 580.178.04 `nvidia/nv-dmabuf.c` | `nv_dma_buf_ops`, `nv_dma_buf_attach()`, `nv_dma_buf_map_pfns()` |
+| NVIDIA 드라이버(측정 호스트 기준 580.178.04) `nvidia/nv-dmabuf.c` | `nv_dma_buf_ops`, `nv_dma_buf_attach()`, `nv_dma_buf_map_pfns()` |
 | 본 팀 GPU IOMMU 매핑 크기 측정 보고서 (2026-09) | §1.1과 §2.3의 주소와 엔트리 수 |
 
 ## 부록 B. 방법과 한계
@@ -340,7 +340,7 @@ Griffoul은 2026년 10월 5일 `[RFC 0/6] KVM: guest_memfd: back guest_memfd wit
 | NVIDIA dma-buf가 §3.2의 4단계(attach)를 통과하는지, 최종 오류가 `-EOPNOTSUPP`인지 | 추정 | v6.19 이상 커널에서 `dmabuf_import`가 내보낸 fd를 `IOMMU_IOAS_MAP_FILE`에 넣는 프로브를 실행하고 errno와 dmesg를 기록한다 |
 | CUDA 할당에 호스트 VMA가 없다 | 추정 (일반론) | `test_dmamem_cuda_iommu_map_pa_nvme_readwrite` 실행 중 `/proc/<pid>/maps`에 BAR1 범위(0x4800000000 이후)가 있는지 본다 |
 | CUDA/NVIDIA를 다룬 업스트림 시리즈가 없다 | 추정 (patchwork 검색 한정) | lore의 `lei` 또는 public-inbox 미러로 "nvidia dmabuf iommufd"를 재검색한다 |
-| 1 GiB 버퍼가 구간 하나였다 | 간접 확인 (측정 보고서 인용) | 원본 로그 `/data/aisio/upcie-doc/patent/exp/`를 다시 연다 |
+| 1 GiB 버퍼가 구간 하나였다 | 간접 확인 (측정 보고서 인용) | 원본 로그 `/tmp/claude-doc/aisio/gpu-iommu-map-size-report.md`와 `/tmp/claude-doc/upcie/patent/experiments/bam-probe-single-range-2026-09-22.txt`(`phys_segs=1`)를 다시 연다 |
 | NVIDIA가 어느 규약을 구현할지 | 추정 | 감시 신호 표의 넷째 항목 |
 
 미머지 시리즈는 이후 리비전이 나올 수 있으며, 인용은 2026년 10월 12일 시점이다.
