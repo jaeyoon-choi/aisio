@@ -1,0 +1,18 @@
+diff --git a/drivers/iommu/generic_pt/fmt/vtdss.h b/drivers/iommu/generic_pt/fmt/vtdss.h
+index f5f8981edde7..2d5927865ae8 100644
+--- a/drivers/iommu/generic_pt/fmt/vtdss.h
++++ b/drivers/iommu/generic_pt/fmt/vtdss.h
+@@ -229,7 +229,12 @@ static inline int vtdss_pt_iommu_set_prot(struct pt_common *common,
+ 		pte |= VTDSS_FMT_R;
+ 	if (iommu_prot & IOMMU_WRITE)
+ 		pte |= VTDSS_FMT_W;
+-	if (pt_feature(common, PT_FEAT_VTDSS_FORCE_COHERENCE))
++	/*
++	 * Snooping has no meaning for MMIO, and a snooped peer read of another
++	 * device's BAR can complete with an error on some root complexes.
++	 */
++	if (pt_feature(common, PT_FEAT_VTDSS_FORCE_COHERENCE) &&
++	    !(iommu_prot & IOMMU_MMIO))
+ 		pte |= VTDSS_FMT_SNP;
+
+ 	if (pt_feature(common, PT_FEAT_VTDSS_FORCE_WRITEABLE) &&
