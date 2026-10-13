@@ -9,7 +9,7 @@
 
 **질문.** NVMe가 CUDA가 할당한 GPU VRAM으로 직접 DMA(P2P)하려면 그 VRAM을 NVMe의 IOMMU 페이지 테이블에 넣어야 한다. 지금은 upcie의 자체 커널모듈 `iommu_map_pa`가 이 일을 한다. 업스트림 iommufd가 같은 일을 하는 API를 갖추었는가, 그래서 자체 모듈을 제거할 수 있는가.
 
-**답.** 아직 없다. iommufd는 v6.19부터 dma-buf를 받아 IOMMU 도메인에 매핑하지만, 받는 dma-buf는 vfio-pci 드라이버가 내보낸 단일 구간 MMIO dma-buf뿐이다. NVIDIA 드라이버가 내보낸 dma-buf는 거부된다. 이를 일반 exporter로 여는 설계는 둘이 제안되어 있다. PAL(Physical Address List)은 dma-buf 안에 물리주소 목록을 넘기는 새 매핑 타입을 추가하여 exporter가 그 목록을 주고 iommufd가 받는 방식이고, mm memory provider는 dma-buf를 거치지 않고 드라이버가 자기 메모리를 파일로 내면 iommufd가 `IOMMU_IOAS_MAP_FILE`로 그 파일을 매핑하는 방식이다. 두 설계 모두 미머지이고, 두 메인테이너(dma-buf, iommufd)의 의견이 아직 한 지점으로 모이지 않았다. 따라서 `iommu_map_pa`는 당분간 유지해야 한다.
+**답.** 아직 없다. iommufd는 v6.19부터 dma-buf를 받아 IOMMU 도메인에 매핑하지만, 받는 dma-buf는 vfio-pci 드라이버가 내보낸 단일 구간 MMIO dma-buf뿐이다. NVIDIA 드라이버가 내보낸 dma-buf는 거부된다. 이를 일반 exporter로 여는 설계는 두 개가 제안되어 있다. PAL(Physical Address List)은 dma-buf 안에 물리주소 목록을 넘기는 새 매핑 타입을 추가하여 exporter가 그 목록을 주고 iommufd가 받는 방식이고, mm memory provider는 dma-buf를 거치지 않고 드라이버가 자기 메모리를 파일로 내면 iommufd가 `IOMMU_IOAS_MAP_FILE`로 그 파일을 매핑하는 방식이다. 두 설계 모두 미머지이고, 두 메인테이너(dma-buf, iommufd)의 의견이 아직 한 지점으로 모이지 않았다. 따라서 `iommu_map_pa`는 당분간 유지해야 한다.
 
 **이유.** 거부는 코드 한 곳에서 일어난다. iommufd는 dma-buf의 물리주소를 vfio-pci의 전용 함수 `vfio_pci_dma_buf_iommufd_map()`을 `symbol_get()`으로 불러 얻는데, 이 함수는 exporter가 vfio-pci가 아니면 `-EOPNOTSUPP`를 돌려준다. dma-buf 프레임워크에 "물리주소 목록을 넘기는 범용 규약"이 없어서 iommufd가 이 사설 연결에 의존하는 것이고, 그 규약을 만드는 일이 바로 두 RFC다.
 
