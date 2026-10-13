@@ -3,199 +3,344 @@
 - 작성일: 2026-10-13
 - 기준 트리: Linux mainline v7.3-rc7 (2026-10-11), iommufd for-next (2026-09-24), linux-next 20261012
 - 메일링리스트 인용 시점: 2026-10-12
+- 본 팀 코드: upcie-experimental 0.9.0 (`iommu_map_pa`, `dmabuf_import`), NVIDIA 580.178.04
 
 ## 요약
 
-본 보고서는 NVMe가 GPU VRAM으로 직접 DMA(P2P)하는 경로를 본 팀 스택에서 사용하기 위하여, 업스트림 Linux **iommufd**가 GPU 메모리를 IOMMU 도메인에 매핑하는 기능을 어디까지 지원하는지 조사한 결과를 정리한 것이다. 현재는 upcie의 자체 커널모듈 `iommu_map_pa`가 해당 기능을 우회 구현하고 있으나, 이 모듈은 VFIO/iommufd의 IOVA 회계, 수명주기, 락을 우회하는 임시 수단이므로, 장기적으로는 업스트림 API로 대체되어야 한다.
+**질문.** NVMe가 CUDA가 할당한 GPU VRAM으로 직접 DMA(P2P)하려면 그 VRAM을 NVMe의 IOMMU 페이지 테이블에 넣어야 한다. 지금은 upcie의 자체 커널모듈 `iommu_map_pa`가 이 일을 한다. 업스트림 iommufd가 같은 일을 하는 API를 갖추었는가, 그래서 자체 모듈을 걷어낼 수 있는가.
 
-| 질문 | 결론 |
-| --- | --- |
-| iommufd가 디바이스 메모리(dma-buf)를 IOAS에 매핑할 수 있는가 | **부분 지원** VFIO PCI dma-buf의 단일 MMIO 구간만 |
-| CUDA/NVIDIA GPU dma-buf는 매핑되는가 | **미지원** 거부됨(`-EOPNOTSUPP`) |
-| 일반 exporter를 여는 작업은 머지되었는가 | **미머지** 상반된 두 RFC가 경합 중 |
-| 워크어라운드 대체 시점 | **미정** 당분간 유지가 합리적 |
+**답.** 아직 없다. iommufd는 v6.19부터 dma-buf를 받아 IOMMU 도메인에 매핑하지만, 받아 주는 dma-buf는 vfio-pci 드라이버가 내보낸 단일 구간 MMIO dma-buf뿐이다. NVIDIA 드라이버가 내보낸 dma-buf는 거부된다. 이를 일반 exporter로 여는 설계는 둘(PAL, mm memory provider)이 제안되어 있으나 모두 미머지이고, 두 메인테이너(dma-buf, iommufd)의 의견이 아직 한 지점으로 모이지 않았다. 따라서 `iommu_map_pa`는 당분간 유지해야 한다.
 
-조사 결과, iommufd는 **v6.19(2025년 12월 머지, 2026년 2월 릴리스)에서 디바이스 메모리(dma-buf) 매핑을 도입**하였으나, 지원 범위가 **VFIO PCI dma-buf가 가리키는 단일 MMIO 구간**으로 한정되어 있다. 즉 iommufd는 "디바이스 메모리를 IOMMU 도메인에 등록하고 수명주기를 관리한다"는 본 팀과 동일한 기능을 수행하게 되었으나, **GPU 벤더(NVIDIA/CUDA)가 내보내는 dma-buf는 여전히 수용하지 않는다**(`-EOPNOTSUPP`). 이를 일반화하려는 두 설계(dma-buf "mapping types/PAL"과 mm "memory provider")는 모두 **RFC 단계로 미머지** 상태이며, 방향 또한 확정되지 않았다.
+**이유.** 거부는 코드 한 곳에서 일어난다. iommufd는 dma-buf의 물리주소를 vfio-pci의 전용 함수 `vfio_pci_dma_buf_iommufd_map()`을 `symbol_get()`으로 불러 얻는데, 이 함수는 exporter가 vfio-pci가 아니면 `-EOPNOTSUPP`를 돌려준다. dma-buf 프레임워크에 "물리주소 목록을 넘기는 범용 규약"이 없어서 iommufd가 이 사설 연결에 의존하는 것이고, 그 규약을 만드는 일이 바로 두 RFC다.
 
-따라서 **2026년 10월(mainline 7.3-rc) 기준으로 `iommu_map_pa`는 대체 불가**이며, 대체 시점은 커뮤니티 합의에 의존하여 예측이 어렵다. 본 보고서는 이 판단의 근거를 릴리스 및 커밋 단위로 제시하고, 향후 감시 항목과 마이그레이션 착수 조건을 제언한다.
+**성립 조건.** 이 결론은 다음 조건에서 성립한다. GPU가 CUDA로 상시 사용되어 vfio에 바인딩할 수 없고, NVMe는 vfio-pci에 바인딩되어 iommufd 또는 VFIO type1로 IOMMU 도메인을 받으며, 커널은 mainline v7.3-rc7 이하다. GPU를 vfio에 바인딩할 수 있는 환경(예: nvgrace-gpu variant 드라이버)이라면 결론이 달라진다.
 
-**경합 중인 두 RFC.** 일반 exporter를 열려는 두 시도가 있으며, 모두 미머지다.
+**근거 표.**
 
-| RFC | 제안자 | 요지 | 상태 |
-| --- | --- | --- | --- |
-| DMA-buf mapping types (PAL) | J. Gunthorpe (NVIDIA) | dma-buf에 주소 교환 형식을 협상하는 틀을 도입하고, 물리주소 목록(**PAL**) 타입으로 iommufd가 다중 range 메모리를 매핑한다. | 미머지 (2026년 3월 이후 정체) |
-| mm memory provider | F. Griffoul (Amazon). D. Woodhouse의 guest_memfd provider RFC v2(2026년 7월) 위에 구현 | mm 계층에 메모리 대여 인터페이스를 두고, iommufd가 provider 파일을 매핑한다(pin 없이, revoke 방식). 같은 저자의 dma-buf 경로는 폐기. | 미머지 (2026년 10월 최신) |
-
-쟁점은 "누가 물리주소를 확인하는가"였다. dma-buf 메인테이너는 체계 자체에는 찬성하나 importer의 물리주소 직접 수신에는 반대하여 PAL 논의는 2026년 5월 이후 정체되었다. 2026년 10월에는 쟁점이 "범용 훅을 dma-buf, iommufd 사설 연결, mm 중 어디에 두는가"로 옮겨 갔고, iommufd 메인테이너는 vfio-pci 방식의 exporter별 사설 연결을 더 늘리지 않겠다고 밝혔다(2026-10-12).
-
-**확인하지 못한 것.** CUDA 할당에 호스트 VMA가 없다는 서술, "CUDA를 다룬 시리즈가 없다"는 부재 주장, 선행 측정의 단일 구간 결과를 원본 로그로 재확인한 것은 추정 또는 간접 확인이다. 부록 B에 정리하였다.
-
-## 1. 서론
-
-### 1.1 배경
-
-LLM 추론의 KV 캐시 오프로딩, 모델 로딩, 체크포인팅과 같이 GPU 메모리와 저장장치 사이에서 대용량 데이터를 주고받는 작업에서는, 데이터를 GPU VRAM에서 호스트 RAM을 거쳐 NVMe로 복사하는 대신 NVMe가 **GPU VRAM으로 직접 DMA**하는 편이 대역폭과 CPU 부하 측면에서 유리하다. 이 직접 경로를 P2P(Peer-to-Peer) DMA라고 한다.
-
-P2P가 성립하려면 NVMe가 내보내는 주소(IOVA)가 GPU VRAM의 물리주소로 번역되도록, NVMe가 사용하는 **IOMMU 페이지 테이블에 GPU 메모리를 등록**하여야 한다. 문제는 이 등록을 담당하는 사용자 공간 API가 GPU 메모리를 수용하지 못한다는 점이다.
-
-### 1.2 현행 우회 경로
-
-VFIO와 iommufd가 제공하는 사용자 매핑 API(`VFIO_IOMMU_MAP_DMA`, iommufd의 `IOMMU_IOAS_MAP`)는 사용자 가상주소(VA)를 입력으로 받는다. 두 API가 VA 뒤의 메모리를 다루는 방식은 다르다. VFIO type1은 일반 RAM 페이지를 pin하고, `VM_PFNMAP` VMA(장치 BAR의 mmap)는 pin 없이 `follow_fault_pfn()`으로 물리주소를 따라가 매핑한다(`drivers/vfio/vfio_iommu_type1.c`의 `vaddr_get_pfns()`). 이 경로가 QEMU의 장치 간 P2P에 쓰이지만, 매핑의 수명을 보장할 수단이 없다. iommufd의 `IOMMU_IOAS_MAP`은 pin 가능한 페이지만 받고 PFNMAP VMA는 받지 않는다. 어느 쪽이든 입력은 호스트 VA인데, CUDA 할당(`cudaMalloc`)은 호스트 주소 공간에 매핑되지 않으므로 VMA 자체가 없다(CUDA 일반론에 따른 추정이며 이번 조사에서 소스로 확인하지는 않았다). 따라서 두 API 모두 GPU 메모리에는 쓸 수 없다.
-
-이를 우회하기 위해 upcie는 `experimental/iommu_map_pa` 커널모듈을 제공한다. 이 모듈은 대상 vfio-pci 디바이스가 현재 사용하는 IOMMU 도메인을 `iommu_get_domain_for_dev()`로 조회한 뒤, 커널 내부 함수 `iommu_map()`에 물리주소를 직접 등록한다(디바이스 메모리이므로 `IOMMU_MMIO` 속성으로 매핑). 동작은 하나, VFIO/iommufd의 **IOVA 회계, 수명주기 관리, 락, dirty tracking을 모두 우회**한다. 도메인이 예고 없이 교체되거나 IOVA가 충돌할 경우 오매핑, use-after-free로 이어질 수 있으며, 모듈 자체가 "production-safe가 아님"을 명시하고 있다.
-
-### 1.3 본 팀 스택에서의 현황
-
-`iommu_map_pa`는 **실험적(experimental) 모듈**로 DKMS 패키지 `upcie-experimental-dkms`(0.9.0, `dmabuf_import`와 함께 포장) 형태로 배포되며, upcie의 CUDA dma-buf 경로(`dmamem_from_cuda_iommu_map_pa`)에서 사용된다. 정식 uPCIe API가 아니며, 동작 검증은 NVMe 읽기/쓰기 테스트(`tests/test_dmamem_cuda_iommu_map_pa_nvme_readwrite.c`)로 수행된다. 본 팀 벤치마크 스택(aisio)에서는 `tasks/setup_upcie_modules.yaml`을 통해 적재된다. 즉 현재 용도는 실험 및 검증 단계이며, 프로덕션 의존은 확인되지 않는다. 모듈 버전은 0.9.0이다.
-
-### 1.4 보고서 범위
-
-`iommu_map_pa`가 지목한 목표 API는 "owner-integrated dma-buf 매핑 API, 곧 `IOMMU_IOAS_MAP_FILE`에 CUDA dma-buf 지원"이다. 본 보고서는 해당 API의 업스트림 진척을 머지된 패치와 진행 중 RFC를 함께 놓고 정리한다. §2에서 배경 기술을, §3에서 지원 현황을, §4에서 현재의 제약 요인을, §5에서 진행 중 논쟁을, §6에서 결론과 제언을 서술한다.
-
-## 2. 배경 기술
-
-### 2.1 IOMMU와 IOVA→PA 번역
-
-IOMMU는 디바이스가 내보내는 주소(IOVA)를 시스템 물리주소(PA)로 번역하는 하드웨어이다. 디바이스가 IOMMU 뒤에 위치하면, 디바이스가 DMA에 사용하는 주소는 실제 메모리 주소가 아니라 IOMMU 페이지 테이블이 정한 IOVA이며, 이 테이블을 누가 어떻게 구성하는지가 격리와 안전성의 핵심이다. VFIO/iommufd 환경에서 이 테이블은 커널이 소유하며, 사용자 공간은 API를 통해서만 간접적으로 접근한다.
-
-### 2.2 dma-buf와 exporter/importer
-
-**dma-buf**는 서로 다른 디바이스와 드라이버가 하나의 버퍼를 공유하기 위한 커널 표준 프레임워크이다. 버퍼를 소유한 쪽이 **exporter**(예: GPU 드라이버)로서 파일 디스크립터로 내보내고, 다른 쪽이 **importer**로서 해당 fd를 받아 자신의 디바이스가 접근할 수 있도록 매핑한다. 전통적으로 양측은 `scatterlist`(`dma_addr_t`의 목록)로 주소를 교환한다. `dma_addr_t`는 DMA API에 특화된 타입이므로, DMA API를 사용하지 않는 소비자에게는 적합하지 않다는 한계가 있다.
-
-### 2.3 iommufd의 매핑 경로
-
-iommufd는 IOAS(IO Address Space) 객체에 IOVA 매핑을 담고, HWPT(하드웨어 페이지 테이블)를 통해 디바이스에 연결한다. 사용자 매핑 경로는 두 가지이다.
-
-- `IOMMU_IOAS_MAP`: 사용자 VA를 받아 pin한 뒤 매핑한다. 호스트 RAM 전용이며, PFNMAP VMA도 호스트 VMA가 없는 GPU 메모리도 등록할 수 없다.
-- `IOMMU_IOAS_MAP_FILE`: v6.13에 추가된 경로로, VA 대신 파일(fd)을 받아 매핑한다. 도입 당시에는 memfd만 수용하였다.
-
-GPU 메모리를 다루기 위해서는 `IOMMU_IOAS_MAP_FILE` 경로가 열려야 하며, 그 대상이 memfd에서 dma-buf(디바이스 메모리)로 확장되는지가 핵심 질문이 된다.
-
-### 2.4 IOMMU_MMIO 속성
-
-일반 RAM과 달리 GPU VRAM 및 BAR 영역은 캐시되어서는 안 되는 MMIO/디바이스 메모리이다. IOMMU 페이지 테이블에 이 사실을 전달하는 플래그가 `IOMMU_MMIO`이며, `iommu_map_pa`도 이 플래그로 매핑한다. 후술하듯 업스트림의 신규 경로 역시 GPU 메모리를 `IOMMU_MMIO`로 매핑하므로, 이 점에서 자체 우회 모듈과 업스트림 설계의 의미는 동일하다.
-
-## 3. 업스트림 지원 현황 (머지된 패치)
-
-iommufd의 디바이스 메모리 지원은 아래 4단계로 진화하였으며, 현재는 ② 단계에서 멈춰 ③을 대기하는 상태이다. 이 4단계는 업스트림의 분류가 아니라 본 보고서가 서술을 위해 세운 구분이다.
-
-| 단계 | 릴리스 | 내용 |
+| 질문 | 결론 | 근거 |
 | --- | --- | --- |
-| ① 파일 매핑 도입 | v6.13 (2025-01) | `IOMMU_IOAS_MAP_FILE`: memfd(호스트 페이지) 매핑 |
-| ② 디바이스 메모리 도입 | v6.19 (2026-02) | dma-buf(**MMIO = 디바이스 메모리**) 매핑. **단 VFIO PCI dma-buf 한정** |
-| ③ 일반 exporter 개방 | 미머지 | dma-buf mapping types(**PAL**) 또는 mm memory provider. **방향 미정** |
-| ④ CUDA/GPU exporter | 미머지 | ③에 의존. 명시적으로 다룬 시리즈 없음 |
+| iommufd가 디바이스 메모리(dma-buf)를 IOAS에 매핑할 수 있는가 | **부분 지원** VFIO PCI dma-buf의 단일 MMIO 구간만 | UAPI 주석(v7.2 `298ab7e6f163`), `pages.c`의 `symbol_get` 경로 |
+| CUDA/NVIDIA GPU dma-buf는 매핑되는가 | **미지원** `-EOPNOTSUPP` | `vfio_pci_dmabuf.c` 127행의 exporter ops 검사 |
+| 일반 exporter를 여는 작업은 머지되었는가 | **미머지** 두 RFC 경합 | master, for-next, linux-next에 PAL 심볼 없음. mm provider는 2026-10-06 RFC |
+| 사설 연결을 NVIDIA용으로 하나 더 두는 길은 있는가 | **없음** | iommufd 메인테이너의 2026-10-12 발언 |
+| 워크어라운드 대체 시점 | **미정** 당분간 유지 | 위 네 줄의 결과 |
 
-### 3.1 v6.13: IOMMU_IOAS_MAP_FILE (memfd)
+**의미.** `iommu_map_pa`는 VFIO/iommufd의 IOVA 회계, 수명주기, 락, dirty tracking 바깥에서 동작하므로 기술 부채이지만, 현재 용도는 실험과 검증 단계이고 프로덕션 의존은 없다. 업스트림이 어느 설계를 택하든 매핑의 의미(물리주소 목록을 `IOMMU_MMIO`로 등록)는 자체 모듈과 같으므로, 전환 자체의 비용은 크지 않다. 비용은 기다리는 시간이다.
 
-2024년 11월, Oracle의 Steve Sistare가 `IOMMU_IOAS_MAP_FILE`을 추가하였다(`f4986a72d6e4`). 목적은 라이브 마이그레이션이며, 게스트 메모리를 `memfd` 형태로 전달하여 IOAS에 매핑하는 것이었다. 당시 대상은 memfd, 즉 호스트 페이지였고 디바이스 메모리는 아니었다. 다만 "VA가 아니라 파일로 매핑한다"는 확장 지점이 마련된 것이 중요하다.
+**바로잡은 이전 기록.** 이 보고서의 초안(커밋 a132b05)은 네 가지를 틀리게 썼다. §부록 B에 대조표로 정리하였다. 요지는 다음과 같다. VFIO type1은 PFNMAP 메모리를 pin 없이 매핑할 수 있다. 1 GiB CUDA 버퍼는 본 팀 측정에서 물리 구간 하나였다. PAL importer는 iommufd만 허용된다. 2026-10-05와 10-12의 메인테이너 발언이 빠져 있었다.
 
-### 3.2 v6.19: 디바이스 메모리(dma-buf/MMIO) 도입
+**확인하지 못한 것.** NVIDIA dma-buf를 실제로 `IOMMU_IOAS_MAP_FILE`에 넣었을 때 어느 단계에서 어떤 오류로 떨어지는지는 소스로 읽은 추론이며 실측하지 않았다(개발 PC 커널 6.8.12는 이 경로가 없다). CUDA 할당에 호스트 VMA가 없다는 서술은 일반론이다. "CUDA를 다룬 업스트림 시리즈가 없다"는 부재 주장은 patchwork 검색에 한정된다. 각 항목의 다음 단계는 부록 B에 적었다.
 
-전환점은 v6.19이다(2025년 12월 머지 윈도, 2026년 2월 8일 릴리스). NVIDIA의 Jason Gunthorpe가 주도한 패치 묶음이 v6.19에 반영되어, iommufd가 dma-buf를 받아 IOAS에 매핑하게 되었다(`44ebaa1744fd`, `71db84a092c3` 등). 매핑 대상은 MMIO, 즉 디바이스 메모리이며 `IOMMU_MMIO`로 등록된다. 함께 `phys_vec`(물리주소 벡터) 공용 타입과 VFIO PCI의 P2P 기본 활성화가 정비되었다.
+**반영한 변경.** 코드 변경은 없다. 본 팀 스택에서는 `iommu_map_pa`를 유지하고, §7의 감시 신호를 분기마다 점검한다.
 
-그러나 이 기능은 **VFIO PCI가 내보내는 dma-buf 전용**이다. iommufd는 `vfio_pci_dma_buf_iommufd_map()` 함수를 `symbol_get()`으로 호출하는데, 이는 VFIO exporter와 iommufd importer 사이의 사설 연결(private interconnect)이다. 코드 주석에도 "iommufd와 vfio는 순환 의존이 있으며, 물리주소 기반 사설 연결이 도입되면 본 연결은 제거될 것"이라고 기술되어 있다. 즉 v6.19는 출발점이며 완성점이 아니다.
+## 1. 문제 정의
 
-### 3.3 v7.1: revoke/pin 정비
+### 1.1 P2P DMA와 IOMMU 등록
 
-v7.1(2026년 4월 머지 윈도, 2026년 6월 14일 릴리스)에는 NVIDIA의 Leon Romanovsky가 dma-buf의 revoke/pin 흐름을 정리하였다(`8c5f9645c389`, `be6d4c9e9d71`, `6ffe939bf94f`, `95308225e5ba`). `move_notify`를 `invalidate_mappings`로 개명하고, `dma_buf_attach_revocable()`을 추가하여 VFIO exporter가 revoke를 따르는 pinned importer를 받게 하였으며, iommufd가 사설 경로 대신 일반 `dma_buf_pin()` 흐름을 타게 하였다. 이로써 iommufd의 VFIO 의존을 일부 제거하였다. 다만 해당 시리즈의 커밋 메시지에는 **"다른 exporter를 지원하기 위해서는 물리주소 목록을 얻는 수단이 아직 필요하다"**고 명시되어 있다. 본 팀에 필요한 조각이 업스트림에서도 미구현 항목으로 인정된 것이다.
+LLM 추론의 KV 캐시 오프로딩, 모델 로딩, 체크포인팅처럼 GPU 메모리와 저장장치 사이에서 큰 데이터를 옮기는 작업에서는, 데이터를 GPU VRAM에서 호스트 RAM을 거쳐 NVMe로 복사하는 대신 NVMe가 GPU VRAM으로 직접 DMA하는 편이 대역폭과 CPU 부하에서 유리하다. 이 직접 경로를 P2P(peer-to-peer) DMA라고 한다.
 
-### 3.4 현재 상태 (mainline 7.3-rc)
+NVMe가 IOMMU 뒤에 있으면 NVMe가 내보내는 주소(IOVA)는 IOMMU 페이지 테이블을 거쳐 물리주소로 번역된다. P2P가 성립하려면 그 테이블에 GPU VRAM의 물리주소(실제로는 GPU가 VRAM을 PCIe에 노출하는 BAR1 창의 주소)가 들어 있어야 한다. 규모를 숫자로 잡으면 다음과 같다. 본 팀의 측정에서 GPU의 BAR1은 물리주소 0x4800000000부터 32 GiB이고, CUDA가 할당한 1 GiB 버퍼는 그 안의 0x480f600000에 놓였으며, 이것을 NVMe의 IOMMU에 넣으면 2 MiB 엔트리 512개가 된다. 이 등록을 누가 어떤 API로 하는가가 이 보고서의 전부다.
 
-2026년 10월 mainline(7.3-rc)에서 사실 관계는 UAPI 주석과 코드에 그대로 드러난다.
+### 1.2 현행 우회 경로 iommu_map_pa
 
-- **UAPI 문구**(`include/uapi/linux/iommufd.h`): "This is **not a generic dma-buf import path**; currently supported dma-bufs include **single-range VFIO PCI dma-bufs** ... and other dma-bufs may be rejected."
-- **코드 경로**(`drivers/iommu/iommufd/pages.c`): selftest 전용 mock exporter(`CONFIG_IOMMUFD_TEST`)를 제외하면 dma-buf는 `vfio_pci_dma_buf_iommufd_map()` 심볼로만 매핑된다(`CONFIG_VFIO_PCI_DMABUF`로 제어되며, 부재 시 `-EOPNOTSUPP`).
-- **vfio 쪽 계약**(`drivers/vfio/pci/vfio_pci_dmabuf.c`): `vfio_pci_dma_buf_iommufd_map()`의 주석은 성공 조건을 "one physical range ... pointing to MMIO"로 적는다. 함수는 먼저 exporter ops가 vfio-pci인지 검사하여 아니면 `-EOPNOTSUPP`를 돌려주고, 그 뒤에 range가 하나인지 검사한다.
+VFIO와 iommufd가 사용자 공간에 주는 매핑 API는 모두 호스트 가상주소(VA)나 파일(fd)을 입력으로 받는다(§2.2). CUDA 할당은 호스트 주소 공간에 매핑되지 않아 VA가 없고(CUDA 일반론에 따른 추정이다), 파일 경로는 §3에서 보듯 NVIDIA dma-buf를 거부한다. 그래서 upcie는 `experimental/iommu_map_pa` 커널모듈로 이 API들을 건너뛴다.
 
-정리하면 현재 매핑 가능한 대상은 vfio-pci 디바이스 자신의 BAR 한 구간에 국한된다. GPU가 CUDA로 상시 사용되며 NVIDIA 드라이버가 VRAM을 dma-buf로 내보내는 본 팀 시나리오는, exporter가 vfio-pci가 아니므로 이 경로에 해당하지 않는다. 인트리에서 GPU 메모리를 iommufd가 받는 유일한 경로는 v6.19의 nvgrace-gpu vfio variant 드라이버(`5415d887db0e`)인데, 이는 GPU를 vfio에 바인딩해야 하므로 CUDA와 공존하지 못한다.
+이 모듈은 대상 vfio-pci 디바이스가 지금 쓰는 IOMMU 도메인을 `iommu_get_domain_for_dev()`로 빌려 온 뒤, 사용자 공간이 `dmabuf_import` 모듈로 알아낸 BAR1 물리주소 목록을 커널 내부 함수 `iommu_map()`으로 그 도메인에 직접 넣는다. 디바이스 메모리이므로 `IOMMU_MMIO` 속성으로 넣는다. 동작은 하지만, 모듈의 README가 열거하듯 VFIO/iommufd의 IOVA 회계, 수명주기 관리, 락, dirty tracking을 모두 우회한다. 도메인이 예고 없이 바뀌거나 IOVA가 겹치면 오매핑이나 use-after-free로 이어질 수 있고, README는 "production-safe VFIO extension이 아니다"라고 명시한다. README가 지목한 장기 방향은 "`IOMMU_IOAS_MAP_FILE`에 CUDA dma-buf 지원과 같은 owner-integrated dma-buf 매핑 API"다.
 
-## 4. 현재 제약 요인 분석
+본 팀 스택에서 이 모듈은 DKMS 패키지 `upcie-experimental-dkms` 0.9.0(`dmabuf_import`와 함께 포장)으로 배포되고, upcie의 CUDA 경로 `dmamem_from_cuda_iommu_map_pa()`가 쓰며, `tests/test_dmamem_cuda_iommu_map_pa_nvme_readwrite.c`로 검증된다. aisio에서는 `tasks/setup_upcie_modules.yaml`이 적재한다. 즉 현재 용도는 실험과 검증이고 프로덕션 의존은 없다.
 
-현행 제약은 직접 요인 하나(exporter 고정)와, 그 요인이 풀린 뒤에 드러나는 조건 둘(단일 range, 물리주소 목록 규약)로 구분할 수 있다.
+### 1.3 보고서의 범위와 구분
 
-### 4.1 exporter 고정 (hardwired)
+이 보고서는 README가 지목한 목표 API의 업스트림 진척을 머지된 패치와 진행 중인 RFC로 나누어 정리한다. 서술을 위해 지원 수준을 네 단계로 나누는데, 이 구분은 업스트림의 분류가 아니라 본 보고서의 것이다.
 
-iommufd의 dma-buf importer는 vfio-pci exporter에 고정되어 있다. importer가 exporter로부터 물리주소를 얻는 방식이 "vfio-pci의 특정 심볼을 `symbol_get`으로 호출"로 고정되어 있으므로, NVIDIA 드라이버와 같이 다른 exporter가 dma-buf를 내보내면 해당 심볼이 부재하여 `-EOPNOTSUPP`로 거부된다. 일반 exporter를 수용하려면 "물리주소 목록을 교환하는 범용 규약"이 먼저 마련되어야 한다.
+| 단계 | 내용 | 상태 |
+| --- | --- | --- |
+| ① 파일 매핑 도입 | `IOMMU_IOAS_MAP_FILE`로 memfd(호스트 페이지)를 매핑 | v6.13 (2025-01) |
+| ② 디바이스 메모리 도입 | 같은 ioctl로 dma-buf(MMIO)를 매핑. 단 vfio-pci dma-buf 한정 | v6.19 (2026-02) |
+| ③ 일반 exporter 개방 | 어느 드라이버의 dma-buf(또는 provider 파일)든 매핑 | 미머지, 방향 미정 |
+| ④ CUDA/GPU exporter | NVIDIA 드라이버가 ③의 규약을 구현 | ③에 의존. 시리즈 없음 |
 
-### 4.2 단일 MMIO range 조건
+지금은 ②에서 멈춰 ③을 기다리는 상태다. 이 그림을 읽으려면 등장 요소를 먼저 정리해야 한다.
 
-현행 경로는 dma-buf가 MMIO 한 구간을 가리킬 때만 동작한다. 이 조건은 §4.1이 풀린 뒤에야 의미가 있는 2차 조건이다. `vfio_pci_dma_buf_iommufd_map()`은 exporter 검사를 range 개수 검사보다 먼저 하므로, NVIDIA dma-buf는 구간이 하나여도 exporter 검사에서 거부된다. 본 팀의 GPU IOMMU 매핑 크기 측정(2026년 9월)에서는 CUDA로 할당한 1 GiB 버퍼를 dma-buf로 내보내 NVMe 명의로 받았을 때 BAR1 안의 연속 구간 하나가 돌아왔다. 다만 NVIDIA exporter(`nv-dmabuf.c`의 `nv_dma_buf_map_pfns()`)는 핸들마다 `memArea.numRanges`개의 구간을 돌려줄 수 있으므로, 일반 exporter를 받는 경로에는 PAL RFC의 patch 24나 memory provider처럼 다중 range를 받는 코드가 필요하다.
+## 2. 전체 그림과 용어
 
-### 4.3 물리주소 목록 API 부재
+### 2.1 등장 요소
 
-가장 근본적인 요인이다. iommufd는 DMA API를 사용하지 않고 `iommu_map()`으로 물리주소를 직접 페이지 테이블에 등록하므로, importer에게 필요한 것은 `dma_addr_t`의 scatterlist가 아니라 **`phys_addr_t` 목록**이다. 그러나 dma-buf의 표준 교환 형식은 여전히 scatterlist이며, 물리주소 목록을 교환하는 범용 규약은 존재하지 않는다. §3.3의 커밋이 이 항목을 명시적으로 미구현으로 남긴 이유이다.
+| 요소 | 역할 | 코드 위치 |
+| --- | --- | --- |
+| dma-buf | 한 드라이버의 버퍼를 다른 드라이버와 공유하는 커널 표준 틀. 버퍼 소유자가 exporter로서 fd로 내보내고, 받는 쪽이 importer로서 attach하여 매핑한다 | `drivers/dma-buf/dma-buf.c` |
+| scatterlist | exporter와 importer가 전통적으로 주소를 주고받는 형식. `dma_addr_t` 목록이므로 DMA API를 쓰지 않는 importer에게는 맞지 않는다 | `include/linux/scatterlist.h` |
+| `phys_vec` | 물리주소 한 구간(`paddr`, `len`). v6.19에 공용 타입으로 들어왔다 | `include/linux/types.h` |
+| IOAS | iommufd의 IO 주소 공간 객체. 사용자 매핑을 담고 HWPT(하드웨어 페이지 테이블)를 통해 디바이스에 붙는다 | `drivers/iommu/iommufd/ioas.c` |
+| `iommu_domain` | 커널 공통 IOMMU 계층의 페이지 테이블 객체. iommufd도 `iommu_map_pa`도 결국 여기에 `iommu_map()`을 부른다 | `drivers/iommu/iommu.c` |
+| `IOMMU_MMIO` | 페이지 테이블 엔트리에 "캐시하지 말 것"을 전달하는 속성. 디바이스 메모리 매핑에 쓴다 | `include/linux/iommu.h` |
+| revoke | exporter가 매핑을 회수하는 것. importer는 `invalidate_mappings` 콜백 안에서 매핑을 지워야 한다 | `dma_buf_invalidate_mappings()` |
+| pin | importer가 버퍼를 움직이지 말라고 exporter에 요청하는 것. iommufd는 v7.1부터 일반 `dma_buf_pin()` 흐름을 탄다 | `dma_buf_pin()` |
 
-자체 모듈과의 대비는 다음과 같다. `iommu_map_pa`는 이 요인과 두 조건을 정면으로 우회한다. exporter, range 개수, 물리주소 규약을 따지지 않고 `iommu_map()`에 직접 등록한다. 이로써 현재 유일하게 동작하는 경로이지만, 회계, 수명주기, 락이 없어 안전하지 않다. 업스트림이 ③ 단계에서 이 요인들을 해소하면 본 모듈은 역할을 다하게 된다.
+### 2.2 사용자 매핑 API 비교
 
-## 5. 진행 중 작업 및 논쟁
+GPU 메모리를 IOMMU에 넣을 수 있는 후보 API는 네 가지다. 입력과 pin 방식이 다르고, 그 차이가 GPU 메모리를 받을 수 있는지를 정한다.
 
-③ 단계(일반 exporter 개방)를 향한 시도는 두 진영으로 나뉘어 있으며, 모두 미머지 상태이다. 어느 쪽도 "곧 머지"라기보다 방향을 다투는 중이다.
+| API | 입력 | 일반 RAM | PFNMAP VMA(장치 BAR mmap) | dma-buf | 매핑 수명 보장 |
+| --- | --- | --- | --- | --- | --- |
+| `VFIO_IOMMU_MAP_DMA` (type1) | 호스트 VA | pin | pin 없이 `follow_fault_pfn()`으로 따라감 | 받지 않음 | PFNMAP은 없음 |
+| `IOMMU_IOAS_MAP` (iommufd) | 호스트 VA | pin | 받지 않음 | 받지 않음 | pin |
+| `IOMMU_IOAS_MAP_FILE` + memfd | fd | `memfd_pin_folios()` | 해당 없음 | 해당 없음 | pin |
+| `IOMMU_IOAS_MAP_FILE` + dma-buf | fd | 해당 없음 | 해당 없음 | vfio-pci 단일 구간만 | revoke 콜백 |
 
-### 5.1 dma-buf mapping types와 PAL (Jason Gunthorpe)
+VFIO type1이 PFNMAP VMA를 받는다는 점은 초안이 틀리게 썼던 곳이다. `vaddr_get_pfns()`는 VMA에 `VM_PFNMAP`이 있으면 `follow_fault_pfn()`으로 물리주소를 얻고 pin하지 않는다. QEMU가 패스스루 장치의 BAR mmap을 다른 장치의 IOMMU에 넣는 P2P가 이 경로다. 다만 매핑의 수명을 보장할 수단이 없어서, iommufd는 이 경로를 들이지 않고 dma-buf 경로를 만들었다. CUDA 할당은 어느 VA 경로에도 걸리지 않는다. 호스트 VMA가 없기 때문이다. 남는 것은 dma-buf 경로 하나이고, 그 경로가 NVIDIA dma-buf를 받는지가 핵심 질문이 된다.
 
-2026년 2월 제안된 RFC("Add DMA-buf mapping types", 26개 패치)는 dma-buf 자체에 "mapping types" 개념을 도입한다. 기존의 scatterlist 단일 형식 대신, importer와 exporter가 주소 교환 형식을 협상하도록 하는 틀이다. 여기에 iommufd를 위해 추가된 것이 **PAL(Physical Address List)** 타입이며, `phys_vec` 배열, 즉 물리주소 목록을 직접 교환한다.
+### 2.3 매핑 결과의 모양
 
-본 팀 관점에서 중요한 사항이 세 가지 이 RFC에 명시되어 있다. 첫째, PAL importer는 모듈 로더(`EXPORT_SYMBOL_FOR_MODULES(dma_buf_pal_map_phys, "iommufd")`)에 의해 iommufd만 구현할 수 있고, KVM은 같은 타입이 필요하다고 명시되었으나 이 RFC에서는 허용되지 않았다. 반면 exporter는 누구나 구현할 수 있으며 그 사유로 "DPDK/SPDK가 GPU 메모리를 VFIO/iommufd로 연결하기 위함"이라고 GPU 메모리를 직접 언급한다. 둘째, 매핑은 `IOMMU_MMIO`로 수행되어 자체 워크어라운드와 동일하다. 셋째, patch 23에서 iommufd가 vfio 함수 대신 PAL을 사용하고, patch 24에서 다중 range를 지원한다. 즉 본 RFC는 §4의 요인과 두 조건을 모두 해소한다.
+어느 경로로 넣든 페이지 테이블에 들어가는 내용은 같다. 본 팀 측정값으로 적으면 다음과 같다.
 
-다만 브랜치(`jgunthorpe/linux dmabuf_map_type`)의 최종 커밋은 2026년 3월 1일이며, 이후 진척이 없고 master, iommufd for-next, linux-next 어디에도 반영되지 않았다.
+| 항목 | 값 |
+| --- | --- |
+| 버퍼 | CUDA 1 GiB, BAR1 안의 물리주소 0x480f600000 (2 MiB 정렬) |
+| IOVA | 0x3f80000000 (1 GiB 정렬) |
+| 엔트리 | 2 MiB x 512 (물리주소가 1 GiB 정렬이 아니어서 1 GiB 엔트리는 쓰이지 않음) |
+| 속성 | `IOMMU_MMIO`, 읽기와 쓰기 |
 
-### 5.2 mm memory provider (Fred Griffoul, Amazon)
+iommufd의 dma-buf 경로도 `BATCH_MMIO`로 모은 뒤 `IOMMU_MMIO`를 붙여 `iommu_map()`을 부르고(`pages.c` 520행), PAL RFC와 mm provider RFC도 MMIO 페이지를 `IOMMU_MMIO`로 넣는다. 자체 모듈과 업스트림 설계의 차이는 결과가 아니라 누가 물리주소를 확인하고 수명을 책임지는가에 있다. 이제 실제로 무슨 일이 일어나는지 본다.
 
-다른 진영은 dma-buf를 확장하는 대신 mm 계층에 "memory provider" 인터페이스를 신설한다. 기반은 David Woodhouse의 RFC v2 "KVM: Allow alternative providers of guest_memfd backed by PFNMAP memory"(2026년 7월 20일)로, guest_memfd의 백엔드를 교체 가능하게 만드는 KVM 쪽 시리즈다. 이 시리즈의 iommufd 연결은 guest_memfd를 뒷받침하는 dma-buf를 RAM으로 매핑하는 방식이었고, 저자 자신도 장기적으로 깨끗한 선택인지 확신하지 못한다고 적었다. Griffoul의 시리즈는 그 위에 mm 인터페이스를 얹는다. 페이지 할당자 밖에서 메모리를 소유한 드라이버(provider)가 그 메모리를 대여하고, 소비자(consumer)인 guest_memfd와 iommufd의 `IOMMU_IOAS_MAP_FILE`이 이를 매핑한다. 특징은 pin을 수행하지 않는다는 점이다. provider가 언제든 프레임을 회수(revoke)할 수 있고, 회수 시 모든 consumer가 매핑을 먼저 제거한다. 2026년 10월 최신 RFC(Griffoul, 9개 패치)의 iommufd 관련 패치는 provider 파일을 수용하되, MMIO 페이지는 `IOMMU_MMIO`로, hole은 미매핑으로, 읽기 전용 페이지는 `IOMMU_WRITE` 없이 매핑한다.
+## 3. 구체적 예시: 두 dma-buf의 경로
 
-주목할 점은 이 진영이 dma-buf 경로를 명시적으로 폐기하였다는 것이다. 동일 저자가 2026년 10월 5일 dma-buf를 이용한 접근("KVM: guest_memfd: back guest_memfd with an imported dma-buf", `get_phys()` 추가)을 제안하였다가, 같은 날 dma-buf 메인테이너의 반대("absolutely clear NAK")로 이를 접고 다음 날 mm 계층 시리즈로 방향을 전환하였다.
+같은 ioctl에 두 종류의 dma-buf fd를 넣었을 때 코드가 어디까지 가는지 단계별로 적는다. 입력은 모두 `IOMMU_IOAS_MAP_FILE`에 fd, `start = 0`, `length = 1 GiB`, `flags = READABLE | WRITEABLE`이다.
 
-### 5.3 쟁점과 현재 상태
+### 3.1 vfio-pci dma-buf (성공)
 
-양 진영을 가른 쟁점은 "누가 물리주소를 확인하는가"이다. dma-buf 메인테이너 Christian König은 일반 mapping type 체계 자체에는 찬성("Yes, absolutely")하되, importer가 dma-buf로부터 물리주소를 직접 수신하는 PAL importer에는 반대한다(2026년 4월 13일, 4월 22일). importer가 dma-buf로 자체 페이지 테이블을 구성하는 것을 차단하려는 것이며, 대안으로 exporter가 iommufd의 `iommu_domain`에 직접 매핑하는 인터페이스를 제안하였다. 이에 Jason Gunthorpe는 2026년 4월 22일 "exporter=PAL, core=converter, importer=iommu_domain"의 3단계 절충안을 제시하였다. 2026년 5월 9일 Xu Yilun이 이 방식은 KVM에 맞지 않는다고 지적하고 Gunthorpe가 5월 11일 동의한 뒤 PAL 스레드는 멈춰 있다.
+| 단계 | 코드 | 결과 |
+| --- | --- | --- |
+| 1 | `iommufd_ioas_map_file()`이 플래그와 길이를 검사하고 `iopt_map_file_pages()`를 부른다 | 통과 |
+| 2 | `dma_buf_get(fd)`가 성공하므로 dma-buf 경로로 간다. memfd라면 실패하여 `iopt_alloc_file_pages()`로 간다 | dma-buf 경로 |
+| 3 | `iopt_alloc_dmabuf_pages()`가 크기와 `MAX_NPFNS`를 검사하고 `iopt_map_dmabuf()`를 부른다 | 통과 |
+| 4 | `dma_buf_dynamic_attach()`가 iommufd의 misc 장치 명의로 attach한다. importer ops는 `allow_peer2peer = true`, `invalidate_mappings = iopt_revoke_notify` | 통과 |
+| 5 | `dma_buf_pin()`이 exporter의 `pin` 콜백을 부른다. vfio-pci의 `pin` 콜백은 `dma_buf_attach_revocable()`로 importer가 `invalidate_mappings`를 구현했는지 보고, 아니면 `-EOPNOTSUPP`를 돌려준다 (v7.1) | 통과 |
+| 6 | `sym_vfio_pci_dma_buf_iommufd_map()`이 selftest 훅을 시도하고(`-EOPNOTSUPP`), `CONFIG_VFIO_PCI_DMABUF`를 확인한 뒤 `symbol_get(vfio_pci_dma_buf_iommufd_map)`을 부른다 | 심볼 획득 |
+| 7 | `vfio_pci_dma_buf_iommufd_map()`이 exporter ops가 vfio-pci인지, revoke되지 않았는지, 구간이 하나인지 검사하고 `phys_vec` 하나를 돌려준다 | `phys_vec` 획득 |
+| 8 | 이후 도메인에 붙을 때 `BATCH_MMIO`로 `IOMMU_MMIO` 매핑을 만든다. 매핑이 IOAS에 남아 있는 동안 attach가 유지되고, exporter가 revoke하면 `iopt_revoke_notify()`가 모든 도메인에서 그 구간을 지운다 | 매핑 완료 |
 
-같은 쟁점은 2026년 10월 Griffoul의 dma-buf RFC 스레드에서 다시 다뤄졌고, 입장이 한 단계 더 드러났다.
+### 3.2 NVIDIA dma-buf (거부)
 
-1. 2026년 10월 5일 König: importer가 페이지 테이블을 채우는 것은 "absolutely clear NO-GO"다. 다만 같은 날 후속 답글에서 exporter 전용 사설 인터페이스는 괜찮으며, 모듈 간 의존을 피하려면 `symbol_get()`이 아마 옳은 방법이라고 하였다.
-2. 2026년 10월 12일 Gunthorpe: "I don't want to keep expanding this hack in iommufd. If dmabuf is to be used then dmabuf needs to provide a pluggable way to fill the iommu_domain that many exporters can plug into. I don't want to hardwire every exporter into iommufd." 현재의 vfio-pci 사설 연결은 범용 해법을 끌어내기 위한 것이고 확장할 대상이 아니라고 하였다.
-3. 2026년 10월 12일 Griffoul: iommufd 쪽 exporter registry 안은 포기하였고 mm 경로로 갔다고 답하며, 그것이 Gunthorpe가 생각하는 범용 인터페이스인지 물었다. 10월 12일 기준으로 답은 없다.
+| 단계 | 코드 | 결과 | 확신 |
+| --- | --- | --- | --- |
+| 1-3 | 위와 같다. dma-buf이므로 dma-buf 경로로 간다 | 통과 | 확실 |
+| 4 | `dma_buf_dynamic_attach()`가 NVIDIA의 `nv_dma_buf_attach()`를 부른다. 이 콜백은 importer 장치를 `to_pci_dev()`로 다루고 PCI 토폴로지를 검사한다. iommufd의 importer 장치는 PCI 장치가 아닌 misc 장치다 | 통과로 추정 | 추정. 본 팀의 `dmabuf_import` misc 경로가 같은 종류의 misc 장치로 attach에 성공했다 |
+| 5 | `dma_buf_pin()`. NVIDIA exporter에는 `pin` 콜백이 없으므로 0을 돌려준다 | 통과 | 확실 |
+| 6 | `symbol_get(vfio_pci_dma_buf_iommufd_map)` | 심볼 획득 | 확실 |
+| 7 | `vfio_pci_dma_buf_iommufd_map()` 127행: `attachment->dmabuf->ops != &vfio_pci_dmabuf_ops` | **`-EOPNOTSUPP`** | 확실 |
+| 8 | `iopt_map_dmabuf()`가 unpin, detach하고 오류를 돌려준다. ioctl은 `-EOPNOTSUPP`로 끝난다 | 거부 | 확실 |
 
-본 팀에 미치는 함의는 두 가지다. 첫째, dma-buf 메인테이너는 vfio-pci처럼 exporter별 사설 심볼을 두는 길을 열어 두었지만 iommufd 메인테이너가 그 길을 막았으므로, NVIDIA 드라이버가 사설 심볼을 제공하여 현행 경로에 끼어드는 지름길은 없다. 둘째, 쟁점이 "누가 물리주소를 확인하는가"에서 "범용 훅이 dma-buf, iommufd 사설 연결, mm 중 어디에 있어야 하는가"로 옮겨 갔다.
+구간 개수 검사(135행)는 7단계의 exporter 검사 뒤에 있으므로, NVIDIA dma-buf는 구간이 하나여도 거부된다. 4단계의 추정은 실측으로 확인해야 하며(부록 B), 4단계에서 먼저 떨어지더라도 결론(거부)은 같다.
 
-결과적으로 ③ 단계는 "설계가 반대로 폐기된" 것이 아니라 절충안이 도출된 채 합의에 이르지 못하고 정체된 상태이다. CUDA/NVIDIA를 명시적으로 다룬 시리즈는 이번 조사에서 찾지 못하였다. 다만 용도 자체는 업스트림에서 언급되었다. Gunthorpe는 2026년 4월 13일 답글에서 두 번째 목표 경로로 "GPU and RDMA drivers to IOMMUFD: Support SPDK and DPDK type userspace drivers to work with GPU memory. This is becoming a popular topic"을 들었다. 현재의 기반 기술들은 guest_memfd/vGPU(PFNMAP) 시나리오를 겨냥하며, CUDA exporter는 어느 설계가 채택되든 그 범용 메커니즘 위에 구현되는 형태가 될 것으로 전망된다.
+### 3.3 iommu_map_pa 경로와의 대비
 
-## 6. 결론 및 제언
+`iommu_map_pa`는 위 표의 모든 단계를 건너뛴다. 사용자 공간이 `dmabuf_import`로 얻은 물리주소 목록을 ioctl로 넘기면, 모듈이 `iommu_get_domain_for_dev()`로 빌린 도메인에 `iommu_map(iova, phys, size, IOMMU_READ | IOMMU_WRITE | IOMMU_MMIO)`를 반복한다. exporter가 누구인지, 구간이 몇 개인지, 물리주소가 유효한지를 커널이 확인하지 않는다. 그래서 지금 동작하는 유일한 경로이면서 동시에 안전하지 않은 경로다. 업스트림이 ③을 완성하면 이 모듈이 하던 일은 3.1 표의 7단계와 8단계가 대신하게 된다.
 
-**결론.** iommufd는 v6.19에서 디바이스 메모리 dma-buf 매핑을 도입하여 "회계와 수명주기를 갖춘 owner-integrated 매핑"이라는 개념을 확보하였으나, 지원 대상이 VFIO PCI dma-buf 한 구간으로 고정되어 있어 본 팀이 사용하는 CUDA/GPU dma-buf는 아직 매핑되지 않는다. 이를 일반화할 두 설계(PAL, mm memory provider)는 모두 미머지이며 방향 또한 미정이다. iommufd 메인테이너는 exporter별 사설 연결을 더 늘리지 않겠다고 밝혔으므로(2026-10-12), 범용 설계가 머지되기 전에는 CUDA dma-buf가 iommufd에 들어갈 길이 없다. 따라서 현재 `iommu_map_pa` 워크어라운드는 대체가 불가하며, 대체 시점은 커뮤니티 합의에 의존하여 예측이 어렵다.
+## 4. 업스트림 연혁 (머지된 패치)
 
-**리스크.** 워크어라운드는 VFIO/iommufd의 회계, 수명주기, 락, dirty tracking을 우회하므로, 도메인 교체, IOVA 충돌 시 오매핑, use-after-free 위험이 상존한다. 업스트림 API가 등장하면 제거해야 할 기술 부채이다. 다만 §1.3에서 확인하였듯 현재 용도는 실험 및 검증 단계로, 프로덕션 의존은 없다.
+| 릴리스 | 머지 윈도 | 릴리스 날짜 | 내용 | 커밋 |
+| --- | --- | --- | --- | --- |
+| v6.13 | 2024-11 | 2025-01-19 | `IOMMU_IOAS_MAP_FILE` (memfd) | `f4986a72d6e4` |
+| v6.19 | 2025-12 | 2026-02-08 | dma-buf(MMIO) 매핑, `phys_vec`, vfio-pci dma-buf export와 P2P 기본 활성화 | `44ebaa1744fd`, `71db84a092c3`, `96ce2aeb15bd`, `3114c674401e`, `3aa31a8bb11e`, `35c3503908d3` |
+| v7.1 | 2026-04 | 2026-06-14 | dma-buf revoke/pin 정비 | `8c5f9645c389`, `be6d4c9e9d71`, `6ffe939bf94f`, `95308225e5ba` |
+| v7.2 | 2026-06 | 2026-08-16 | UAPI 주석 정정, access 경로에서 dma-buf 거부 | `298ab7e6f163`, `5f3fc0ad9a41` |
+| v7.3-rc1 | 2026-08 | (rc7 2026-10-11) | noiommu용 `IOMMU_IOAS_NOIOMMU_GET_PA` (호스트 메모리 전용, 본 주제와 무관) | `60decab325a4` |
+
+### 4.1 v6.13: IOMMU_IOAS_MAP_FILE (memfd)
+
+Oracle의 Steve Sistare가 라이브 마이그레이션을 위해 추가하였다. 커밋 메시지대로 "memfd와 offset, length를 넘겨 메모리를 등록"하며 `memfd_pin_folios()`로 구현되었다. 대상은 호스트 페이지였고 디바이스 메모리는 아니었다. 중요한 것은 "VA가 아니라 파일로 매핑한다"는 확장 지점이 생긴 것이다.
+
+### 4.2 v6.19: 디바이스 메모리(dma-buf/MMIO) 도입
+
+NVIDIA의 Jason Gunthorpe가 주도한 묶음이 같은 ioctl로 dma-buf를 받게 하였다. `71db84a092c3`의 메시지가 범위를 정확히 적는다. "DMABUF pages are not supported for accesses, and for now can only be used with the VFIO DMABUF exporter. ... There is no pinned page accounting done for DMABUF maps. The DMABUF attachment exists so long as the dmabuf is mapped into an IOAS." 같은 묶음에서 vfio-pci가 BAR 구간을 dma-buf로 내보내는 기능(`VFIO_DEVICE_FEATURE_DMA_BUF`)과 iommufd용 전용 함수 `vfio_pci_dma_buf_iommufd_map()`, 그리고 `phys_vec` 공용 타입이 들어왔다.
+
+iommufd와 vfio 사이의 이 전용 함수가 사설 연결(private interconnect)이다. `pages.c`의 주석은 "iommufd and vfio have a circular dependency. Future work for a phys based private interconnect will remove this."라고 적는다. v6.19는 출발점이지 완성점이 아니다.
+
+### 4.3 v7.1: revoke/pin 정비
+
+NVIDIA의 Leon Romanovsky가 `dma_buf_move_notify()`를 `dma_buf_invalidate_mappings()`로 개명하고, `dma_buf_attach_revocable()`을 추가하여 vfio exporter가 revoke를 따르는 pinned importer를 받게 하였으며, iommufd가 사설 경로 대신 일반 `dma_buf_pin()` 흐름을 타게 하였다. `6ffe939bf94f`는 이것이 "IOMMUFD가 VFIO dma-buf에 대한 사설 인터페이스를 없애는 데 필요한 두 항목 중 하나"라고 적고, `8c5f9645c389`는 나머지 하나를 명시한다. "This isn't enough to allow IOMMUFD to work with other exporters, it still needs a way to get the physical address list which is another series." 그 "another series"가 §6.1의 PAL RFC다.
+
+### 4.4 v7.2에서 v7.3-rc: 현재 상태
+
+v7.2의 `298ab7e6f163`은 UAPI 주석을 현실에 맞게 고쳤다. 현재 문구는 다음과 같다.
+
+> Set an IOVA mapping from a memfd file. On kernels with dma-buf support, supported dma-buf files may also be accepted. This is not a generic dma-buf import path; currently supported dma-bufs include single-range VFIO PCI dma-bufs exported through VFIO_DEVICE_FEATURE_DMA_BUF, and other dma-bufs may be rejected.
+
+코드도 같다. `pages.c`는 selftest 전용 mock exporter(`CONFIG_IOMMUFD_TEST`)를 제외하면 vfio 심볼로만 물리주소를 얻고, `vfio_pci_dmabuf.c`의 주석은 성공 조건을 "There is one physical range and it is pointing to MMIO"로 적는다. 인트리에서 GPU 메모리를 이 경로로 넣는 유일한 예는 v6.19의 nvgrace-gpu vfio variant 드라이버(`5415d887db0e`)인데, GPU를 vfio에 바인딩해야 하므로 CUDA와 공존하지 못한다. 지금까지가 머지된 것이다. 이제 무엇이 막고 있는지 본다.
+
+## 5. 제약 요인
+
+현행 제약은 직접 요인 하나와, 그것이 풀린 뒤에 드러나는 조건 둘로 나뉜다.
+
+### 5.1 exporter 고정 (직접 요인)
+
+iommufd가 물리주소를 얻는 방법이 "vfio-pci의 특정 심볼을 `symbol_get()`으로 호출"로 고정되어 있다. 다른 exporter의 dma-buf는 §3.2의 7단계에서 거부된다. 이 요인을 풀려면 iommufd가 exporter를 이름으로 알지 않고도 물리주소 목록을 받을 수 있는 규약이 있어야 한다.
+
+### 5.2 단일 구간 조건 (후속 조건)
+
+현행 함수는 구간이 하나일 때만 성공한다(`vfio_pci_dmabuf.c` 134행 주석 "More than one range to iommufd will require proper DMABUF support"). 이 조건은 5.1이 풀린 뒤에야 의미가 있다. 본 팀 측정에서 1 GiB CUDA 버퍼는 구간 하나였지만, NVIDIA exporter(`nv-dmabuf.c`의 `nv_dma_buf_map_pfns()`)는 핸들마다 `memArea.numRanges`개의 구간을 돌려줄 수 있으므로 일반 경로는 다중 구간을 받아야 한다. PAL RFC의 patch 24와 mm provider RFC가 각각 이를 다룬다.
+
+### 5.3 물리주소 목록 규약 부재 (근본 조건)
+
+iommufd는 DMA API를 쓰지 않고 `iommu_map()`에 물리주소를 직접 넣으므로, importer에게 필요한 것은 `dma_addr_t` scatterlist가 아니라 `phys_addr_t` 목록이다. dma-buf의 표준 교환 형식은 여전히 scatterlist이고, 물리주소 목록을 교환하는 범용 규약은 없다. §4.3의 커밋이 "another series"로 미룬 항목이 이것이며, §6의 두 RFC가 서로 다른 자리(dma-buf, mm)에 이 규약을 두려 한다.
+
+## 6. 진행 중 RFC와 논쟁
+
+### 6.1 dma-buf mapping types와 PAL (Jason Gunthorpe, NVIDIA)
+
+2026년 2월 18일 `[RFC 00/26] Add DMA-buf mapping types and convert vfio/iommufd to use them`이 올라왔다. dma-buf에 "mapping type" 개념을 넣어 importer와 exporter가 주소 교환 형식을 협상하게 하고, 기존 scatterlist를 SGT 타입으로 옮긴 뒤, 새 타입 PAL(Physical Address List)을 추가한다. PAL은 `phys_vec` 배열을 직접 넘긴다.
+
+본 팀 관점에서 중요한 사실 세 가지가 RFC에 명시되어 있다. 첫째, PAL importer는 모듈 로더(`EXPORT_SYMBOL_FOR_MODULES(dma_buf_pal_map_phys, "iommufd")`)로 iommufd만 허용되고, KVM은 같은 타입이 필요하다고 적혔으나 이 RFC에서는 허용되지 않았다. exporter는 누구나 구현할 수 있으며, 그 사유로 "DPDK/SPDK가 GPU 메모리를 VFIO/iommufd에 연결하는 용도"를 든다. 둘째, PAL 엔트리는 모두 MMIO로 간주되어 `IOMMU_MMIO`로 매핑된다. 셋째, patch 23이 iommufd의 vfio 함수 호출을 PAL로 바꾸고 patch 24가 다중 구간을 지원한다. 즉 §5의 요인과 두 조건을 모두 푼다.
+
+그러나 브랜치 `jgunthorpe/linux dmabuf_map_type`의 마지막 커밋은 2026년 3월 1일이고, master, iommufd for-next, linux-next 어디에도 PAL 심볼이 없다.
+
+### 6.2 mm memory provider (Fred Griffoul, Amazon)
+
+기반은 David Woodhouse의 `[RFC v2 00/11] KVM: Allow alternative providers of guest_memfd backed by PFNMAP memory`(2026년 7월 20일)다. guest_memfd의 백엔드를 교체 가능하게 하는 KVM 쪽 시리즈이며, iommufd 연결은 guest_memfd를 뒷받침하는 dma-buf를 RAM으로 매핑하는 방식이었다. 저자 자신이 "장기적으로 더 깨끗한 선택인지 확신하지 못한다"고 적었다.
+
+Griffoul은 2026년 10월 5일 `[RFC 0/6] KVM: guest_memfd: back guest_memfd with an imported dma-buf`로 dma-buf에 `get_phys()`를 추가하는 안을 냈다. dma-buf 메인테이너 Christian König이 같은 날 "importer가 페이지 테이블을 채우는 것은 absolutely clear NO-GO"라며 NAK했고, Griffoul은 당일 철회하였다. 다음 날 10월 6일 `[RFC 0/9] mm: Memory providers for guest_memfd and iommufd`가 올라왔다. 페이지 할당자 밖의 메모리를 가진 드라이버가 provider가 되어 파일을 내고, guest_memfd와 iommufd의 `IOMMU_IOAS_MAP_FILE`이 consumer로서 그 파일을 매핑한다. pin이 없고, provider가 revoke하면 모든 consumer가 매핑을 먼저 지운다. iommufd 패치(5/9)는 프레임마다 `PAGE_SIZE` 엔트리를 만들고, hole은 비워 두며, 읽기 전용 페이지는 `IOMMU_WRITE` 없이, MMIO 페이지는 `IOMMU_MMIO`로 넣는다.
+
+이 시리즈는 dma-buf를 건드리지 않는다. 다만 KVM 쪽에서 같은 자리를 노리는 시리즈가 둘 더 있어(Aneesh Kumar의 confidential computing용 시리즈 2026-10-10, Ackerley Tng의 resource fd RFC) 10월 12일 현재 인터페이스를 맞추는 중이고, iommufd 패치는 저자도 "주로 인터페이스를 보이기 위한 것이며 더 손봐야 한다"고 적었다.
+
+### 6.3 쟁점 타임라인
+
+| 날짜 | 누가 | 내용 | 출처 |
+| --- | --- | --- | --- |
+| 2026-02-18 | Gunthorpe | PAL RFC 26편 게시 | `0-v1-b5cab63049c0+191af-dmabuf_map_type_jgg@nvidia.com` |
+| 2026-03-01 | Gunthorpe | 브랜치 마지막 커밋 | `jgunthorpe/linux dmabuf_map_type` |
+| 2026-04-13 | König | patch 21(PAL)에 "pretty big NO-GO". importer의 물리주소 직접 접근 반대. "iommufd가 왜 물리주소가 필요한가" | `c413710b-4c28-4ed8-88ec-aeb8c4482011@amd.com` |
+| 2026-04-13 | Gunthorpe | "CPU iommu hw only works in physical address." 목표 경로 둘: VFIO에서 KVM, 그리고 GPU/RDMA 드라이버에서 iommufd("SPDK and DPDK type userspace drivers to work with GPU memory. This is becoming a popular topic") | `20260413121628.GE2588311@nvidia.com` |
+| 2026-04-22 | König | dma-buf 안에 그런 인터페이스를 두는 것 자체를 반대. 대안: exporter가 iommufd의 `iommu_domain`에 직접 매핑하는 `dma_buf_map_attachment_iommu()` | `fd8065ce-fd0e-4df5-9c80-8e9603657cfe@amd.com` |
+| 2026-04-22 | Gunthorpe | 절충안: exporter는 PAL, importer는 `iommu_domain`, 둘을 잇는 converter는 dma-buf core만 가진다. König은 mapping type 체계 자체에는 "Yes, absolutely" | `20260422150000.GK3199414@nvidia.com` |
+| 2026-05-09 | Xu Yilun | 이 방식은 KVM에 맞지 않는다(KVM은 주소 공간 관리자이자 매퍼) | `af7GzASJiASopYiN@yilunxu-OptiPlex-7050` |
+| 2026-05-11 | Gunthorpe | 동의. PAL 스레드의 마지막 메시지 | `20260511224841.GA1197107@nvidia.com` |
+| 2026-07-20 | Woodhouse | guest_memfd provider RFC v2. iommufd 연결은 dma-buf | `20260720111259.122911-1-dwmw2@infradead.org` |
+| 2026-10-05 | Griffoul, König | dma-buf `get_phys()` RFC와 당일 NAK. König: exporter 전용 사설 인터페이스는 괜찮고 `symbol_get()`이 "아마 옳은 방법" | `20261005095552.52748-1-griffoul@gmail.com`, `a04f17cc-f59a-4240-81c8-29776eee3a2e@amd.com` |
+| 2026-10-06 | Griffoul | mm memory provider RFC 9편 | `20261006183235.16576-1-griffoul@gmail.com` |
+| 2026-10-12 | Gunthorpe | "I don't want to keep expanding this hack in iommufd. ... I don't want to hardwire every exporter into iommufd." 현행 vfio 사설 연결은 범용 해법을 끌어내기 위한 것이지 확장할 대상이 아니다 | `20261012144616.GF14213@ziepe.ca` |
+| 2026-10-12 | Griffoul | iommufd 쪽 exporter registry 안은 포기. mm 경로가 Gunthorpe가 생각하는 범용 인터페이스인지 질문. 답 없음 | `20261012152946.63489-1-griffoul@gmail.com` |
+
+표가 보여 주는 것은 두 가지다. PAL 스레드는 절충안이 나온 채 5월에 멈췄고, 10월에 쟁점이 "누가 물리주소를 확인하는가"에서 "범용 훅을 dma-buf, iommufd 사설 연결, mm 중 어디에 두는가"로 옮겨 갔다. 두 메인테이너는 서로 상대 쪽 서브시스템에 훅을 두자고 한다. König은 dma-buf 밖(iommufd 사설 또는 mm)을, Gunthorpe는 dma-buf 안(pluggable한 `iommu_domain` 채우기)을 말한다.
+
+### 6.4 설계 비교
+
+| 항목 | `iommu_map_pa` (본 팀) | 현행 vfio 경로 (v6.19+) | PAL RFC | mm provider RFC |
+| --- | --- | --- | --- | --- |
+| exporter 범위 | 제한 없음 (사용자 공간이 물리주소를 줌) | vfio-pci만 | PAL을 구현한 모든 드라이버 | provider 파일을 내는 모든 드라이버 |
+| 물리주소를 확인하는 쪽 | 아무도 (사용자 공간을 믿음) | vfio-pci | exporter가 주고 importer(iommufd)가 받음 | provider가 주고 consumer가 받음 |
+| 구간 수 | 제한 없음 | 1 | 다중 (patch 24) | 다중, 페이지 단위 |
+| pin / revoke | 없음 | pin + revoke 콜백 | pin + revoke 콜백 | pin 없음, revoke만 |
+| IOVA 회계와 락 | 우회 | iommufd | iommufd | iommufd |
+| MMIO 속성 | `IOMMU_MMIO` | `IOMMU_MMIO` | `IOMMU_MMIO` | 페이지 타입에 따라 `IOMMU_MMIO` |
+| NVIDIA 드라이버가 할 일 | 없음 | 불가 (vfio-pci가 아님) | PAL exporter 구현 | provider 파일 구현 |
+| 상태 | 동작, 안전하지 않음 | 머지됨 | 미머지, 2026-03 이후 정체 | 미머지, 2026-10-06 RFC, 논의 중 |
+
+### 6.5 본 팀에 미치는 함의
+
+첫째, NVIDIA 드라이버가 vfio-pci처럼 사설 심볼을 하나 더 제공하여 현행 경로에 끼어드는 지름길은 없다. dma-buf 메인테이너는 그 길을 열어 두었지만 iommufd 메인테이너가 막았다. 둘째, CUDA/NVIDIA를 명시적으로 다룬 시리즈는 이번 조사에서 찾지 못했지만, 용도 자체는 Gunthorpe가 2026-04-13에 두 번째 목표 경로로 언급했다. 셋째, 어느 설계가 채택되든 NVIDIA 쪽은 그 범용 규약(PAL exporter 또는 provider 파일)을 구현하는 형태가 될 것으로 전망된다. 이것은 추정이다.
+
+## 7. 결론과 제언
+
+**결론.** iommufd는 v6.19에서 "회계와 수명주기를 갖춘 owner-integrated 매핑"이라는 개념을 확보했지만, 지원 대상이 vfio-pci dma-buf 한 구간에 고정되어 있어 본 팀의 CUDA dma-buf는 매핑되지 않는다. 일반화 설계 둘은 미머지이고 방향이 미정이며, iommufd 메인테이너는 exporter별 사설 연결을 더 늘리지 않겠다고 밝혔다(2026-10-12). 따라서 범용 설계가 머지되기 전에는 `iommu_map_pa`를 대체할 수 없고, 그 시점은 예측하기 어렵다.
+
+**리스크.** `iommu_map_pa`는 VFIO/iommufd의 회계, 수명주기, 락, dirty tracking 밖에서 동작하므로 도메인 교체나 IOVA 충돌 시 오매핑과 use-after-free 위험이 있다. 현재 용도가 실험과 검증이라는 점이 이 위험을 가두고 있다.
 
 **제언.**
 
-- **당분간 유지.** 대체 API가 근시일 내 등장한다고 보기 어려우므로, 워크어라운드를 유지하되 README의 안전 제약 목록을 운영 절차에 명시한다.
-- **동향 재점검.** ③ 단계의 두 진영(PAL vs mm memory provider) 중 채택 방향을 분기마다 재점검한다. PAL은 master, for-next, next 어디에도 없으므로, 먼저 for-next 진입 여부가 유의미한 신호이다.
-- **(선택) 선제 대응.** PAL 경로가 유력해지면 upcie에 PAL exporter 프로토타입을 구현하여 마이그레이션을 사전 검증한다. 매핑이 `IOMMU_MMIO`로 수행되는 등 의미가 자체 모듈과 동일하므로 전환 비용은 크지 않을 것으로 판단된다.
+- **유지.** `iommu_map_pa`를 유지하되 README의 안전 제약(도메인 변경 금지, IOVA 창 예약, 매핑 제거 순서)을 운영 절차에 적는다.
+- **감시.** 아래 신호를 분기마다 점검한다.
+- **선제 대응(선택).** PAL 또는 mm provider 중 하나가 for-next에 들어가면, upcie에 해당 규약의 exporter 프로토타입을 만들어 전환을 사전 검증한다. 매핑의 의미가 자체 모듈과 같으므로 전환 비용은 크지 않을 것으로 판단된다.
+
+**감시 신호.**
+
+| 신호 | 확인 방법 | 의미 |
+| --- | --- | --- |
+| PAL 심볼이 iommufd for-next에 등장 | `git grep dma_buf_pal_map_phys` on `jgg/iommufd.git for-next` | PAL 채택. upcie PAL exporter 착수 |
+| `FOP_MEM_PROVIDER` 또는 `mm/memory_provider`가 linux-next에 등장 | `git grep -l FOP_MEM_PROVIDER` on linux-next | mm provider 채택. provider 파일 설계 검토 |
+| Griffoul의 2026-10-12 질문에 Gunthorpe가 답함 | patchwork patch 14867538(dma-buf RFC 2/6)의 comments | 방향 수렴의 첫 신호 |
+| NVIDIA open-gpu-kernel-modules의 `nv-dmabuf.c`에 PAL 또는 provider 코드 | 릴리스 노트, 소스 grep | ④ 단계 착수 |
+| `IOMMU_IOAS_MAP_FILE` UAPI 주석에서 "not a generic dma-buf import path" 삭제 | `include/uapi/linux/iommufd.h` | ③ 완성 |
+
+**전환 착수 조건.** 위 첫째 또는 둘째 신호가 나타나고, NVIDIA 드라이버가 해당 규약을 구현한 릴리스를 내며, 본 팀 커널이 그 릴리스 이상일 때 전환을 시작한다. 세 조건이 모두 갖춰지기 전에는 전환 작업이 업스트림 변경에 따라 다시 바뀔 수 있다.
 
 ## 부록 A. 근거 자료
 
-| 구분 | 커밋 / msgid |
+### 머지된 커밋
+
+| 릴리스 | 커밋 | 제목 |
+| --- | --- | --- |
+| v6.13 | `f4986a72d6e4` | iommufd: Add IOMMU_IOAS_MAP_FILE |
+| v6.19 | `44ebaa1744fd` | iommufd: Accept a DMABUF through IOMMU_IOAS_MAP_FILE |
+| v6.19 | `71db84a092c3` | iommufd: Add DMABUF to iopt_pages |
+| v6.19 | `96ce2aeb15bd` | vfio/pci: Add vfio_pci_dma_buf_iommufd_map() |
+| v6.19 | `3114c674401e` | iommufd: Allow MMIO pages in a batch |
+| v6.19 | `3aa31a8bb11e` | dma-buf: provide phys_vec to scatter-gather mapping routine |
+| v6.19 | `35c3503908d3` | vfio/pci: Enable peer-to-peer DMA transactions by default |
+| v6.19 | `5415d887db0e` | vfio/nvgrace: Support get_dmabuf_phys |
+| v7.1 | `8c5f9645c389` | iommufd: Add dma_buf_pin() |
+| v7.1 | `be6d4c9e9d71` | dma-buf: Add dma_buf_attach_revocable() |
+| v7.1 | `6ffe939bf94f` | vfio: Permit VFIO to work with pinned importers |
+| v7.1 | `95308225e5ba` | dma-buf: Rename dma_buf_move_notify() to dma_buf_invalidate_mappings() |
+| v7.2 | `298ab7e6f163` | iommufd: Clarify IOAS_MAP_FILE dma-buf support |
+| v7.2 | `5f3fc0ad9a41` | iommufd: Reject DMABUF pages from the access pin path |
+| v7.3-rc1 | `60decab325a4` | iommufd: Add an ioctl to query PA from IOVA for noiommu mode |
+
+### 미머지 시리즈와 스레드
+
+| 구분 | msgid 또는 위치 |
 | --- | --- |
-| v6.13 | `f4986a72d6e4` |
-| v6.19 | `44ebaa1744fd`, `71db84a092c3`, `96ce2aeb15bd`, `3114c674401e`, `3aa31a8bb11e` |
-| v7.1 | `8c5f9645c389`, `be6d4c9e9d71`, `6ffe939bf94f`, `95308225e5ba` |
-| v7.2 | `298ab7e6f163`(UAPI 문구 정정), `5f3fc0ad9a41` |
-| v7.3-rc1 | `60decab325a4`(`NOIOMMU_GET_PA`) |
-| v6.19 (참고) | `5415d887db0e`(vfio/nvgrace get_dmabuf_phys), `35c3503908d3`(vfio-pci P2P 기본 활성화) |
-| 미머지 (jgg) | RFC 00/26 `0-v1-b5cab63049c0+191af-dmabuf_map_type_jgg@nvidia.com` |
-| 미머지 (Griffoul, dma-buf) | RFC 0/6 `20261005095552.52748-1-griffoul@gmail.com`, König NAK `a04f17cc-f59a-4240-81c8-29776eee3a2e@amd.com`, Gunthorpe 2026-10-12 `20261012144616.GF14213@ziepe.ca` |
-| 미머지 (Griffoul, mm) | RFC 0/9 `20261006183235.16576-1-griffoul@gmail.com` |
-| PAL 스레드 | König 2026-04-22 `fd8065ce-fd0e-4df5-9c80-8e9603657cfe@amd.com`, Gunthorpe 절충안 `20260422150000.GK3199414@nvidia.com`, 마지막 `20260511224841.GA1197107@nvidia.com` |
-| 미머지 (Woodhouse) | RFC v2 00/11 `20260720111259.122911-1-dwmw2@infradead.org` |
-| 본 팀 코드 | `upcie/experimental/iommu_map_pa/{README.md, module/iommu_map_pa.c}`, `upcie/tests/test_dmamem_cuda_iommu_map_pa_nvme_readwrite.c`, `upcie-experimental-0.9.0/dkms.conf` |
-| 본 팀 측정 | GPU IOMMU 매핑 크기 측정 보고서(2026년 9월, 개발 PC RTX PRO 4000 Blackwell, 1 GiB CUDA 버퍼) |
-| 커널 외 소스 | NVIDIA 580.178.04 `nvidia/nv-dmabuf.c`, `drivers/vfio/vfio_iommu_type1.c` |
+| PAL RFC 00/26 | `0-v1-b5cab63049c0+191af-dmabuf_map_type_jgg@nvidia.com` (patchwork 시리즈 1055041) |
+| PAL 브랜치 | `https://github.com/jgunthorpe/linux` `dmabuf_map_type`, 끝 c37cf2824740 |
+| Woodhouse RFC v2 00/11 | `20260720111259.122911-1-dwmw2@infradead.org` |
+| Griffoul dma-buf RFC 0/6 | `20261005095552.52748-1-griffoul@gmail.com` |
+| Griffoul mm provider RFC 0/9 | `20261006183235.16576-1-griffoul@gmail.com` (patchwork 시리즈 1180470) |
+| 인용한 답글 | §6.3 표의 출처 열 |
+
+### 소스 파일
+
+| 파일 | 쓰임 |
+| --- | --- |
+| `drivers/iommu/iommufd/pages.c` (v7.3-rc7) | `iopt_map_dmabuf()`, `sym_vfio_pci_dma_buf_iommufd_map()`, `BATCH_MMIO` |
+| `drivers/iommu/iommufd/io_pagetable.c` | `iopt_map_file_pages()`의 dma-buf/memfd 분기 |
+| `drivers/vfio/pci/vfio_pci_dmabuf.c` | `vfio_pci_dma_buf_iommufd_map()`의 exporter와 구간 검사 |
+| `drivers/vfio/vfio_iommu_type1.c` | `vaddr_get_pfns()`의 `VM_PFNMAP` 처리 |
+| `include/uapi/linux/iommufd.h` | `IOMMU_IOAS_MAP_FILE` 주석 |
+| `upcie-experimental-0.9.0/iommu_map_pa/{README.md, iommu_map_pa.c}`, `dkms.conf` | 자체 모듈의 동작과 제약 |
+| `upcie-experimental-0.9.0/dmabuf_import/dmabuf_import.c` | misc 장치 명의 attach |
+| NVIDIA 580.178.04 `nvidia/nv-dmabuf.c` | `nv_dma_buf_ops`, `nv_dma_buf_attach()`, `nv_dma_buf_map_pfns()` |
+| 본 팀 GPU IOMMU 매핑 크기 측정 보고서 (2026-09) | §1.1과 §2.3의 주소와 엔트리 수 |
 
 ## 부록 B. 방법과 한계
 
-- 릴리스, 커밋, UAPI 문구 등 사실 관계는 1차 소스로 확인하였다. 머지된 패치는 `torvalds/linux` 커밋과 태그별 소스 검사로, 미머지 패치는 `lore.kernel.org` linux-iommu 메일링리스트(public-inbox 검색 API / `lei`)로 확인하였다(lore 웹 검색은 봇 차단으로 API를 경유).
-- 릴리스 귀속은 태그별 소스 검사로 재확인하였다(dmabuf-revoke/pin = v7.1, `phys_vec` = v6.19, `NOIOMMU_GET_PA` = v7.3 신규).
-- 본문에서 릴리스, 커밋, UAPI 문구는 사실로, 장래 방향(예: CUDA exporter가 특정 설계 위에 구현될 것이라는 판단)은 "전망된다"로 표기한 추정으로 구분하였다.
-- 2026-10-13 개정에서 메일링리스트 인용은 patchwork.kernel.org REST API(`/api/covers/`, `/api/series/`, `/api/patches/<id>/comments/`)로 원문을 다시 읽어 확인하였다. lore 웹은 봇 차단으로 읽지 못하였다. 머지 여부는 torvalds/linux v7.3-rc7, iommufd for-next(2026-09-24), linux-next 20261012, `jgunthorpe/linux dmabuf_map_type` 브랜치에서 확인하였다.
-- 미머지 시리즈는 이후 리비전이 진행될 수 있으며, 인용 내용은 2026년 10월 12일 시점 기준이다.
-- 확인하지 못한 것은 다음과 같다. (1) CUDA 할당에 호스트 VMA가 없다는 §1.2의 서술은 CUDA 일반론이다. 확인하려면 `test_dmamem_cuda_iommu_map_pa_nvme_readwrite` 실행 중 `/proc/<pid>/maps`에 BAR1 범위가 나타나는지 본다. (2) "CUDA를 다룬 시리즈가 없다"는 §5.3의 부재 주장은 patchwork 검색에 한정된다. (3) §4.2의 1 GiB 단일 구간은 본 팀 측정 보고서의 서술을 인용한 것이며 이번 개정에서 원본 로그를 다시 열지는 않았다.
+### 방법
+
+- 머지 여부와 릴리스 귀속은 torvalds/linux의 `git tag --contains`로 확인하였다. iommufd for-next와 linux-next, PAL 브랜치는 직접 fetch하여 심볼을 grep하였다.
+- 메일링리스트 인용은 patchwork.kernel.org REST API(`/api/covers/`, `/api/series/<id>/`, `/api/patches/<id>/comments/`)로 원문을 읽었다. lore.kernel.org 웹은 봇 차단으로 읽지 못하였다.
+- 본 팀 코드와 NVIDIA 드라이버는 개발 PC의 설치 소스를 읽었다.
+- 측정한 것과 추론한 것은 문장 단위로 구분하였다. "추정"이라고 적은 것은 소스나 로그로 확인하지 못한 것이다.
+
+### 바로잡은 이전 기록
+
+초안(커밋 a132b05)과 이 판의 차이다.
+
+| 초안의 서술 | 이 판 | 경위 |
+| --- | --- | --- |
+| VFIO type1과 iommufd 모두 GPU 메모리를 pin할 수 없어 거부한다 | type1은 PFNMAP VMA를 pin 없이 매핑한다. iommufd만 받지 않는다. CUDA 메모리는 VMA 자체가 없다 | `vfio_iommu_type1.c`를 읽지 않고 두 API를 묶었다 |
+| GPU VRAM은 일반적으로 여러 물리 구간에 분포한다 | 팀 측정에서 1 GiB 버퍼는 구간 하나였다. 구간 수는 exporter 검사 뒤의 2차 조건이다 | 일반론을 근거 없이 썼고 검사 순서를 보지 않았다 |
+| PAL importer는 iommufd/KVM만 허용 | iommufd만 허용. KVM은 필요하다고만 적힘 | 커밋 메시지의 "required by iommufd and kvm"을 허용으로 읽었다 |
+| PAL 논의는 2026-05-11 이후 정체 | PAL 스레드는 그렇다. 쟁점은 2026-10-05와 10-12에 다른 스레드에서 이어졌다 | 10월 스레드의 답글을 읽지 않았다 |
+| mm memory provider 제안자는 Griffoul과 Woodhouse | Griffoul. Woodhouse 시리즈는 기반이며 그 iommufd 연결은 dma-buf였다 | 두 시리즈를 하나로 묶었다 |
+| "one physical range" 계약은 `pages.c`에 있다 | `vfio_pci_dmabuf.c`에 있다 | 인용 위치 오기 |
+
+### 확인하지 못한 것과 다음 단계
+
+| 항목 | 확신 | 다음 단계 |
+| --- | --- | --- |
+| NVIDIA dma-buf가 §3.2의 4단계(attach)를 통과하는지, 최종 오류가 `-EOPNOTSUPP`인지 | 추정 | v6.19 이상 커널에서 `dmabuf_import`가 내보낸 fd를 `IOMMU_IOAS_MAP_FILE`에 넣는 프로브를 실행하고 errno와 dmesg를 기록한다 |
+| CUDA 할당에 호스트 VMA가 없다 | 추정 (일반론) | `test_dmamem_cuda_iommu_map_pa_nvme_readwrite` 실행 중 `/proc/<pid>/maps`에 BAR1 범위(0x4800000000 이후)가 있는지 본다 |
+| CUDA/NVIDIA를 다룬 업스트림 시리즈가 없다 | 추정 (patchwork 검색 한정) | lore의 `lei` 또는 public-inbox 미러로 "nvidia dmabuf iommufd"를 재검색한다 |
+| 1 GiB 버퍼가 구간 하나였다 | 간접 확인 (측정 보고서 인용) | 원본 로그 `/data/aisio/upcie-doc/patent/exp/`를 다시 연다 |
+| NVIDIA가 어느 규약을 구현할지 | 추정 | 감시 신호 표의 넷째 항목 |
+
+미머지 시리즈는 이후 리비전이 나올 수 있으며, 인용은 2026년 10월 12일 시점이다.
