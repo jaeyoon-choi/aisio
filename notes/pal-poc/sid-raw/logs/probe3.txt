@@ -1,0 +1,33 @@
+
+== lines mentioning 09a2
+00:00.0 System peripheral [0880]: Intel Corporation Ice Lake Memory Map/VT-d [8086:09a2] (rev 03)
+16:00.0 System peripheral [0880]: Intel Corporation Ice Lake Memory Map/VT-d [8086:09a2] (rev 03)
+30:00.0 System peripheral [0880]: Intel Corporation Ice Lake Memory Map/VT-d [8086:09a2] (rev 03)
+4a:00.0 System peripheral [0880]: Intel Corporation Ice Lake Memory Map/VT-d [8086:09a2] (rev 03)
+64:00.0 System peripheral [0880]: Intel Corporation Ice Lake Memory Map/VT-d [8086:09a2] (rev 03)
+80:00.0 System peripheral [0880]: Intel Corporation Ice Lake Memory Map/VT-d [8086:09a2] (rev 03)
+97:00.0 System peripheral [0880]: Intel Corporation Ice Lake Memory Map/VT-d [8086:09a2] (rev 03)
+b0:00.0 System peripheral [0880]: Intel Corporation Ice Lake Memory Map/VT-d [8086:09a2] (rev 03)
+c9:00.0 System peripheral [0880]: Intel Corporation Ice Lake Memory Map/VT-d [8086:09a2] (rev 03)
+e2:00.0 System peripheral [0880]: Intel Corporation Ice Lake Memory Map/VT-d [8086:09a2] (rev 03)
+== GPU numa + root complex
+/sys/devices/pci0000:30/0000:30:02.0
+0
+DMA-FQ
+== GPU current driver
+nvidia
+== GPU root port ACS
+		DevCap:	MaxPayload 128 bytes, PhantFunc 0
+		LnkCap:	Port #5, Speed 16GT/s, Width x16, ASPM not supported
+		DevCap2: Completion Timeout: Range ABC, TimeoutDis+ NROPrPrP+ LTR-
+		ACSCap:	SrcValid+ TransBlk+ ReqRedir+ CmpltRedir+ UpstreamFwd+ EgressCtrl- DirectTrans-
+		ACSCtl:	SrcValid+ TransBlk- ReqRedir+ CmpltRedir+ UpstreamFwd+ EgressCtrl- DirectTrans-
+== candidate root ports ACS (4c:01, 66:00)
+--- 0000:4c:01.0
+		ACSCap:	SrcValid+ TransBlk+ ReqRedir+ CmpltRedir+ UpstreamFwd+ EgressCtrl+ DirectTrans+
+		ACSCtl:	SrcValid+ TransBlk- ReqRedir+ CmpltRedir+ UpstreamFwd+ EgressCtrl- DirectTrans-
+--- 0000:66:00.0
+		ACSCap:	SrcValid+ TransBlk+ ReqRedir+ CmpltRedir+ UpstreamFwd+ EgressCtrl+ DirectTrans+
+		ACSCtl:	SrcValid+ TransBlk- ReqRedir+ CmpltRedir+ UpstreamFwd+ EgressCtrl- DirectTrans-
+== p2pdma allowlist in running kernel source? ==
+(done)

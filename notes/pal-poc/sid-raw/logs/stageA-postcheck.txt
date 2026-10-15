@@ -1,0 +1,44 @@
+
+== device state now ==
+driver=nvme group=31 type=DMA-FQ
+hugepages_free=0
+/dev/nvme2n1
+== dmesg since test (nvme/DMAR/AER) ==
+[ 5693.661853] nvme nvme11: 96/0/0 default/read/poll queues
+[ 5693.899177] nvme nvme12: pci function 0000:68:00.0
+[ 5693.905629] nvme nvme12: D3 entry latency set to 10 seconds
+[ 5693.964520] nvme nvme12: 96/0/0 default/read/poll queues
+[ 5694.200177] nvme nvme13: pci function 0000:69:00.0
+[ 5694.206703] nvme nvme13: D3 entry latency set to 10 seconds
+[ 5694.267146] nvme nvme13: 96/0/0 default/read/poll queues
+[ 5694.497287] nvme nvme14: pci function 0000:6a:00.0
+[ 5694.503446] nvme nvme14: D3 entry latency set to 10 seconds
+[ 5694.563980] nvme nvme14: 96/0/0 default/read/poll queues
+[ 5694.785204] nvme nvme15: pci function 0000:6b:00.0
+[ 5694.791750] nvme nvme15: D3 entry latency set to 10 seconds
+[ 5694.853065] nvme nvme15: 96/0/0 default/read/poll queues
+[ 5695.068167] nvme nvme16: pci function 0000:6c:00.0
+[ 5695.074601] nvme nvme16: D3 entry latency set to 10 seconds
+[ 5695.130534] nvme nvme16: 96/0/0 default/read/poll queues
+[ 5695.342539] nvme nvme17: pci function 0000:6d:00.0
+[ 5695.349680] nvme nvme17: D3 entry latency set to 10 seconds
+[ 5695.407385] nvme nvme17: 96/0/0 default/read/poll queues
+[ 5695.615126] nvme nvme18: pci function 0000:6e:00.0
+[ 5695.621741] nvme nvme18: D3 entry latency set to 10 seconds
+[ 5695.683539] nvme nvme18: 96/0/0 default/read/poll queues
+[1095757.826161] nvme nvme2: pci function 0000:4e:00.0
+[1095757.848053] nvme nvme2: D3 entry latency set to 10 seconds
+[1095757.906590] nvme nvme2: 96/0/0 default/read/poll queues
+== nvme2 model/fw ==
+address
+cntlid
+cntrltype
+dctype
+dev
+device
+firmware_rev
+hwmon4
+kato
+model
+SAMSUNG MZTLD15THEPB-00AW7              
+VPT95B5Q

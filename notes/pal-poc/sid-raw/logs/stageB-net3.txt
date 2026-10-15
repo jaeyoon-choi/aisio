@@ -1,0 +1,8 @@
+
+== info/refs via proxy HTTP/1.1 ==
+curl: (28) Operation timed out after 20002 milliseconds with 0 bytes received
+h1.1 -> 000
+== codeload tarball via proxy ==
+codeload -> 429 bytes=313
+== github archive via proxy ==
+archive -> 429

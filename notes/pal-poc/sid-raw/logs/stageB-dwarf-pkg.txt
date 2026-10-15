@@ -1,0 +1,7 @@
+
+-rw-r--r-- root/root     35077 2026-03-17 14:25 ./usr/include/dwarf.h
+-rw-r--r-- root/root     47042 2026-03-17 14:25 ./usr/include/elfutils/known-dwarf.h
+-rw-r--r-- root/root     47932 2026-03-17 14:25 ./usr/include/elfutils/libdw.h
+--- libdwarf-dev (SGI) ---
+-rw-r--r-- root/root     78251 2026-02-03 21:27 ./usr/include/libdwarf/dwarf.h
+-rw-r--r-- root/root    327144 2026-02-03 21:27 ./usr/include/libdwarf/libdwarf.h

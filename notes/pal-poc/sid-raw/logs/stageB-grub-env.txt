@@ -1,0 +1,53 @@
+
+== grub-reboot script (warning source) ==
+62:    gettext "NOTE: In cases where GRUB cannot write to the environment block, such as when it is stored on an MDRAID or LVM device, the chosen boot menu entry will remain the default even after reboot. "; echo
+141:	diskfilter | lvm)
+142:	    gettext_printf "\nWARNING: Detected GRUB environment block on $abstraction device\n"
+143:	    gettext_printf "%s will remain the default boot entry until manually cleared with:\n" "${entry}"
+144:	    gettext_printf "    grub-editenv ${grubdir}/grubenv unset next_entry\n\n"
+157:$grub_editenv ${grubdir}/grubenv set next_entry="$entry"
+== grubenv location / fs ==
+/dev/mapper/vg0-lv--0 ext4
+== ESP grubenv present? ==
+ls: cannot access '/boot/efi/EFI/ubuntu/grubenv': No such file or directory
+== grub cfg env_block definition ==
+15:  set env_block="(${root})${env_block}"
+== does grub.cfg write env at boot? ==
+### BEGIN /etc/grub.d/00_header ###
+if [ -s $prefix/grubenv ]; then
+  set have_grubenv=true
+  load_env
+fi
+
+if [ "${env_block}" ] ; then
+  set env_block="(${root})${env_block}"
+  export env_block
+  load_env -f "${env_block}"
+fi
+
+if [ "${initrdfail}" = 2 ]; then
+   set initrdfail=
+elif [ "${initrdfail}" = 1 ]; then
+   set next_entry="${prev_entry}"
+   set prev_entry=
+   save_env prev_entry
+   if [ "${next_entry}" ]; then
+      set initrdfail=2
+   fi
+fi
+if [ "${next_entry}" ] ; then
+   set default="${next_entry}"
+   set next_entry=
+   if [ "${env_block}" ] ; then
+     save_env -f "${env_block}" next_entry
+   else
+     save_env next_entry
+   fi
+   set boot_once=true
+else
+   set default="Advanced options for Ubuntu>Ubuntu, with Linux 7.0.0-38-generic"
+fi
+
+if [ x"${feature_menuentry_id}" = xy ]; then
+  menuentry_id_option="--id"
+else

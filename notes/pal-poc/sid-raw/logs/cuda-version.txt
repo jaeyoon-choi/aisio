@@ -1,0 +1,10 @@
+
+== sid CUDA_VERSION ==
+#define CUDA_VERSION 13030
+== cuCtxCreate mapping in sid cuda.h ==
+90:#define cuCtxCreate                         cuCtxCreate_v4
+2622:typedef struct CUctxCreateParams_st {
+2626:} CUctxCreateParams;
+6450: * \param ctxCreateParams   - Context creation parameters. Can be NULL to create a regular CUDA context. See ::CUctxCreateParams for details.
+6481:CUresult CUDAAPI cuCtxCreate(CUcontext *pctx, CUctxCreateParams *ctxCreateParams, unsigned int flags, CUdevice dev);
+== is cuCtxCreate_v4 / v3 exported? ==

@@ -1,0 +1,184 @@
+
+== host bridges (full)
+00:00.4 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+16:00.4 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+30:00.4 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+4a:00.4 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+64:00.4 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+7e:00.3 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+80:00.4 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+97:00.4 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+b0:00.4 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+c9:00.4 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+e2:00.4 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+fe:00.3 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+== 09a2 count
+10
+== root complexes
+/sys/devices/pci0000:00
+/sys/devices/pci0000:16
+/sys/devices/pci0000:30
+/sys/devices/pci0000:4a
+/sys/devices/pci0000:64
+/sys/devices/pci0000:7e
+/sys/devices/pci0000:7f
+/sys/devices/pci0000:80
+/sys/devices/pci0000:97
+/sys/devices/pci0000:b0
+/sys/devices/pci0000:c9
+/sys/devices/pci0000:e2
+/sys/devices/pci0000:fe
+/sys/devices/pci0000:ff
+== debugfs
+debugfs on /sys/kernel/debug type debugfs (rw,nosuid,nodev,noexec,relatime)
+drwx------ 59 root root 0 Oct  1 08:45 /sys/kernel/debug
+== dataset device check (0000:4d:00.0) — read only
+total 0
+drwxr-xr-x 2 root root     0 Oct  7 06:24 aer
+-r--r--r-- 1 root root  4096 Oct  7 06:24 aer_dev_correctable
+-r--r--r-- 1 root root  4096 Oct  7 06:24 aer_dev_fatal
+-r--r--r-- 1 root root  4096 Oct  7 06:24 aer_dev_nonfatal
+-r--r--r-- 1 root root  4096 Oct  7 06:24 ari_enabled
+-rw-r--r-- 1 root root  4096 Oct  7 06:24 broken_parity_status
+-r--r--r-- 1 root root  4096 Oct  1 08:45 class
+-rw-r--r-- 1 root root  4096 Oct  1 08:46 config
+-r--r--r-- 1 root root  4096 Oct  7 06:24 consistent_dma_mask_bits
+-r--r--r-- 1 root root  4096 Oct  7 06:24 current_link_speed
+-r--r--r-- 1 root root  4096 Oct  7 06:24 current_link_width
+-rw-r--r-- 1 root root  4096 Oct  7 06:24 d3cold_allowed
+-r--r--r-- 1 root root  4096 Oct  1 08:45 device
+-r--r--r-- 1 root root  4096 Oct  7 06:24 dma_mask_bits
+drwxr-xr-x 2 root root     0 Oct  7 06:24 doe_features
+lrwxrwxrwx 1 root root     0 Oct  1 10:19 driver -> ../../../../../../bus/pci/drivers/nvme
+-rw-r--r-- 1 root root  4096 Oct  1 08:46 driver_override
+-rw-r--r-- 1 root root  4096 Oct  7 06:24 enable
+lrwxrwxrwx 1 root root     0 Oct  7 06:24 iommu -> ../../../../../virtual/iommu/dmar7
+lrwxrwxrwx 1 root root     0 Oct  1 08:46 iommu_group -> ../../../../../../kernel/iommu_groups/30
+-r--r--r-- 1 root root  4096 Oct  7 06:24 irq
+drwxr-xr-x 2 root root     0 Oct  7 06:24 link
+-r--r--r-- 1 root root  4096 Oct  7 06:24 local_cpulist
+-r--r--r-- 1 root root  4096 Oct  7 06:24 local_cpus
+-r--r--r-- 1 root root  4096 Oct  7 06:24 max_link_speed
+-r--r--r-- 1 root root  4096 Oct  7 06:24 max_link_width
+-r--r--r-- 1 root root  4096 Oct  1 08:46 modalias
+-rw-r--r-- 1 root root  4096 Oct  7 06:24 msi_bus
+drwxr-xr-x 2 root root     0 Oct  7 06:24 msi_irqs
+-rw-r--r-- 1 root root  4096 Oct  1 08:46 numa_node
+drwxr-xr-x 3 root root     0 Oct  1 10:19 nvme
+-r--r--r-- 1 root root  4096 Oct  7 06:24 pools
+drwxr-xr-x 2 root root     0 Oct  7 06:24 power
+-r--r--r-- 1 root root  4096 Oct  7 06:24 power_state
+--w--w---- 1 root root  4096 Oct  7 06:24 remove
+--w------- 1 root root  4096 Oct  7 06:24 rescan
+--w------- 1 root root  4096 Oct  7 06:24 reset
+-rw-r--r-- 1 root root  4096 Oct  7 06:24 reset_method
+-r--r--r-- 1 root root  4096 Oct  7 06:24 resource
+-rw------- 1 root root 32768 Oct  7 06:24 resource0
+-r--r--r-- 1 root root  4096 Oct  1 08:45 revision
+-r-------- 1 root root  4096 Oct  7 06:24 serial_number
+-rw-r--r-- 1 root root  4096 Oct  7 06:24 sriov_drivers_autoprobe
+-rw-r--r-- 1 root root  4096 Oct  7 06:24 sriov_numvfs
+-r--r--r-- 1 root root  4096 Oct  7 06:24 sriov_offset
+-r--r--r-- 1 root root  4096 Oct  7 06:24 sriov_stride
+-r--r--r-- 1 root root  4096 Oct  7 06:24 sriov_totalvfs
+-r--r--r-- 1 root root  4096 Oct  7 06:24 sriov_vf_device
+-r--r--r-- 1 root root  4096 Oct  7 06:24 sriov_vf_total_msix
+lrwxrwxrwx 1 root root     0 Oct  1 08:45 subsystem -> ../../../../../../bus/pci
+-r--r--r-- 1 root root  4096 Oct  1 08:45 subsystem_device
+-r--r--r-- 1 root root  4096 Oct  1 08:45 subsystem_vendor
+-rw-r--r-- 1 root root  4096 Oct  1 08:45 uevent
+-r--r--r-- 1 root root  4096 Oct  1 08:45 vendor
+== nvme table
+nvme0 0000:cc:00.0 node=1 group=70 groupsize=1 ns=/dev/nvme0n1 bytes=15360950534144 mounted=0
+nvme1 0000:4d:00.0 node=0 group=30 groupsize=1 ns=/dev/nvme1n1 bytes=15360950534144 mounted=0
+nvme2 0000:4e:00.0 node=0 group=31 groupsize=1 ns=/dev/nvme2n1 bytes=15360950534144 mounted=0
+nvme3 0000:cd:00.0 node=1 group=71 groupsize=1 ns=/dev/nvme3n1 bytes=15360950534144 mounted=0
+nvme4 0000:4f:00.0 node=0 group=32 groupsize=1 ns=/dev/nvme4n1 bytes=15360950534144 mounted=0
+nvme5 0000:50:00.0 node=0 group=33 groupsize=1 ns=/dev/nvme5n1 bytes=15360950534144 mounted=0
+nvme6 0000:ce:00.0 node=1 group=72 groupsize=1 ns=/dev/nvme6n1 bytes=15360950534144 mounted=0
+nvme7 0000:51:00.0 node=0 group=34 groupsize=1 ns=/dev/nvme7n1 bytes=15360950534144 mounted=0
+nvme8 0000:52:00.0 node=0 group=35 groupsize=1 ns=/dev/nvme8n1 bytes=15360950534144 mounted=0
+nvme9 0000:53:00.0 node=0 group=36 groupsize=1 ns=/dev/nvme9n1 bytes=15360950534144 mounted=0
+nvme10 0000:54:00.0 node=0 group=37 groupsize=1 ns=/dev/nvme10n1 bytes=15360950534144 mounted=0
+nvme11 0000:67:00.0 node=0 group=11 groupsize=1 ns=/dev/nvme11n1 bytes=15360950534144 mounted=0
+nvme12 0000:68:00.0 node=0 group=12 groupsize=1 ns=/dev/nvme12n1 bytes=15360950534144 mounted=0
+nvme13 0000:69:00.0 node=0 group=13 groupsize=1 ns=/dev/nvme13n1 bytes=15360950534144 mounted=0
+nvme14 0000:6a:00.0 node=0 group=14 groupsize=1 ns=/dev/nvme14n1 bytes=15360950534144 mounted=0
+nvme15 0000:6b:00.0 node=0 group=15 groupsize=1 ns=/dev/nvme15n1 bytes=15360950534144 mounted=0
+nvme16 0000:6c:00.0 node=0 group=16 groupsize=1 ns=/dev/nvme16n1 bytes=15360950534144 mounted=0
+nvme17 0000:6d:00.0 node=0 group=17 groupsize=1 ns=/dev/nvme17n1 bytes=15360950534144 mounted=0
+nvme18 0000:6e:00.0 node=0 group=18 groupsize=1 ns=/dev/nvme18n1 bytes=15360950534144 mounted=0
+nvme19 0000:cf:00.0 node=1 group=73 groupsize=1 ns=/dev/nvme19n1 bytes=15360950534144 mounted=0
+nvme20 0000:d0:00.0 node=1 group=74 groupsize=1 ns=/dev/nvme20n1 bytes=15360950534144 mounted=0
+nvme21 0000:d1:00.0 node=1 group=75 groupsize=1 ns=/dev/nvme21n1 bytes=15360950534144 mounted=0
+nvme22 0000:d2:00.0 node=1 group=76 groupsize=1 ns=/dev/nvme22n1 bytes=15360950534144 mounted=0
+nvme23 0000:d3:00.0 node=1 group=77 groupsize=1 ns=/dev/nvme23n1 bytes=15360950534144 mounted=0
+nvme24 0000:e5:00.0 node=1 group=51 groupsize=1 ns=/dev/nvme24n1 bytes=15360950534144 mounted=0
+nvme25 0000:e6:00.0 node=1 group=52 groupsize=1 ns=/dev/nvme25n1 bytes=15360950534144 mounted=0
+nvme26 0000:e7:00.0 node=1 group=53 groupsize=1 ns=/dev/nvme26n1 bytes=15360950534144 mounted=0
+nvme27 0000:e8:00.0 node=1 group=54 groupsize=1 ns=/dev/nvme27n1 bytes=15360950534144 mounted=0
+nvme28 0000:e9:00.0 node=1 group=55 groupsize=1 ns=/dev/nvme28n1 bytes=15360950534144 mounted=0
+nvme29 0000:ea:00.0 node=1 group=56 groupsize=1 ns=/dev/nvme29n1 bytes=15360950534144 mounted=0
+nvme30 0000:eb:00.0 node=1 group=57 groupsize=1 ns=/dev/nvme30n1 bytes=15360950534144 mounted=0
+nvme31 0000:ec:00.0 node=1 group=58 groupsize=1 ns=/dev/nvme31n1 bytes=15360950534144 mounted=0
+== candidates partition layout (node0, groupsize=1, not 4d)
+--- nvme2 (0000:4e:00.0) rootport=0000:4c:01.0
+NAME    SIZE TYPE FSTYPE PARTTYPENAME MOUNTPOINT
+nvme2n1  14T disk                     
+(no blkid signature)
+--- nvme4 (0000:4f:00.0) rootport=0000:4c:02.0
+NAME    SIZE TYPE FSTYPE PARTTYPENAME MOUNTPOINT
+nvme4n1  14T disk                     
+(no blkid signature)
+--- nvme5 (0000:50:00.0) rootport=0000:4c:03.0
+NAME    SIZE TYPE FSTYPE PARTTYPENAME MOUNTPOINT
+nvme5n1  14T disk                     
+(no blkid signature)
+--- nvme7 (0000:51:00.0) rootport=0000:4c:04.0
+NAME    SIZE TYPE FSTYPE PARTTYPENAME MOUNTPOINT
+nvme7n1  14T disk                     
+(no blkid signature)
+--- nvme8 (0000:52:00.0) rootport=0000:4c:05.0
+NAME    SIZE TYPE FSTYPE PARTTYPENAME MOUNTPOINT
+nvme8n1  14T disk                     
+(no blkid signature)
+--- nvme9 (0000:53:00.0) rootport=0000:4c:06.0
+NAME    SIZE TYPE FSTYPE PARTTYPENAME MOUNTPOINT
+nvme9n1  14T disk                     
+(no blkid signature)
+--- nvme10 (0000:54:00.0) rootport=0000:4c:07.0
+NAME     SIZE TYPE FSTYPE PARTTYPENAME MOUNTPOINT
+nvme10n1  14T disk                     
+(no blkid signature)
+--- nvme11 (0000:67:00.0) rootport=0000:66:00.0
+NAME     SIZE TYPE FSTYPE PARTTYPENAME MOUNTPOINT
+nvme11n1  14T disk                     
+(no blkid signature)
+--- nvme12 (0000:68:00.0) rootport=0000:66:01.0
+NAME     SIZE TYPE FSTYPE PARTTYPENAME MOUNTPOINT
+nvme12n1  14T disk                     
+(no blkid signature)
+--- nvme13 (0000:69:00.0) rootport=0000:66:02.0
+NAME     SIZE TYPE FSTYPE PARTTYPENAME MOUNTPOINT
+nvme13n1  14T disk                     
+(no blkid signature)
+--- nvme14 (0000:6a:00.0) rootport=0000:66:03.0
+NAME     SIZE TYPE FSTYPE PARTTYPENAME MOUNTPOINT
+nvme14n1  14T disk                     
+(no blkid signature)
+--- nvme15 (0000:6b:00.0) rootport=0000:66:04.0
+NAME     SIZE TYPE FSTYPE PARTTYPENAME MOUNTPOINT
+nvme15n1  14T disk                     
+(no blkid signature)
+--- nvme16 (0000:6c:00.0) rootport=0000:66:05.0
+NAME     SIZE TYPE FSTYPE PARTTYPENAME MOUNTPOINT
+nvme16n1  14T disk                     
+(no blkid signature)
+--- nvme17 (0000:6d:00.0) rootport=0000:66:06.0
+NAME     SIZE TYPE FSTYPE PARTTYPENAME MOUNTPOINT
+nvme17n1  14T disk                     
+(no blkid signature)
+--- nvme18 (0000:6e:00.0) rootport=0000:66:07.0
+NAME     SIZE TYPE FSTYPE PARTTYPENAME MOUNTPOINT
+nvme18n1  14T disk                     
+(no blkid signature)

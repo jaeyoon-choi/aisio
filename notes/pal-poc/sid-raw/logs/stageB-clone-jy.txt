@@ -1,0 +1,13 @@
+== cookiefile ==
+ls: cannot access '/home/jaeyoon/.gitcookies': No such file or directory
+github cookies: 
+== clone as jaeyoon (80s) ==
+01:33:33.736864 git.c:502               trace: built-in: git clone --no-checkout --filter=blob:none --single-branch --branch dmabuf_map_type https://github.com/jgunthorpe/linux linux-pal-test
+Cloning into 'linux-pal-test'...
+01:33:33.739282 run-command.c:673       trace: run_command: git remote-https origin https://github.com/jgunthorpe/linux
+01:33:33.739293 run-command.c:765       trace: start_command: /usr/lib/git-core/git remote-https origin https://github.com/jgunthorpe/linux
+01:33:33.741457 git.c:808               trace: exec: git-remote-https origin https://github.com/jgunthorpe/linux
+01:33:33.741575 run-command.c:673       trace: run_command: git-remote-https origin https://github.com/jgunthorpe/linux
+01:33:33.741584 run-command.c:765       trace: start_command: /usr/lib/git-core/git-remote-https origin https://github.com/jgunthorpe/linux
+rc=0 ; result:
+ls: cannot access '/home/jaeyoon/linux-pal-test': No such file or directory

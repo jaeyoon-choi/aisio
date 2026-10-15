@@ -1,0 +1,12 @@
+
+
+No user sessions are running outdated binaries.
+
+No VM guests are running outdated hypervisor (qemu) binaries on this host.
+== verify dwarf.h ==
+-rw-r--r-- 1 root root 35077 Mar 17  2026 /usr/include/dwarf.h
+== restart build ==
+build restarted pid 111773
+  HOSTLD  scripts/sorttable
+  DESCEND objtool
+  HOSTCC  scripts/gendwarfksyms/gendwarfksyms.o

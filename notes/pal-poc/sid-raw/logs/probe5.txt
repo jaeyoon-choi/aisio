@@ -1,0 +1,59 @@
+
+== GPU RC domain and root port ==
+/sys/devices/pci0000:30/0000:30:02.0/0000:31:00.0
+== devices under GPU RC (pci0000:30) ==
+/sys/devices/pci0000:30/0000:30:00.0/
+/sys/devices/pci0000:30/0000:30:00.1/
+/sys/devices/pci0000:30/0000:30:00.2/
+/sys/devices/pci0000:30/0000:30:00.4/
+/sys/devices/pci0000:30/0000:30:02.0/
+/sys/devices/pci0000:30/firmware_node/
+/sys/devices/pci0000:30/pci_bus/
+/sys/devices/pci0000:30/power/
+/sys/devices/pci0000:30/wakeup/
+== devices on buses 30-3f (GPU stack) ==
+30:00.0 System peripheral [0880]: Intel Corporation Ice Lake Memory Map/VT-d [8086:09a2] (rev 03)
+30:00.1 System peripheral [0880]: Intel Corporation Ice Lake Mesh 2 PCIe [8086:09a4] (rev 03)
+30:00.2 System peripheral [0880]: Intel Corporation Ice Lake RAS [8086:09a3] (rev 03)
+30:00.4 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+30:02.0 PCI bridge [0604]: Intel Corporation Ice Lake PCI Express Root Port A [8086:347a]
+31:00.0 3D controller [0302]: NVIDIA Corporation AD104GL [L4] [10de:27b8] (rev a1)
+== each NVMe: root complex + root port ==
+nvme0 0000:cc:00.0 pci0000:c9 rootport=0000:cb:00.0
+nvme1 0000:4d:00.0 pci0000:4a rootport=0000:4c:00.0
+nvme2 0000:4e:00.0 pci0000:4a rootport=0000:4c:01.0
+nvme3 0000:cd:00.0 pci0000:c9 rootport=0000:cb:01.0
+nvme4 0000:4f:00.0 pci0000:4a rootport=0000:4c:02.0
+nvme5 0000:50:00.0 pci0000:4a rootport=0000:4c:03.0
+nvme6 0000:ce:00.0 pci0000:c9 rootport=0000:cb:02.0
+nvme7 0000:51:00.0 pci0000:4a rootport=0000:4c:04.0
+nvme8 0000:52:00.0 pci0000:4a rootport=0000:4c:05.0
+nvme9 0000:53:00.0 pci0000:4a rootport=0000:4c:06.0
+nvme10 0000:54:00.0 pci0000:4a rootport=0000:4c:07.0
+nvme11 0000:67:00.0 pci0000:64 rootport=0000:66:00.0
+nvme12 0000:68:00.0 pci0000:64 rootport=0000:66:01.0
+nvme13 0000:69:00.0 pci0000:64 rootport=0000:66:02.0
+nvme14 0000:6a:00.0 pci0000:64 rootport=0000:66:03.0
+nvme15 0000:6b:00.0 pci0000:64 rootport=0000:66:04.0
+nvme16 0000:6c:00.0 pci0000:64 rootport=0000:66:05.0
+nvme17 0000:6d:00.0 pci0000:64 rootport=0000:66:06.0
+nvme18 0000:6e:00.0 pci0000:64 rootport=0000:66:07.0
+nvme19 0000:cf:00.0 pci0000:c9 rootport=0000:cb:03.0
+nvme20 0000:d0:00.0 pci0000:c9 rootport=0000:cb:04.0
+nvme21 0000:d1:00.0 pci0000:c9 rootport=0000:cb:05.0
+nvme22 0000:d2:00.0 pci0000:c9 rootport=0000:cb:06.0
+nvme23 0000:d3:00.0 pci0000:c9 rootport=0000:cb:07.0
+nvme24 0000:e5:00.0 pci0000:e2 rootport=0000:e4:00.0
+nvme25 0000:e6:00.0 pci0000:e2 rootport=0000:e4:01.0
+nvme26 0000:e7:00.0 pci0000:e2 rootport=0000:e4:02.0
+nvme27 0000:e8:00.0 pci0000:e2 rootport=0000:e4:03.0
+nvme28 0000:e9:00.0 pci0000:e2 rootport=0000:e4:04.0
+nvme29 0000:ea:00.0 pci0000:e2 rootport=0000:e4:05.0
+nvme30 0000:eb:00.0 pci0000:e2 rootport=0000:e4:06.0
+nvme31 0000:ec:00.0 pci0000:e2 rootport=0000:e4:07.0
+== all RC domains ==
+pci0000:00 pci0000:16 pci0000:30 pci0000:4a pci0000:64 pci0000:7e pci0000:7f pci0000:80 pci0000:97 pci0000:b0 pci0000:c9 pci0000:e2 pci0000:fe pci0000:ff 
+== NUMA per RC (from GPU/candidate root ports) ==
+0000:30:02.0 node=0
+0000:4c:01.0 node=0
+0000:66:00.0 node=0

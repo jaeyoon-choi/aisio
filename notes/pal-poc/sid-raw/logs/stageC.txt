@@ -1,0 +1,105 @@
+
+== bind-vfio ==
+driver vfio-pci, group 31 type DMA-FQ, cdev vfio0
+bind rc=0
+VF=/dev/vfio/devices/vfio0
+== C0 map (stock-style probe on PAL kernel) ==
+cuda: dptr=0x7883da000000 size=1073741824 dmabuf_fd=34
+iommufd: ioas_id=1
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 attached
+IOMMU_IOAS_MAP_FILE: OK iova=0x200000 length=0x40000000
+IOMMU_IOAS_UNMAP: OK
+rc=0
+== C1/C2/D 64K ==
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=32 KiB
+host: 2048 KiB mapped at iova 0x200000
+gpu: dma-buf fd 34 (1024 MiB) mapped at iova 0x400000
+nvme: CAP mqes=1024 dstrd=0 timeout=55000 ms VS=0x20100
+nvme: controller enabled
+nvme: ns1 lba_size=512 nsze=30001856512
+nvme: io queue pair 1 created (depth 64)
+test LBAs: 0 .. 383 (overwritten)
+C1 write LBA0 from host: OK
+C1 read LBA0 into GPU iova: OK
+C1 compare: MATCH (65536 bytes)
+C2 write LBA16 from GPU iova: OK
+C2 read LBA16 into host: OK
+C2 compare: MATCH (65536 bytes)
+D write LBA from unmapped iova (device read): status sct=0x0 sc=0x4
+D expectation: an error status or timeout, not OK (iova 0x80400000)
+D2 read LBA0 into unmapped iova (device write, posted): OK
+result: PASS (0 failure(s))
+rc=0
+== 4K ==
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=32 KiB
+host: 2048 KiB mapped at iova 0x200000
+gpu: dma-buf fd 34 (1024 MiB) mapped at iova 0x400000
+nvme: CAP mqes=1024 dstrd=0 timeout=55000 ms VS=0x20100
+nvme: controller enabled
+nvme: ns1 lba_size=512 nsze=30001856512
+nvme: io queue pair 1 created (depth 64)
+test LBAs: 0 .. 23 (overwritten)
+C1 write LBA0 from host: OK
+C1 read LBA0 into GPU iova: OK
+C1 compare: MATCH (4096 bytes)
+C2 write LBA16 from GPU iova: OK
+C2 read LBA16 into host: OK
+C2 compare: MATCH (4096 bytes)
+D write LBA from unmapped iova (device read): status sct=0x0 sc=0x4
+D expectation: an error status or timeout, not OK (iova 0x80400000)
+D2 read LBA0 into unmapped iova (device write, posted): OK
+result: PASS (0 failure(s))
+rc=0
+== identity iova ==
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=32 KiB
+host: 2048 KiB mapped at iova 0x200000
+dmabuf_import: 16384 entries, first pa 0x20a031e00000, contiguous 1024 MiB
+gpu: dma-buf fd 34 (1024 MiB) mapped at iova 0x20a031e00000
+nvme: CAP mqes=1024 dstrd=0 timeout=55000 ms VS=0x20100
+nvme: controller enabled
+nvme: ns1 lba_size=512 nsze=30001856512
+nvme: io queue pair 1 created (depth 64)
+test LBAs: 0 .. 383 (overwritten)
+C1 write LBA0 from host: OK
+C1 read LBA0 into GPU iova: OK
+C1 compare: MATCH (65536 bytes)
+C2 write LBA16 from GPU iova: OK
+C2 read LBA16 into host: OK
+C2 compare: MATCH (65536 bytes)
+result: PASS (0 failure(s))
+rc=0
+== PTE ==
+cuda: dptr=0x787b50000000 size=1073741824 dmabuf_fd=34
+iommufd: ioas_id=1
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 attached
+IOMMU_IOAS_MAP_FILE: OK iova=0x200000 length=0x40000000
+holding 15 s (pid 4616)
+Device 0000:4e:00.0 @0x14e1d5000
+IOVA_PFN         	PML5E             	PML4E             	PDPE              	PDE               	PTE
+0x0000000000200 |	0x0000000000000000	0x00000001434d7003	0x00000001b1072003	0x000020a031e00883
+0x0000000000400 |	0x0000000000000000	0x00000001434d7003	0x00000001b1072003	0x000020a032000883
+0x0000000000600 |	0x0000000000000000	0x00000001434d7003	0x00000001b1072003	0x000020a032200883
+0x0000000000800 |	0x0000000000000000	0x00000001434d7003	0x00000001b1072003	0x000020a032400883
+entries: 514
+IOMMU_IOAS_UNMAP: OK
+== dmesg DMAR/AER ==
+[  309.294864] DMAR: context entry: hi 0x0000000000000e02, low 0x000000014d841001
+[  309.294869] DMAR: pte level: 4, pte value: 0x000000014d843003
+[  309.294873] DMAR: pte level: 3, pte value: 0x0000000000000000
+[  309.294876] DMAR: page table not present at level 2
+[  309.353271] DMAR: DRHD: handling fault status reg 3
+[  309.353315] DMAR: [DMA Write NO_PASID] Request device [4e:00.0] fault addr 0x80400000 [fault reason 0x05] PTE Write access is not set
+[  309.353364] DMAR: Dump dmar7 table entries for IOVA 0x80400000
+[  309.353369] DMAR: root entry: 0x0000000113011001
+[  309.353373] DMAR: context entry: hi 0x0000000000000e02, low 0x000000014d841001
+[  309.353378] DMAR: pte level: 4, pte value: 0x000000014d843003
+[  309.353382] DMAR: pte level: 3, pte value: 0x0000000000000000
+[  309.353385] DMAR: page table not present at level 2
+[  309.862269] DMAR: DRHD: handling fault status reg 3
+[  309.862313] DMAR: [DMA Read NO_PASID] Request device [4e:00.0] fault addr 0x80400000 [fault reason 0x06] PTE Read access is not set
+[  309.862363] DMAR: Dump dmar7 table entries for IOVA 0x80400000
+[  309.862367] DMAR: root entry: 0x0000000113011001
+[  309.862371] DMAR: context entry: hi 0x0000000000000e02, low 0x0000000143499001
+[  309.862377] DMAR: pte level: 4, pte value: 0x0000000147f07003
+[  309.862381] DMAR: pte level: 3, pte value: 0x0000000000000000
+[  309.862384] DMAR: page table not present at level 2

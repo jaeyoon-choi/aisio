@@ -1,0 +1,24 @@
+
+== source md5 (must match dev bundle) ==
+4fb297778e0c245efb061d709294752e  pal_probe.c
+169a59ef5413afe8620ee397afa41ec1  pal_nvme.c
+23ff7449b15961d1758f1e26e5e5287d  bar1_cpu_read.c
+== build pal_probe ==
+In file included from <command-line>:
+/root/pal-poc/sid-cuda13-compat.h:7:37: warning: ‘/*’ within comment [-Wcomment]
+    7 |    Injected with gcc -include so src/*.c stay byte-for-byte unmodified. */
+OK pal_probe
+== build pal_nvme ==
+In file included from <command-line>:
+/root/pal-poc/sid-cuda13-compat.h:7:37: warning: ‘/*’ within comment [-Wcomment]
+    7 |    Injected with gcc -include so src/*.c stay byte-for-byte unmodified. */
+OK pal_nvme
+== build bar1_cpu_read ==
+In file included from <command-line>:
+/root/pal-poc/sid-cuda13-compat.h:7:37: warning: ‘/*’ within comment [-Wcomment]
+    7 |    Injected with gcc -include so src/*.c stay byte-for-byte unmodified. */
+OK bar1_cpu_read
+== result ==
+-rwxr-xr-x 1 root root 16704 Oct 14 01:07 bar1_cpu_read
+-rwxr-xr-x 1 root root 26168 Oct 14 01:07 pal_nvme
+-rwxr-xr-x 1 root root 17200 Oct 14 01:07 pal_probe

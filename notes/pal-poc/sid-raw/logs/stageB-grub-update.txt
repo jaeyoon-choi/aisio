@@ -1,0 +1,19 @@
+
+== /etc/default/grub GRUB_DEFAULT ==
+6:GRUB_DEFAULT="Advanced options for Ubuntu>Ubuntu, with Linux 7.0.0-38-generic"
+Systems on them will not be added to the GRUB boot configuration.
+Check GRUB_DISABLE_OS_PROBER documentation entry.
+Adding boot menu entry for UEFI Firmware Settings ...
+done
+== new grub.cfg: default handling ==
+31:   set default="${next_entry}"
+40:   set default="Advanced options for Ubuntu>Ubuntu, with Linux 7.0.0-38-generic"
+== menu order (top 6) ==
+171:menuentry 'Ubuntu' --class ubuntu --class gnu-linux --class gnu --class os $menuentry_id_option 'gnulinux-simple-fe4c1301-ceca-491f-a85c-4733d87cd8de' {
+189:submenu 'Advanced options for Ubuntu' $menuentry_id_option 'gnulinux-advanced-fe4c1301-ceca-491f-a85c-4733d87cd8de' {
+190:	menuentry 'Ubuntu, with Linux 7.0.0-rc1-pal+' --class ubuntu --class gnu-linux --class gnu --class os $menuentry_id_option 'gnulinux-7.0.0-rc1-pal+-advanced-fe4c1301-ceca-491f-a85c-4733d87cd8de' {
+210:	menuentry 'Ubuntu, with Linux 7.0.0-rc1-pal+ (recovery mode)' --class ubuntu --class gnu-linux --class gnu --class os $menuentry_id_option 'gnulinux-7.0.0-rc1-pal+-recovery-fe4c1301-ceca-491f-a85c-4733d87cd8de' {
+229:	menuentry 'Ubuntu, with Linux 7.0.0-38-generic' --class ubuntu --class gnu-linux --class gnu --class os $menuentry_id_option 'gnulinux-7.0.0-38-generic-advanced-fe4c1301-ceca-491f-a85c-4733d87cd8de' {
+249:	menuentry 'Ubuntu, with Linux 7.0.0-38-generic (recovery mode)' --class ubuntu --class gnu-linux --class gnu --class os $menuentry_id_option 'gnulinux-7.0.0-38-generic-recovery-fe4c1301-ceca-491f-a85c-4733d87cd8de' {
+== grubenv ==
+##################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################

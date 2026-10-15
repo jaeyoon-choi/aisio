@@ -1,0 +1,14 @@
+
+== tail ==
+  LD      arch/x86/boot/setup.elf
+  OBJCOPY arch/x86/boot/setup.bin
+  BUILD   arch/x86/boot/bzImage
+Kernel: arch/x86/boot/bzImage is ready  (#1)
+BUILD_EXIT=0
+== bzImage ==
+-rw-r--r-- 1 root root 15249600 Oct 14 09:14 arch/x86/boot/bzImage
+== error count ==
+0
+== modules present ==
+-rwxr-xr-x 1 root root 475960848 Oct 14 09:14 vmlinux
+ko count=141

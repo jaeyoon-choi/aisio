@@ -1,0 +1,29 @@
+From dev-consult@aisio  2026-10-14 01:04Z
+Re: sid NVMe->GPU P2P 시험 설계 — 시험 NVMe가 GPU와 같은 root complex여야 하나?
+[사실]=코드/측정 근거, [추정]=일반 지식(이번에 미검증), [미확인]=확인 못 함
+
+Q1) whitelist가 실제 라우팅을 뜻하나?
+- [사실] 우리 경로는 p2pdma 판정을 거치지 않는다. iommu_map_pa는 iommu_map(...,IOMMU_MMIO)로 직접 설치
+  (experimental/iommu_map_pa/module/iommu_map_pa.c:243,278). upcie 소스에 p2pdma 호출 없음.
+  → whitelist는 시험 성패를 정하지 않음. cross-RC 허용의 간접 근거일 뿐.
+- [사실] whitelist는 플래그 하나라 read/write 방향·성능 구분 없음. 판정은 각 host bridge root bus 00.0 장치 ID로.
+  sid 30:00.0 / 4a:00.0 / 64:00.0 가 모두 8086:09a2인지 확인하라. 소켓 경계 검사도 코드에 없음.
+- [미확인] dmabuf_import로 CUDA dma-buf를 NVMe pdev에 attach 시 exporter(nvidia.ko)가 자체 p2pdma 판정을 하는지.
+- [추정] Xeon SP는 같은 소켓 안 IIO stack 간 P2P를 mesh로 라우팅. peer write 잘 되고 peer read(non-posted)는
+  대역폭 낮거나 제한되는 경우 흔함. 소켓 간(UPI)은 더 제한적.
+- [추정] 버스 범위로 30/4a/64=socket0, c9/e2=socket1. NVMe는 4a 또는 64로. numa_node나 nvidia-smi topo -m로 확인.
+
+Q2) dev PC와 비교 시 함께 기록
+- I/O 방향 먼저 분리: NVMe Read = GPU BAR로 peer posted write; NVMe Write = GPU BAR에서 peer non-posted read.
+- 토폴로지: 양 끝/root port BDF, 각 RC 00.0 vendor:device, NUMA/소켓, lspci -tv, nvidia-smi topo -m
+- 링크/설정: LnkSta, MPS/MRRS, ACSCtl, ATS, BAR1 주소/크기, ReBAR
+- IOMMU: intel_iommu 모드, iommu group, 매핑 경로
+- SW: kernel, nvidia driver(open/prop), CUDA, BIOS
+- 결과: 성패, CQE status, dmesg(DMAR fault vs AER UR/CA/CmplTO), 데이터검증(전부 0xFF면 UR 의심), 크기/QD/대역폭
+
+Q3) 'same-RC 아니라서'로 오귀속 방지
+- [사실] same-RC 양성 대조는 sid에서 불가(GPU stack에 NVMe 없음). 결과에 명시, same-RC 결론 내리지 말 것.
+- [사실+추정] dev PC는 same-RC인데도 실패 → 'same-RC면 된다' 근거 없음.
+- 대조군: (a) 같은 쌍에서 Read/Write 둘 다  (b) 같은 NVMe로 host 메모리 DMA(설정 문제 배제)
+  (c) CPU로 BAR1 같은 오프셋 MMIO(phys_lut 유효성)  (d) NVMe CMB 있으면 NVMe->CMB cross-RC
+  (e) 소켓 비교 4a/64 vs c9/e2(UPI 경계)  (f) DMAR fault(변환) vs AER UR/CA/CmplTO(라우팅) 구분 기록

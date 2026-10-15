@@ -1,0 +1,13 @@
+
+== upcie src: /usr/src/upcie-experimental-0.9.0 ==
+== patch dry-run ==
+checking file dmabuf_import/dmabuf_import.c
+checking file dmabuf_import/Makefile
+DRYRUN_OK
+patching file dmabuf_import/dmabuf_import.c
+patching file dmabuf_import/Makefile
+== build ==
+make_exit=0
+== .ko files ==
+-rw-r--r-- 1 root root 479344 Oct 14 09:15 ./dmabuf_import/dmabuf_import.ko
+-rw-r--r-- 1 root root 445256 Oct 14 09:15 ./iommu_map_pa/iommu_map_pa.ko

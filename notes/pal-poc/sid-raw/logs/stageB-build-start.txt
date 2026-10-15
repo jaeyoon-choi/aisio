@@ -1,0 +1,8 @@
+
+build started pid 110426 nproc=96 mem=247G
+== build.log head ==
+  WRAP    arch/x86/include/generated/uapi/asm/errno.h
+  WRAP    arch/x86/include/generated/uapi/asm/bpf_perf_event.h
+  WRAP    arch/x86/include/generated/uapi/asm/fcntl.h
+  WRAP    arch/x86/include/generated/uapi/asm/ioctl.h
+  UPD     include/generated/uapi/linux/version.h

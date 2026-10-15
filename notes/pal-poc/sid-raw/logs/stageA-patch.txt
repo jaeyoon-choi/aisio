@@ -1,0 +1,11 @@
+
+== before ==
+411:	wr32(c, 0x14, (6 << 20) | (4 << 16) | 1);
+== after ==
+411:	wr32(c, 0x14, (6 << 16) | (4 << 20) | 1);
+In file included from <command-line>:
+/root/pal-poc/sid-cuda13-compat.h:7:37: warning: ‘/*’ within comment [-Wcomment]
+    7 |    Injected with gcc -include so src/*.c stay byte-for-byte unmodified. */
+OK pal_nvme rebuilt
+-rwxr-xr-x 1 root root 26168 Oct 14 01:13 pal_nvme
+04f15e84929ea5b97fec22cb6c81505a  pal_nvme.c

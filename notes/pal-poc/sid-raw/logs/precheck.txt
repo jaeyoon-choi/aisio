@@ -1,0 +1,151 @@
+
+== kernel
+7.0.0-34-generic
+BOOT_IMAGE=/boot/vmlinuz-7.0.0-34-generic root=/dev/mapper/vg0-lv--0 ro intel_iommu=on crashkernel=2G-4G:320M,4G-32G:512M,32G-64G:1024M,64G-128G:2048M,128G-:4096M
+== secure boot
+SecureBoot disabled
+Platform is in Setup Mode
+== root fs
+/dev/mapper/vg0-lv--0 ext4
+loop0         loop squashfs    /snap/snapd/27710
+loop1         loop squashfs    /snap/hwctl/123
+loop2         loop squashfs    /snap/core24/1643
+sda           disk             
+├─sda1        part vfat        /boot/efi
+└─sda2        part LVM2_member 
+  └─vg0-lv--0 lvm  ext4        /
+sdb           disk LVM2_member 
+└─vg0-lv--0   lvm  ext4        /
+nvme1n1       disk             
+nvme2n1       disk             
+nvme3n1       disk             
+nvme19n1      disk             
+nvme4n1       disk             
+nvme5n1       disk             
+nvme7n1       disk             
+nvme8n1       disk             
+nvme9n1       disk             
+nvme10n1      disk             
+nvme11n1      disk             
+nvme12n1      disk             
+nvme13n1      disk             
+nvme14n1      disk             
+nvme15n1      disk             
+nvme26n1      disk             
+nvme16n1      disk             
+nvme0n1       disk             
+nvme28n1      disk             
+nvme30n1      disk             
+nvme31n1      disk             
+== host bridges
+00:00.4 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+16:00.4 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+30:00.4 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+4a:00.4 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+64:00.4 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+7e:00.3 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+80:00.4 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+97:00.4 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+b0:00.4 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+c9:00.4 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+== gpu
+NVIDIA L4, 00000000:31:00.0, 580.178.04
+== nvidia dkms
+nvidia/580.178.04, 7.0.0-34-generic, x86_64: installed
+nvidia/580.178.04, 7.0.0-38-generic, x86_64: installed
+nvidia-fs/2.29.4, 7.0.0-34-generic, x86_64: installed
+nvidia-fs/2.29.4, 7.0.0-38-generic, x86_64: installed
+upcie-experimental/0.9.0, 7.0.0-34-generic, x86_64: installed
+upcie-experimental/0.9.0, 7.0.0-38-generic, x86_64: installed
+== nvidia src
+/usr/src/nvidia-580.178.04
+/usr/src/nvidia-fs-2.29.4
+== upcie
+crw------- 1 root root 10, 262 Oct  1 08:45 /dev/dmabuf_import
+-rw-r--r-- 1 root root    7854 Sep  4 16:04 /usr/include/linux/dmabuf_import.h
+== cuda
+/usr/local/cuda
+/usr/local/cuda-13
+/usr/local/cuda-13.3
+/usr/local/cuda/include/cuda.h
+== nvme
+0000:4d:00.0 node=0 driver=nvme group=30 groupsize=1
+0000:4e:00.0 node=0 driver=nvme group=31 groupsize=1
+0000:4f:00.0 node=0 driver=nvme group=32 groupsize=1
+0000:50:00.0 node=0 driver=nvme group=33 groupsize=1
+0000:51:00.0 node=0 driver=nvme group=34 groupsize=1
+0000:52:00.0 node=0 driver=nvme group=35 groupsize=1
+0000:53:00.0 node=0 driver=nvme group=36 groupsize=1
+0000:54:00.0 node=0 driver=nvme group=37 groupsize=1
+0000:67:00.0 node=0 driver=nvme group=11 groupsize=1
+0000:68:00.0 node=0 driver=nvme group=12 groupsize=1
+0000:69:00.0 node=0 driver=nvme group=13 groupsize=1
+0000:6a:00.0 node=0 driver=nvme group=14 groupsize=1
+0000:6b:00.0 node=0 driver=nvme group=15 groupsize=1
+0000:6c:00.0 node=0 driver=nvme group=16 groupsize=1
+0000:6d:00.0 node=0 driver=nvme group=17 groupsize=1
+0000:6e:00.0 node=0 driver=nvme group=18 groupsize=1
+0000:cc:00.0 node=1 driver=nvme group=70 groupsize=1
+0000:cd:00.0 node=1 driver=nvme group=71 groupsize=1
+0000:ce:00.0 node=1 driver=nvme group=72 groupsize=1
+0000:cf:00.0 node=1 driver=nvme group=73 groupsize=1
+0000:d0:00.0 node=1 driver=nvme group=74 groupsize=1
+0000:d1:00.0 node=1 driver=nvme group=75 groupsize=1
+0000:d2:00.0 node=1 driver=nvme group=76 groupsize=1
+0000:d3:00.0 node=1 driver=nvme group=77 groupsize=1
+0000:e5:00.0 node=1 driver=nvme group=51 groupsize=1
+0000:e6:00.0 node=1 driver=nvme group=52 groupsize=1
+0000:e7:00.0 node=1 driver=nvme group=53 groupsize=1
+0000:e8:00.0 node=1 driver=nvme group=54 groupsize=1
+0000:e9:00.0 node=1 driver=nvme group=55 groupsize=1
+0000:ea:00.0 node=1 driver=nvme group=56 groupsize=1
+0000:eb:00.0 node=1 driver=nvme group=57 groupsize=1
+0000:ec:00.0 node=1 driver=nvme group=58 groupsize=1
+== nvme namespaces
+nvme0 0000:cc:00.0 SAMSUNG MZTLD15THEPB-00AW7              
+nvme1 0000:4d:00.0 SAMSUNG MZTLD15THEPB-00AW7              
+nvme10 0000:54:00.0 SAMSUNG MZTLD15THEPB-00AW7              
+nvme11 0000:67:00.0 SAMSUNG MZTLD15THEPB-00AW7              
+nvme12 0000:68:00.0 SAMSUNG MZTLD15THEPB-00AW7              
+nvme13 0000:69:00.0 SAMSUNG MZTLD15THEPB-00AW7              
+nvme14 0000:6a:00.0 SAMSUNG MZTLD15THEPB-00AW7              
+nvme15 0000:6b:00.0 SAMSUNG MZTLD15THEPB-00AW7              
+nvme16 0000:6c:00.0 SAMSUNG MZTLD15THEPB-00AW7              
+nvme17 0000:6d:00.0 SAMSUNG MZTLD15THEPB-00AW7              
+nvme18 0000:6e:00.0 SAMSUNG MZTLD15THEPB-00AW7              
+nvme19 0000:cf:00.0 SAMSUNG MZTLD15THEPB-00AW7              
+nvme2 0000:4e:00.0 SAMSUNG MZTLD15THEPB-00AW7              
+nvme20 0000:d0:00.0 SAMSUNG MZTLD15THEPB-00AW7              
+nvme21 0000:d1:00.0 SAMSUNG MZTLD15THEPB-00AW7              
+nvme22 0000:d2:00.0 SAMSUNG MZTLD15THEPB-00AW7              
+nvme23 0000:d3:00.0 SAMSUNG MZTLD15THEPB-00AW7              
+nvme24 0000:e5:00.0 SAMSUNG MZTLD15THEPB-00AW7              
+nvme25 0000:e6:00.0 SAMSUNG MZTLD15THEPB-00AW7              
+nvme26 0000:e7:00.0 SAMSUNG MZTLD15THEPB-00AW7              
+nvme27 0000:e8:00.0 SAMSUNG MZTLD15THEPB-00AW7              
+nvme28 0000:e9:00.0 SAMSUNG MZTLD15THEPB-00AW7              
+nvme29 0000:ea:00.0 SAMSUNG MZTLD15THEPB-00AW7              
+nvme3 0000:cd:00.0 SAMSUNG MZTLD15THEPB-00AW7              
+nvme30 0000:eb:00.0 SAMSUNG MZTLD15THEPB-00AW7              
+nvme31 0000:ec:00.0 SAMSUNG MZTLD15THEPB-00AW7              
+nvme4 0000:4f:00.0 SAMSUNG MZTLD15THEPB-00AW7              
+nvme5 0000:50:00.0 SAMSUNG MZTLD15THEPB-00AW7              
+nvme6 0000:ce:00.0 SAMSUNG MZTLD15THEPB-00AW7              
+nvme7 0000:51:00.0 SAMSUNG MZTLD15THEPB-00AW7              
+nvme8 0000:52:00.0 SAMSUNG MZTLD15THEPB-00AW7              
+nvme9 0000:53:00.0 SAMSUNG MZTLD15THEPB-00AW7              
+== mounts of nvme
+== gpu path
+/sys/devices/pci0000:30/0000:30:02.0/0000:31:00.0
+== tools
+MISSING flex
+MISSING bison
+MISSING pahole
+libelf-dev:amd64
+libssl-dev:amd64
+== disk
+Filesystem             Size  Used Avail Use% Mounted on
+/dev/mapper/vg0-lv--0  439G   26G  391G   7% /
+/dev/mapper/vg0-lv--0  439G   26G  391G   7% /
+== iommu debugfs
+ls: cannot access '/sys/kernel/debug/iommu/intel': No such file or directory

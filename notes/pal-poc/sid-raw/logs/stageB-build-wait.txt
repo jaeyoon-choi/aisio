@@ -1,0 +1,14 @@
+
+== build.log tail ==
+  CC      /root/pal-poc/linux-pal/tools/objtool/arch/x86/decode.o
+  LD      /root/pal-poc/linux-pal/tools/objtool/arch/x86/objtool-in.o
+  LD      /root/pal-poc/linux-pal/tools/objtool/objtool-in.o
+  LINK    /root/pal-poc/linux-pal/tools/objtool/objtool
+make: *** [Makefile:248: __sub-make] Error 2
+BUILD_EXIT=2
+== bzImage ==
+ls: cannot access 'arch/x86/boot/bzImage': No such file or directory
+== errors/warnings (error:) ==
+17
+== kernelrelease ==
+7.0.0-rc1-pal+

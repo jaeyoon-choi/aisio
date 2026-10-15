@@ -1,0 +1,28 @@
+
+== PAL config: dm/md ==
+CONFIG_MD=y
+CONFIG_MD_BITMAP=y
+CONFIG_MD_LLBITMAP=y
+CONFIG_MD_AUTODETECT=y
+CONFIG_MD_BITMAP_FILE=y
+CONFIG_BLK_DEV_DM_BUILTIN=y
+CONFIG_BLK_DEV_DM=y
+CONFIG_DM_MIRROR=m
+CONFIG_DM_MULTIPATH=m
+CONFIG_DM_INIT=y
+CONFIG_DM_UEVENT=y
+CONFIG_DM_AUDIT=y
+CONFIG_MDIO=m
+CONFIG_MDIO_BUS=y
+== is dm_mod built-in (symbol in System.map)? ==
+11
+== new initrd: dm driver entries ==
+dm-log.ko dm-mirror.ko dm-multipath.ko dm-region-hash.ko dm-round-robin.ko 
+== baseline initrd: dm driver entries ==
+dm-bio-prison.ko.zst dm-bufio.ko.zst dm-cache-smq.ko.zst dm-cache.ko.zst dm-clone.ko.zst dm-crypt.ko.zst dm-delay.ko.zst dm-ebs.ko.zst dm-era.ko.zst dm-flakey.ko.zst dm-historical-service-time.ko.zst dm-integrity.ko.zst dm-io-affinity.ko.zst dm-log-userspace.ko.zst dm-log-writes.ko.zst dm-log.ko.zst dm-mirror.ko.zst dm-multipath.ko.zst dm-pcache dm-pcache.ko.zst dm-queue-length.ko.zst dm-raid.ko.zst dm-region-hash.ko.zst dm-round-robin.ko.zst dm-service-time.ko.zst dm-snapshot.ko.zst dm-switch.ko.zst dm-thin-pool.ko.zst dm-unstripe.ko.zst dm-vdo dm-vdo.ko.zst dm-verity.ko.zst dm-writecache.ko.zst dm-zero.ko.zst dm-zoned.ko.zst 
+== counts ==
+7.0.0-34-generic size=150734834 ko=1018 dm=35
+7.0.0-rc1-pal+ size=68909350 ko=40 dm=5
+== lvm in initrds ==
+7.0.0-34-generic lvm=6
+7.0.0-rc1-pal+ lvm=6

@@ -1,0 +1,11 @@
+
+== git info/refs via proxy ==
+proxy info/refs -> 502
+== git info/refs direct ==
+curl: (35) Recv failure: Connection reset by peer
+direct info/refs -> 000
+== github root direct ==
+curl: (35) Recv failure: Connection reset by peer
+direct github -> 000
+== proxy HEAD on repo page ==
+proxy repo page -> 200

@@ -1,0 +1,11 @@
+
+== auto.conf LOCALVERSION ==
+CONFIG_LOCALVERSION=
+== kernel.release file ==
+ls: cannot access 'include/config/kernel.release': No such file or directory
+size=
+== syncconfig ==
+== after syncconfig: auto.conf ==
+CONFIG_LOCALVERSION=-pal
+== kernelrelease ==
+7.0.0-rc1-pal+

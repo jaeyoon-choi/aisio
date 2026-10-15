@@ -1,0 +1,21 @@
+
+== git proxy config ==
+http://12.26.204.100:8080
+== proxy env ==
+(no proxy env)
+== CA certs (samsung) ==
+samsung.crt
+samsungsemi-prx.com.crt
+secds-0.crt
+secds-1.crt
+secds-2.crt
+samsung.pem
+samsungsemi-prx.com.pem
+== apt proxy (worked earlier) ==
+(none)
+== connectivity: direct github (5s) ==
+direct:443 OK
+== connectivity: via proxy ==
+proxy https github 200
+== disk ==
+/dev/mapper/vg0-lv--0  439G   26G  391G   7% /
