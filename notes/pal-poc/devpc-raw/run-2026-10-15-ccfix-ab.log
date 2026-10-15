@@ -1,0 +1,117 @@
++++ readlink /sys/bus/pci/devices/0000:02:00.0/iommu_group
+++ basename ../../../../kernel/iommu_groups/20
++ ./nvme-identity-uio.sh
+driver uio_pci_generic, group type identity, cmd 0406, hugepages 64
+#### fixed CC, xfer 65536
++ ./pal_nvme --uio 0000:02:00.0 --xfer 65536
+dmabuf_import: 16384 entries, first pa 0x480f600000, contiguous 1024 MiB
+uio: 0000:02:00.0 bar0 via sysfs, host pa 0x2de400000, gpu pa 0x480f600000 (no translation)
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+test LBAs: 0 .. 383 (overwritten)
+C1 write LBA0 from host: OK
+C1 read LBA0 into GPU iova: OK
+C1 compare: MATCH (65536 bytes)
+C2 write LBA16 from GPU iova: status sct=0x0 sc=0x4
+C2 read LBA16 into host: OK
+C2 compare: MISMATCH
+result: FAIL (2 failure(s))
+#### buggy CC, xfer 65536
++ ./pal_nvme.ccbug --uio 0000:02:00.0 --xfer 65536
+dmabuf_import: 16384 entries, first pa 0x480f600000, contiguous 1024 MiB
+uio: 0000:02:00.0 bar0 via sysfs, host pa 0x2de400000, gpu pa 0x480f600000 (no translation)
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+test LBAs: 0 .. 383 (overwritten)
+C1 write LBA0 from host: OK
+C1 read LBA0 into GPU iova: OK
+C1 compare: MATCH (65536 bytes)
+C2 write LBA16 from GPU iova: status sct=0x0 sc=0x4
+C2 read LBA16 into host: OK
+C2 compare: MISMATCH
+result: FAIL (2 failure(s))
+#### fixed CC, xfer 4096
++ ./pal_nvme --uio 0000:02:00.0 --xfer 4096
+dmabuf_import: 16384 entries, first pa 0x480f600000, contiguous 1024 MiB
+uio: 0000:02:00.0 bar0 via sysfs, host pa 0x2de400000, gpu pa 0x480f600000 (no translation)
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+test LBAs: 0 .. 23 (overwritten)
+C1 write LBA0 from host: OK
+C1 read LBA0 into GPU iova: OK
+C1 compare: MATCH (4096 bytes)
+C2 write LBA16 from GPU iova: status sct=0x0 sc=0x4
+C2 read LBA16 into host: OK
+C2 compare: MISMATCH
+result: FAIL (2 failure(s))
+#### buggy CC, xfer 4096
++ ./pal_nvme.ccbug --uio 0000:02:00.0 --xfer 4096
+dmabuf_import: 16384 entries, first pa 0x480f600000, contiguous 1024 MiB
+uio: 0000:02:00.0 bar0 via sysfs, host pa 0x2de400000, gpu pa 0x480f600000 (no translation)
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+test LBAs: 0 .. 23 (overwritten)
+C1 write LBA0 from host: OK
+C1 read LBA0 into GPU iova: OK
+C1 compare: MATCH (4096 bytes)
+C2 write LBA16 from GPU iova: status sct=0x0 sc=0x4
+C2 read LBA16 into host: OK
+C2 compare: MISMATCH
+result: FAIL (2 failure(s))
+#### restore
++++ readlink /sys/bus/pci/devices/0000:02:00.0/driver
+++ basename ../../../../bus/pci/drivers/nvme
+++ cat /sys/kernel/iommu_groups/20/type
+driver nvme type DMA-FQ
++ dmesg
++ tail -5
++ grep -E 'DMAR|AER'
+[    0.416317] pcieport 0000:00:01.0: AER: enabled with IRQ 122
+[    0.416431] pcieport 0000:00:01.1: AER: enabled with IRQ 123
+[    0.416541] pcieport 0000:00:06.0: AER: enabled with IRQ 124
+[    0.417224] pcieport 0000:00:1c.1: AER: enabled with IRQ 128
+[    0.417363] pcieport 0000:00:1c.4: AER: enabled with IRQ 129
+== 00:01.0
+	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+		DevSta:	CorrErr- NonFatalErr- FatalErr- UnsupReq- AuxPwr+ TransPend-
+		SltSta:	Status: AttnBtn- PowerFlt- MRL- CmdCplt- PresDet+ Interlock-
+		Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=0 PME-
+		UESta:	DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt- UnxCmplt- RxOF- MalfTLP- ECRC- UnsupReq- ACSViol-
+== 00:01.1
+	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort+ >SERR- <PERR- INTx-
+		DevSta:	CorrErr- NonFatalErr- FatalErr- UnsupReq- AuxPwr+ TransPend-
+		SltSta:	Status: AttnBtn- PowerFlt- MRL- CmdCplt- PresDet+ Interlock-
+		Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=0 PME-
+		UESta:	DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt- UnxCmplt- RxOF- MalfTLP- ECRC- UnsupReq- ACSViol-
+== 01:00.0
+	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+		Status: D0 NoSoftRst+ PME-Enable- DSel=0 DScale=0 PME-
+		DevSta:	CorrErr- NonFatalErr- FatalErr- UnsupReq- AuxPwr- TransPend-
+		UESta:	DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt- UnxCmplt- RxOF- MalfTLP- ECRC- UnsupReq- ACSViol-
+== 02:00.0
+	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort+ >SERR- <PERR- INTx-
+		Status: D0 NoSoftRst+ PME-Enable- DSel=0 DScale=0 PME-
+		DevSta:	CorrErr+ NonFatalErr- FatalErr- UnsupReq+ AuxPwr- TransPend-
+		UESta:	DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt- UnxCmplt- RxOF- MalfTLP- ECRC- UnsupReq- ACSViol-
+== after clear
+00:01.0  >TAbort- <TAbort- <MAbort- CorrErr- NonFatalErr- UnsupReq-
+00:01.1  >TAbort- <TAbort- <MAbort- CorrErr- NonFatalErr- UnsupReq-
+01:00.0  >TAbort- <TAbort- <MAbort- CorrErr- NonFatalErr- UnsupReq-
+02:00.0  >TAbort- <TAbort- <MAbort- CorrErr- NonFatalErr- UnsupReq-
+C1 compare: MATCH (4096 bytes)
+C2 write LBA16 from GPU iova: status sct=0x0 sc=0x4
+result: FAIL (2 failure(s))
+== after fixed-CC C2
+00:01.0  >TAbort- <TAbort- <MAbort- CorrErr- NonFatalErr- UnsupReq-
+00:01.1  >TAbort- <TAbort- <MAbort+ CorrErr- NonFatalErr- UnsupReq-
+01:00.0  >TAbort- <TAbort- <MAbort- CorrErr- NonFatalErr- UnsupReq-
+02:00.0  >TAbort- <TAbort- <MAbort+ CorrErr- NonFatalErr- UnsupReq-
+restored: nvme DMA-FQ
