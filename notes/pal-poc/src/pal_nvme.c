@@ -8,12 +8,15 @@
  *
  *   C1  host pattern -> NVMe write (LBA 0) -> NVMe read into the GPU IOVA
  *       -> cuMemcpyDtoH -> compare
- *   C2  cuMemcpyHtoD pattern -> NVMe write from the GPU IOVA (LBA 0)
- *       -> NVMe read into host -> compare
- *   D   NVMe read into an IOVA that is not mapped -> expect a command error
- *       (and a DMAR fault in dmesg)
+ *   C2  cuMemcpyHtoD pattern -> NVMe write from the GPU IOVA (one transfer
+ *       past LBA 0) -> NVMe read into host -> compare
+ *   D   NVMe write from an IOVA that is not mapped (a device read) -> expect
+ *       a command error and a DMAR fault. D2 reads into it (a posted device
+ *       write), which completes OK and leaves only the DMAR fault.
  *
- * The write goes to LBA 0 of the spare NVMe, as the team's earlier tests did.
+ * The test overwrites three transfers starting at --slba (default 0). The
+ * LBA numbers in the output labels are fixed text, the real range is in the
+ * "test LBAs" line.
  *
  * Build: gcc -O2 -Wall -I/data/linux-pal/usr/include -I/usr/local/cuda/include
  *            -o pal_nvme pal_nvme.c -lcuda

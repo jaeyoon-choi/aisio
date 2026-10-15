@@ -55,7 +55,7 @@
 - 각 항목의 다음 단계는 §11에 있다.
 
 **반영한 변경.**
-- NVIDIA 580.178.04용 PAL 이식 패치와 upcie-experimental용 이식 패치를 만들었다.
+- NVIDIA 580.178.04용 PAL 이식 패치(275행 추가, 25행 삭제)와 upcie-experimental용 이식 패치(27행 추가, 4행 삭제)를 만들었다. 파일별, 함수별 변경은 §4에 있다.
 - 시험 도구 `pal_probe`, `pal_nvme`, `bar1_cpu_read`를 작성했다. 시험 도구의 CC 버그를 고쳤다.
 - sid 실행 매뉴얼을 만들었다.
 - 커널 쪽 코드는 바꾸지 않았다.
@@ -123,33 +123,358 @@ PTE의 하위 비트 `0x883`은 읽기(bit 0), 쓰기(bit 1), 2 MiB 페이지(bi
 
 ## 4. 구현
 
-### 4.1 커널
+### 4.1 수정 범위
 
-PAL 브랜치 c37cf2824740(v7.0-rc1 기반, 34커밋)을 수정 없이 빌드했다. `CONFIG_IOMMUFD`, `CONFIG_IOMMUFD_TEST`, `CONFIG_VFIO_PCI_DMABUF`, `CONFIG_PCI_P2PDMA`, `CONFIG_INTEL_IOMMU_DEBUGFS`를 켰다. 개발 PC에서는 iommufd selftest가 hugepage 64개를 예약한 뒤 236 pass, 0 fail, 5 skip이었다. 처음 실패한 22건은 모두 `MAP_HUGETLB` mmap 실패였다. dma-buf 관련 테스트(`dmabuf_simple`, `dmabuf_multi_page`, `dmabuf_revoke`)는 두 번 모두 통과했다.
+커널은 고치지 않았다. 새로 짠 코드는 NVIDIA exporter의 이식, upcie `dmabuf_import`의 이식, 시험 도구 세 개다. SNP 실험 커널 패치는 가설 검증에만 썼고, 최종 경로에는 들어가지 않는다.
 
-### 4.2 NVIDIA exporter 이식
+| 대상 | 파일 | 추가 | 삭제 | 역할 |
+|---|---|---|---|---|
+| PAL 커널 | 없음 | 0 | 0 | 브랜치 c37cf2824740 그대로 |
+| NVIDIA 580.178.04 | `nvidia/nv-dmabuf.c` | 246 | 25 | mapping type 이식과 PAL exporter |
+| NVIDIA 580.178.04 | `conftest.sh` | 28 | 0 | `match_mapping` 존재 검사 |
+| NVIDIA 580.178.04 | `nvidia/nvidia.Kbuild` | 1 | 0 | 위 검사를 빌드에 등록 |
+| upcie-experimental 0.9.0 | `dmabuf_import/dmabuf_import.c` | 23 | 4 | importer 함수 이름 변경 대응 |
+| upcie-experimental 0.9.0 | `dmabuf_import/Makefile` | 4 | 0 | PAL 커널 판별 |
+| SNP 실험 커널 (최종 경로에서 제외) | `drivers/iommu/generic_pt/fmt/vtdss.h` | 6 | 1 | MMIO PTE에서 SNP 제거 |
+| 시험 도구 | `pal_probe.c`, `pal_nvme.c`, `bar1_cpu_read.c`, `scripts/*.sh` | 새 파일 | | 매핑과 DMA 시험 |
 
-NVIDIA 580.178.04는 PAL 커널에서 `nv-dmabuf.c`만 빌드에 실패한다. 원인은 셋이다. `dma_buf_ops`에 `map_dma_buf`가 없고, `dma_buf_attachment`에 `dev`가 없고, importer 함수 이름이 `dma_buf_sgt_*`로 바뀌었다. 이식 패치는 `nv-dmabuf.c`에 246행을 더하고 25행을 지운다. 그 밖에 conftest 28행과 Kbuild 1행을 더한다.
+패치 파일은 `notes/pal-poc/patches/`에 있다. NVIDIA 패치와 upcie 패치는 조건부 컴파일로 짰다. 그래서 같은 소스가 PAL 커널(7.0.0-rc1-pal+)과 기존 커널(6.8.12)에서 모두 빌드된다. 두 커널 모두 실제로 빌드해 확인했다.
 
-- `nv_dma_buf_match_mapping()`이 importer에 제시할 mapping type을 정한다. discrete GPU이거나 FORCE_PCIE이면 PAL을 먼저 제시하고, 그다음 plain SGT를 제시한다. iommufd는 PAL만 요청하므로 PAL이 선택된다. `dmabuf_import` 같은 SGT importer는 SGT로 선택된다.
-- `nv_dma_buf_pal_map_phys()`는 기존 `nv_dma_buf_get_phys_addresses()`로 RM에서 `memArea.pRanges[]`를 받아 `dma_buf_phys_list`로 옮긴다. `unmap_phys`는 목록을 해제하고 참조를 돌려준다.
-- 토폴로지 검사는 `dev_is_pci()`로 감쌌다. 그래서 PCI 장치가 아닌 importer(misc 장치)는 검사를 건너뛰어 기존 동작을 유지한다.
-- conftest에 `dma_buf_ops_has_match_mapping` 항목을 더했다. 같은 소스가 PAL 커널과 기존 커널 양쪽에서 빌드된다.
+### 4.2 iommufd가 dma-buf를 받는 경로 (PAL 브랜치, 수정 없음)
 
-NVIDIA DKMS는 7.0 커널에서 소스 컴파일 전에 실패한다. 그래서 `make SYSSRC=<kernel> NV_EXCLUDE_KERNEL_MODULES=nvidia-peermem modules`로 직접 빌드했다.
+exporter가 무엇을 내놓아야 하는지는 iommufd 쪽 코드가 정한다. 사용자가 `IOMMU_IOAS_MAP_FILE`을 부르면 `iommufd_ioas_map_file()`이 `iopt_map_file_pages()`를 부른다. 이 함수는 먼저 `dma_buf_get(fd)`로 fd가 dma-buf인지 본다. dma-buf이면 `iopt_alloc_dmabuf_pages()`를 거쳐 `iopt_map_dmabuf()`(`drivers/iommu/iommufd/pages.c` 1489행)로 간다.
 
-### 4.3 upcie-experimental 이식
+```c
+struct dma_buf_mapping_match pal_match[] = { DMA_BUF_IMAPPING_PAL() };
+...
+attach = dma_buf_mapping_attach(dmabuf, pal_match,
+                                ARRAY_SIZE(pal_match),
+                                &iopt_dmabuf_attach_revoke_ops, pages);
+...
+rc = dma_buf_pin(attach);
+...
+pages->dmabuf.exp_phys = dma_buf_pal_map_phys(attach);
+```
 
-`dmabuf_import`는 같은 API 변경 때문에 다섯 곳을 고쳤다(31행 추가, 4행 삭제). Makefile이 `include/linux/dma-buf-mapping.h`의 존재로 PAL 커널을 판별하므로, 같은 소스가 두 커널에서 빌드된다. `iommu_map_pa`는 수정 없이 빌드되었다.
+iommufd는 PAL 하나만 요청하므로, exporter가 PAL을 제시하지 않으면 attach가 실패한다. 배포 커널에서 나온 `errno=95`는 이 경로가 아니다. 배포 커널의 iommufd는 vfio-pci가 낸 dma-buf만 받도록 되어 있어서 거부한 것이다. attach가 성공하면 `dma_buf_pin()`을 부르고, `dma_buf_pal_map_phys()`로 exporter의 `map_phys`를 불러 물리주소 구간 목록을 받는다. 그 목록은 MMIO 배치(`BATCH_MMIO`)가 된다. `batch_to_domain()`(같은 파일 521~522행)이 이 배치를 IOMMU 도메인에 넣을 때 `IOMMU_CACHE`를 빼고 `IOMMU_MMIO`를 붙인다. importer ops `iopt_dmabuf_attach_revoke_ops`는 `allow_peer2peer = true`이고, revoke 콜백 `iopt_revoke_notify`를 가진다.
 
-### 4.4 시험 도구
+정리하면 exporter가 할 일은 둘이다. `match_mapping`에서 PAL을 제시하는 것, 그리고 `map_phys`와 `unmap_phys`를 구현하는 것이다.
+
+### 4.3 NVIDIA exporter 수정
+
+**빌드 실패 원인.** 580.178.04를 PAL 커널에서 빌드하면 `nv-dmabuf.c`에서만 실패한다. 원인은 셋이다.
+- PAL 브랜치는 `struct dma_buf_ops`에서 `map_dma_buf`와 `unmap_dma_buf`를 없애고 `struct dma_buf_mapping_sgt_exp_ops`로 옮겼다.
+- `struct dma_buf_attachment`에서 `dev` 멤버가 사라졌다. SGT 매핑의 대상 장치는 `dma_buf_sgt_dma_device(attach)`로 얻는다.
+- importer 함수가 `dma_buf_sgt_attach()`, `dma_buf_sgt_map_attachment()`, `dma_buf_sgt_unmap_attachment()`로 이름이 바뀌었다.
+
+아래 여덟 항목이 수정 전체다.
+
+#### 4.3.1 conftest 항목 `dma_buf_ops_has_match_mapping`
+
+NVIDIA 모듈은 커널 API의 존재를 conftest로 검사하고 그 결과를 `#define`으로 쓴다. `conftest.sh`에 다음 검사를 더했다. 이 검사는 `struct dma_buf_ops`에 `match_mapping` 멤버가 있는 코드가 컴파일되는지 본다.
+
+```c
+#include <linux/dma-buf.h>
+int conftest_dma_buf_ops_has_match_mapping(void) {
+    return offsetof(struct dma_buf_ops, match_mapping);
+}
+```
+
+컴파일이 되면 `NV_DMA_BUF_OPS_HAS_MATCH_MAPPING`을 정의하고, 안 되면 `#undef`한다. `nvidia.Kbuild`의 `NV_CONFTEST_FUNCTION_COMPILE_TESTS`에 이 항목을 한 줄 더해 빌드 때 실행되게 했다. 이후의 모든 변경은 이 매크로로 감쌌다. 그래서 매크로가 정의되지 않은 기존 커널에서는 원래 코드가 그대로 컴파일된다. 6.8.12에서 빌드했을 때 conftest 결과는 `#undef NV_DMA_BUF_OPS_HAS_MATCH_MAPPING`이었고 `nvidia.ko`가 만들어졌다.
+
+#### 4.3.2 `nv_dma_buf_ops` 교체
+
+exporter ops 테이블에서 SGT 함수를 빼고 `match_mapping`을 넣었다. 기존 SGT 함수 `nv_dma_buf_map()`과 `nv_dma_buf_unmap()`은 지우지 않고 새 SGT ops 테이블로 옮겼다.
+
+```c
+static const struct dma_buf_mapping_sgt_exp_ops nv_dma_buf_sgt_ops = {
+    .map_dma_buf   = nv_dma_buf_map,
+    .unmap_dma_buf = nv_dma_buf_unmap,
+};
+...
+static const struct dma_buf_ops nv_dma_buf_ops = {
+    .attach        = nv_dma_buf_attach,
+#if defined(NV_DMA_BUF_OPS_HAS_MATCH_MAPPING)
+    .match_mapping = nv_dma_buf_match_mapping,
+#else
+    .map_dma_buf   = nv_dma_buf_map,
+    .unmap_dma_buf = nv_dma_buf_unmap,
+#endif
+    .release       = nv_dma_buf_release,
+```
+
+이 변경은 PAL 브랜치가 simple exporter들과 amdgpu를 변환한 커밋과 같은 방식이다.
+
+#### 4.3.3 `nv_dma_buf_match_mapping()` 추가
+
+importer가 attach할 때 dma-buf 코어가 이 함수를 부르고, exporter는 자기가 줄 수 있는 mapping type을 선호 순서대로 제시한다.
+
+```c
+if (!priv->nv->coherent ||
+    (priv->mapping_type == NV_DMABUF_EXPORT_MAPPING_TYPE_FORCE_PCIE))
+{
+    matches[num_match++] = DMA_BUF_EMAPPING_PAL(&nv_dma_buf_pal_ops);
+}
+matches[num_match++] = DMA_BUF_EMAPPING_SGT(&nv_dma_buf_sgt_ops);
+
+rc = dma_buf_match_mapping(args, matches, num_match);
+...
+// PAL has no importing device and nothing to check.
+dev = dma_buf_sgt_dma_device(args->attach);
+if (dev == NULL)
+{
+    return 0;
+}
+
+mutex_lock(&priv->lock);
+rc = nv_dma_buf_check_peer_device(priv, dev);
+mutex_unlock(&priv->lock);
+```
+
+- **PAL 제시 조건.** discrete GPU(`coherent`가 거짓)이거나 FORCE_PCIE 매핑일 때만 PAL을 제시한다. 이 경우 RM이 주는 구간은 호스트 관점에서 MMIO인 BAR1 주소다. Grace 같은 coherent 플랫폼의 DEFAULT 매핑은 시스템 메모리 페이지이므로 PAL로 내보내지 않는다.
+- **순서.** PAL을 먼저, SGT를 다음에 둔다. iommufd는 PAL만 요청하므로 PAL이 선택되고, `dmabuf_import`나 RDMA 같은 SGT importer는 SGT가 선택된다.
+- **SGT 종류.** P2P 전용 SGT가 아니라 plain SGT를 제시했다. P2P SGT는 importer가 PCI 장치여야 하는데, 본 팀의 `dmabuf_import`는 misc 장치로 attach하는 경로가 있어서 그 경로가 깨지지 않게 했다.
+- **장치 검사.** 선택된 type이 SGT이면 `dma_buf_sgt_dma_device()`가 importer 장치를 돌려주고, 그 장치로 토폴로지를 검사한다. PAL이면 NULL을 돌려준다. PAL에는 검사할 importer 장치가 없으므로 검사 없이 통과한다.
+
+#### 4.3.4 PAL exporter `nv_dma_buf_pal_map_phys()`와 `nv_dma_buf_pal_unmap_phys()` 추가
+
+`map_phys`는 RM이 이 dma-buf의 핸들들에 대해 보고하는 메모리 구간을 `struct dma_buf_phys_list`로 옮긴다. discrete GPU에서는 그 구간이 BAR1의 PCIe 주소다.
+
+```c
+mutex_lock(&priv->lock);
+
+if (priv->num_objects != priv->total_objects)
+{
+    phys = ERR_PTR(-EINVAL);
+    goto unlock_priv;
+}
+
+if (!priv->static_phys_addrs)
+{
+    status = nv_dma_buf_get_phys_addresses(priv, 0, priv->num_objects);
+    ...
+}
+
+for (i = 0; i < priv->num_objects; i++)
+{
+    nranges += priv->handles[i].memArea.numRanges;
+}
+
+phys = kvmalloc(struct_size(phys, phys, nranges), GFP_KERNEL);
+...
+phys->length = nranges;
+for (i = 0; i < priv->num_objects; i++)
+{
+    for (index = 0; index < priv->handles[i].memArea.numRanges; index++)
+    {
+        phys->phys[n].paddr = priv->handles[i].memArea.pRanges[index].start;
+        phys->phys[n].len   = priv->handles[i].memArea.pRanges[index].size;
+        n++;
+    }
+}
+```
+
+- **완성 검사.** dma-buf는 CUDA가 핸들을 여러 번에 걸쳐 채울 수 있다. 모든 핸들이 채워지기 전(`num_objects != total_objects`)에는 `-EINVAL`로 거부한다. 기존 SGT 경로의 `nv_dma_buf_map()`과 같은 조건이다.
+- **물리주소 획득.** 기존 함수 `nv_dma_buf_get_phys_addresses()`를 그대로 쓴다. 이 함수는 RM에서 `memArea.pRanges[]`를 채우고 `phys_refcount`를 올린다. `static_phys_addrs`인 버퍼는 export 때 이미 주소를 받아 두었으므로 다시 부르지 않는다.
+- **구간 복사.** 핸들마다, 구간마다 `paddr`과 `len`을 옮긴다. DMA 매핑을 만들지 않으므로 SGT 경로처럼 DMA 세그먼트 한도로 구간을 쪼개지 않는다. 측정한 1 GiB 버퍼는 구간 하나였다. 구간이 여러 개여도 PAL 브랜치의 iommufd는 받는다.
+- **수명.** `unmap_phys`가 불릴 때까지 `phys_refcount`가 RM 구간을 붙잡는다. SGT 매핑이 `unmap_dma_buf`까지 붙잡는 것과 같다.
+
+`unmap_phys`는 같은 락 안에서 목록을 `kvfree()`하고, `static_phys_addrs`가 아니면 `nv_dma_buf_put_phys_addresses()`로 참조를 돌려준다. 두 함수는 `struct dma_buf_mapping_pal_exp_ops nv_dma_buf_pal_ops`로 묶어 4.3.3의 `DMA_BUF_EMAPPING_PAL()`에 넘긴다.
+
+#### 4.3.5 attach 검사의 분리: `nv_dma_buf_check_peer_device()`
+
+원래 `nv_dma_buf_attach()`는 `to_pci_dev(attachment->dev)`로 importer의 PCI 토폴로지를 검사했다. mapping type 체계에서는 이 위치를 그대로 쓸 수 없다. attach 시점에는 아직 type이 정해지지 않아 importer 장치를 모르고, `attachment->dev`도 없다. 그래서 검사 본문을 새 함수 `nv_dma_buf_check_peer_device(priv, dev)`로 떼어 냈다.
+
+```c
+if (priv->mapping_type == NV_DMABUF_EXPORT_MAPPING_TYPE_FORCE_PCIE)
+{
+    if (dev_is_pci(dev) &&
+        !nv_pci_is_valid_topology_for_direct_pci(priv->nv, to_pci_dev(dev)))
+    {
+        ...
+        return -ENOTSUPP;
+    }
+
+    priv->skip_iommu = NV_TRUE;
+}
+else if (dev_is_pci(dev))
+{
+    nv_dma_device_t peer_dma_dev = {{ 0 }};
+
+    peer_dma_dev.dev = &to_pci_dev(dev)->dev;
+    peer_dma_dev.addressable_range.limit = to_pci_dev(dev)->dma_mask;
+
+    if (!nv_grdma_pci_topology_supported(priv->nv, &peer_dma_dev))
+    {
+        ...
+        return -ENOTSUPP;
+    }
+}
+```
+
+- 기존 커널에서는 `nv_dma_buf_attach()`가 이 함수를 `attachment->dev`로 부른다. 동작은 원래와 같다.
+- PAL 커널에서는 `nv_dma_buf_match_mapping()`이 SGT가 선택된 뒤에 이 함수를 부른다. 그래서 `nv_dma_buf_attach()` 안의 호출은 `#if !defined(NV_DMA_BUF_OPS_HAS_MATCH_MAPPING)`로 감쌌다.
+- `dev_is_pci()` 검사를 새로 넣었다. 원래 코드는 importer가 PCI 장치라고 가정하고 `to_pci_dev()`를 조건 없이 적용했다. 580에서 misc 장치 importer가 통과한 것은 `nv_grdma_pci_topology_supported()`의 기본값이 참이었기 때문이다. 이제는 PCI가 아닌 importer를 명시적으로 검사에서 뺀다. 615.78.08(main)에 들어간 `dev_is_pci()` 분기와 같은 방향이다.
+- PAL 커널 빌드에서는 `nv_dma_buf_attach()`의 `unlock_priv` 레이블을 쓰는 `goto`가 사라진다. 그래서 컴파일러 경고를 막으려고 레이블에 `__attribute__((unused))`를 붙였다.
+
+#### 4.3.6 SGT 경로의 대상 장치: `nv_dma_buf_attachment_dev()`
+
+`nv_dma_buf_map()`과 `nv_dma_buf_unmap()`은 `attachment->dev`로 DMA 매핑을 만들었다. 이 필드 대신 쓸 함수를 더했다.
+
+```c
+static struct device*
+nv_dma_buf_attachment_dev(
+    struct dma_buf_attachment *attachment
+)
+{
+#if defined(NV_DMA_BUF_OPS_HAS_MATCH_MAPPING)
+    return dma_buf_sgt_dma_device(attachment);
+#else
+    return attachment->dev;
+#endif
+}
+```
+
+두 함수 안의 `attachment->dev` 네 곳(`nv_dma_buf_map_pages()`, `nv_dma_buf_map_pfns()`와 각각의 unmap)을 이 함수의 반환값 `dev`로 바꿨다. `nv_dma_buf_map()`은 `dev`가 NULL이면 NULL을 돌려준다.
+
+#### 4.3.7 NVIDIA가 importer일 때의 함수 이름
+
+NVIDIA 드라이버는 다른 드라이버의 dma-buf를 가져오는 importer 역할도 한다(`nv_dma_import_dma_buf()`, `nv_dma_release_dma_buf()`). 이 경로의 세 호출을 PAL 커널에서는 새 이름으로 바꿨다.
+
+| 원래 호출 | PAL 커널에서의 호출 |
+|---|---|
+| `dma_buf_attach(dma_buf, dma_dev->dev)` | `dma_buf_sgt_attach(dma_buf, dma_dev->dev)` |
+| `dma_buf_map_attachment(dma_attach, direction)` | `dma_buf_sgt_map_attachment(dma_attach, direction)` |
+| `dma_buf_unmap_attachment(attach, sgt, direction)` | `dma_buf_sgt_unmap_attachment(attach, sgt, direction)` |
+
+이 경로는 PoC 시험에 쓰이지 않는다. 그러나 고치지 않으면 모듈이 빌드되지 않는다.
+
+#### 4.3.8 고치지 않은 것
+
+- **pin.** NVIDIA exporter에는 `pin` 콜백이 없다. 그래서 iommufd가 부르는 `dma_buf_pin()`은 아무 일도 하지 않고 0을 돌려준다. BAR1 구간은 4.3.4의 `phys_refcount`가 붙잡는다.
+- **revoke.** NVIDIA exporter는 `dma_buf_invalidate_mappings()`를 부르지 않는다. 그래서 iommufd의 `iopt_revoke_notify`가 불릴 일이 없다. GPU 메모리를 먼저 해제하는 경우의 동작은 §11의 확인 항목으로 남겼다.
+- **심볼 네임스페이스.** `nv.c`에는 이미 conftest 결과에 따라 `MODULE_IMPORT_NS(DMA_BUF)` 또는 `MODULE_IMPORT_NS("DMA_BUF")`를 쓰는 처리가 있다. PAL 심볼 `dma_buf_mapping_pal_type`도 같은 `DMA_BUF` 네임스페이스(`dma-buf-mapping.c` 414행)라서 추가 작업이 필요 없었다.
+- **RM과 CUDA 사용자 라이브러리.** 고치지 않았다. CUDA 쪽은 기존 `cuMemGetHandleForAddressRange()`를 플래그 없이 그대로 쓴다.
+
+**빌드.** NVIDIA DKMS는 7.0 커널에서 소스 컴파일 전에 `Makefile:18: /Kbuild: No such file or directory`로 실패한다. 그래서 소스를 복사하고 패치를 적용한 뒤 다음 명령으로 빌드했다.
+
+```sh
+make -j16 SYSSRC=/data/linux-pal NV_EXCLUDE_KERNEL_MODULES=nvidia-peermem modules
+```
+
+`nvidia-peermem`은 OFED의 `Module.symvers`를 요구하므로 제외했다. 만든 `.ko`는 PAL 커널의 `/lib/modules/7.0.0-rc1-pal+/extra/`에 넣고 `depmod -a`를 실행했다(`install-modules.sh`). 배포 커널의 DKMS 모듈은 건드리지 않는다.
+
+### 4.4 upcie `dmabuf_import` 수정
+
+`dmabuf_import`는 CUDA dma-buf를 misc 장치나 지정한 PCI 장치 명의로 import해 물리주소 목록을 사용자 공간에 주는 모듈이다. 시험 도구는 이 모듈을 두 곳에 쓴다. identity IOVA 모드와 uio 모드에서 BAR1 물리주소를 얻을 때다. 이 모듈도 importer 함수 이름 변경 때문에 PAL 커널에서 빌드되지 않아 다음을 고쳤다.
+
+- **Makefile.** `include/linux/dma-buf-mapping.h`가 커널 트리에 있으면 `-DDMABUF_IMPORT_MAPPING_TYPES`를 붙인다. 이 헤더는 PAL 브랜치가 새로 만든 파일이다.
+
+  ```make
+  ccflags-y += $(if $(wildcard $(srctree)/include/linux/dma-buf-mapping.h),-DDMABUF_IMPORT_MAPPING_TYPES)
+  ```
+
+- **함수 이름 매크로.** 세 importer 함수를 매크로로 바꿔 부르게 했다. PAL 커널에서는 `dma_buf_sgt_*`로, 기존 커널에서는 원래 이름으로 풀린다. 본문 세 곳(`dma_buf_dynamic_attach`, `dma_buf_map_attachment`, `dma_buf_unmap_attachment`)이 이 매크로를 쓴다.
+- **move_notify 콜백 이름.** PAL 브랜치에서 `struct dma_buf_attach_ops.move_notify`가 `invalidate_mappings`로 바뀌었다. 같은 함수 `dmabuf_import_move_notify`를 조건부로 그 이름에 연결했다.
+- **경고 메시지.** `dev_warn_once(attach->dev, ...)`는 `attach->dev`가 없어져 컴파일되지 않는다. `pr_warn_once("dmabuf_import: ...")`로 바꿨다.
+
+`iommu_map_pa`는 수정 없이 빌드되었다. 이 PoC는 `iommu_map_pa`를 쓰지 않지만, 비교 경로를 남기기 위해 같은 커널에 함께 설치했다.
+
+처음 만든 패치에는 `MODULE_IMPORT_NS` 블록을 한 번 더 감싸는 군더더기 hunk가 있었다. 그 hunk는 6.13 미만 커널의 `#else` 분기 안에서만 의미가 있고, 그 분기에서도 원래와 같은 `MODULE_IMPORT_NS(DMA_BUF)`로 풀린다. 그래서 어느 커널에서도 컴파일 결과를 바꾸지 않는다. 2026-10-15에 이 hunk를 패치에서 지웠다. 지운 패치가 upcie-experimental 0.9.0 원본에 적용되는 것과, PAL 커널과 6.8.12에서 모두 빌드되는 것을 확인했다. sid는 지우기 전 패치로 빌드했다.
+
+### 4.5 SNP 실험 커널 패치 (최종 경로에서 제외)
+
+개발 PC C2 실패의 원인으로 SNP 비트를 의심했을 때(§8의 2번) 쓴 패치다. generic_pt의 VT-d second-stage 형식은 도메인에 `PT_FEAT_VTDSS_FORCE_COHERENCE`가 켜져 있으면 `iommu_prot`와 관계없이 SNP를 세운다. 이 패치는 MMIO 매핑에서만 SNP를 빼도록 고쳤다.
+
+```c
+-	if (pt_feature(common, PT_FEAT_VTDSS_FORCE_COHERENCE))
++	if (pt_feature(common, PT_FEAT_VTDSS_FORCE_COHERENCE) &&
++	    !(iommu_prot & IOMMU_MMIO))
+ 		pte |= VTDSS_FMT_SNP;
+```
+
+이 커널로 PTE가 `0x...083`(SNP 없음)이 된 것을 확인했지만 C2는 같은 실패였다. 가설을 기각한 뒤 원래 PAL 커널로 되돌렸다. sid에서는 이 패치를 쓰지 않았다.
+
+### 4.6 시험 도구 구현
+
+#### 4.6.1 `pal_probe`
+
+매핑만 확인하는 도구다. 순서는 다음과 같다.
+1. `cuMemAlloc()`으로 1 GiB를 할당하고 `cuMemGetHandleForAddressRange(..., CU_MEM_RANGE_HANDLE_TYPE_DMA_BUF_FD, 0)`로 dma-buf fd를 얻는다.
+2. `/dev/iommu`를 열고 `IOMMU_IOAS_ALLOC`으로 IOAS를 만든다.
+3. `--vfio`를 주면 vfio cdev 장치를 `VFIO_DEVICE_BIND_IOMMUFD`로 묶는다. 이어서 `IOMMU_HWPT_ALLOC`, `VFIO_DEVICE_ATTACH_IOMMUFD_PT`로 하드웨어 도메인에 붙인다. 이렇게 해야 매핑이 실제 VT-d 페이지 테이블에 들어간다.
+4. `IOMMU_IOAS_MAP_FILE`에 dma-buf fd를 넣고 IOVA나 errno를 출력한다.
+5. `--hold N`이면 N초 동안 매핑을 유지한다. 그동안 `pte-dump.sh`로 PTE를 읽는다.
+
+#### 4.6.2 `pal_nvme`
+
+vfio cdev와 iommufd 위에서 동작하는 최소 NVMe 드라이버다. 커널 nvme 드라이버나 xNVMe를 쓰지 않고 새로 짠 이유는 두 가지다. 매핑 경로를 `IOMMU_IOAS_MAP_FILE` 하나로 고정해야 했고, 명령 하나하나의 완료 상태(`sct`, `sc`)를 그대로 봐야 했다.
+
+**설정 순서.**
+
+| 단계 | 호출 | 결과 |
+|---|---|---|
+| 1 | `cuMemAlloc`, `cuMemGetHandleForAddressRange`, `cuMemsetD8` | 1 GiB GPU 버퍼와 dma-buf fd |
+| 2 | `open("/dev/iommu")`, `IOMMU_IOAS_ALLOC` | IOAS |
+| 3 | `VFIO_DEVICE_BIND_IOMMUFD`, `IOMMU_HWPT_ALLOC`, `VFIO_DEVICE_ATTACH_IOMMUFD_PT` | NVMe가 IOAS의 하드웨어 도메인에 붙음 |
+| 4 | `VFIO_DEVICE_GET_REGION_INFO`(BAR0), `mmap` | 컨트롤러 레지스터 |
+| 5 | config 공간 Command 레지스터에 `0x6` OR | 메모리 공간과 버스 마스터 켬 |
+| 6 | `mmap` 2 MiB 익명 메모리, `IOMMU_IOAS_MAP` | 큐와 버퍼용 호스트 메모리와 그 IOVA |
+| 7 | `IOMMU_IOAS_MAP_FILE`(dma-buf fd) | GPU 버퍼의 IOVA (PAL 경로) |
+
+**호스트 메모리 배치.** 2 MiB 블록 하나를 다음과 같이 나눠 쓴다.
+
+| 오프셋 | 용도 |
+|---|---|
+| 0 | admin SQ (깊이 32) |
+| 16 KiB | admin CQ |
+| 32 KiB | I/O SQ (깊이 64) |
+| 48 KiB | I/O CQ |
+| 64 KiB | Identify 결과 |
+| 68 KiB | PRP 리스트 |
+| 128 KiB | 호스트 버퍼 1 (64 KiB) |
+| 256 KiB | 호스트 버퍼 2 (64 KiB) |
+
+**컨트롤러 초기화.** CAP에서 MQES, DSTRD, 타임아웃을 읽는다. CC.EN=0으로 끄고, AQA, ASQ, ACQ를 쓴 뒤 CC를 `(6 << 16) | (4 << 20) | 1`로 켠다. 이 값은 IOSQES=6(64 B), IOCQES=4(16 B), MPS=0(4 KiB), EN=1이다. Identify Namespace로 LBA 크기를 읽고, Create I/O CQ와 Create I/O SQ로 큐 쌍 하나를 만든다. 명령은 하나씩 제출하고 완료 큐를 폴링해 기다린다.
+
+**PRP.** 전송이 4 KiB이면 PRP1만 쓴다. 8 KiB이면 PRP2에 둘째 페이지를 넣는다. 그보다 크면 PRP2가 호스트 메모리의 PRP 리스트를 가리키게 한다. GPU 버퍼로 가는 64 KiB 전송에서는 PRP 엔트리 16개가 모두 GPU IOVA다.
+
+**시험 정의.** 전송 크기를 `XFER`(기본 64 KiB), 시작 LBA를 `--slba`(기본 0), LBA 크기를 512 B로 놓으면 다음과 같다.
+
+| 시험 | NVMe 명령 | 데이터 버퍼 IOVA | LBA | 판정 |
+|---|---|---|---|---|
+| C1 | Write → Read | 호스트 버퍼 1 → GPU IOVA | slba | `cuMemcpyDtoH`로 읽은 GPU 내용이 호스트 패턴과 같음 |
+| C2 | Write → Read | GPU IOVA + XFER → 호스트 버퍼 1 | slba + XFER/512 | `cuMemcpyHtoD`로 쓴 패턴이 다시 읽은 내용과 같음 |
+| D | Write | GPU IOVA + 1 GiB + 1 GiB (매핑 없음) | slba + 2·XFER/512 | 오류 상태여야 함 |
+| D2 | Read | 같은 미매핑 IOVA | slba | 결과만 기록 (posted이므로 OK가 예상) |
+
+64 KiB 전송이면 LBA 0~383을 덮어쓴다. 출력 줄의 "LBA0", "LBA16"은 고정 문자열이고, 실제 범위는 `test LBAs:` 줄에 찍힌다.
+
+**선택 모드.**
+- `--identity`: `dmabuf_import`를 misc 장치 명의로 붙여 BAR1 물리주소를 얻는다. 그 주소를 `IOMMU_IOAS_MAP_FIXED_IOVA`로 IOVA에 지정한다. 그래서 IOVA와 물리주소가 같아진다.
+- `--uio <BDF>`: iommufd를 쓰지 않는다. sysfs `resource0`으로 BAR0를 mmap하고, 호스트 메모리는 2 MiB hugepage로 잡아 `/proc/self/pagemap`에서 물리주소를 읽는다. GPU 주소는 `dmabuf_import`로 얻은 BAR1 물리주소를 그대로 쓴다. NVMe는 identity 도메인(또는 IOMMU off)에서 uio_pci_generic에 묶여 있어야 한다.
+- `--xfer`, `--slba`, `--no-negative`: 전송 크기, 시작 LBA, D와 D2 생략.
+
+**종료.** CC.EN=0으로 컨트롤러를 끄고, GPU와 호스트 매핑을 `IOMMU_IOAS_UNMAP`으로 지운 뒤 fd를 닫는다.
+
+#### 4.6.3 `bar1_cpu_read`와 스크립트
+
+`bar1_cpu_read`는 CUDA 버퍼에 패턴을 쓰고 `dmabuf_import`로 그 버퍼의 BAR1 물리주소를 얻는다. 그다음 GPU의 sysfs `resource1`을 mmap해 같은 오프셋 64 KiB를 CPU로 읽어 대조한다.
+
+스크립트는 넷이다.
+- `bind-vfio.sh`: NVMe를 DMA-FQ 그룹의 vfio-pci에 묶는다. 데이터셋 장치, 그룹 크기, 마운트 여부를 먼저 검사한다.
+- `identity-uio.sh`: 그룹을 identity로 바꾸고 uio_pci_generic에 묶는다. 버스 마스터를 켜고 hugepage 64개를 예약한다.
+- `restore-nvme.sh`: 커널 nvme 드라이버와 DMA-FQ로 되돌리고 hugepage를 해제한다.
+- `pte-dump.sh`: VT-d debugfs의 `domain_translation_struct`를 읽는다.
+
+#### 4.6.4 도구별 역할
 
 | 도구 | 보여주는 것 | 필요한 이유 |
 |---|---|---|
 | `pal_probe` | CUDA dma-buf가 `IOMMU_IOAS_MAP_FILE`로 매핑되는가. `--hold`로 매핑을 유지 | 매핑 자체의 성공과 PTE 관찰. 데이터 경로는 보지 못한다 |
-| `pal_nvme --vfio` | vfio cdev와 iommufd로 묶은 NVMe에 C1, C2, D, D2를 실행하고 `cuMemcpy`로 대조 | 매핑이 실제 DMA에 쓰이는지와 보호가 적용되는지를 본다 |
+| `pal_nvme --vfio` | C1, C2, D, D2를 실행하고 `cuMemcpy`로 대조 | 매핑이 실제 DMA에 쓰이는지와 보호가 적용되는지를 본다 |
 | `pal_nvme --identity` | GPU를 BAR1 물리주소와 같은 IOVA에 매핑 | 실패가 주소 값 때문인지 가른다 |
-| `pal_nvme --uio` | identity 도메인과 uio_pci_generic으로 번역 없이 물리주소로 실행 | 실패가 번역과 무관한지 가른다. 앞의 두 도구로는 IOMMU를 경로에서 뺄 수 없다 |
+| `pal_nvme --uio` | 번역 없이 물리주소로 실행 | 실패가 번역과 무관한지 가른다. 앞의 두 모드로는 IOMMU를 경로에서 뺄 수 없다 |
 | `bar1_cpu_read` | CPU가 BAR1 mmap으로 같은 버퍼를 읽음 | BAR1 주소와 내용이 올바른지 확인한다. 장치 간 읽기만의 문제인지 가른다 |
 | `pte-dump.sh` | VT-d debugfs의 PTE | 페이지 크기, 물리주소, SNP 비트를 직접 본다 |
 | `lspci` Status, DevSta | C2 뒤 어느 장치가 UR을 받았는지 | 오류 완료가 루트 콤플렉스에서 나왔는지 GPU에서 나왔는지 가른다. NVMe의 `sc=0x4`만으로는 알 수 없다 |

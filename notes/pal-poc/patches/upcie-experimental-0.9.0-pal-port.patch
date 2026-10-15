@@ -71,19 +71,6 @@ diff --color -ruN a/dmabuf_import/dmabuf_import.c b/dmabuf_import/dmabuf_import.
  		if (IS_ERR(tmp->sgt)) {
  			ret = PTR_ERR(tmp->sgt);
  			tmp->sgt = NULL;
-@@ -867,8 +886,12 @@
- #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 13, 0)
- MODULE_IMPORT_NS("DMA_BUF");
- #else
-+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 13, 0)
-+MODULE_IMPORT_NS("DMA_BUF");
-+#else
- MODULE_IMPORT_NS(DMA_BUF);
- #endif
-+#endif
-
- MODULE_LICENSE("GPL");
- MODULE_AUTHOR("Karl Bonde Torp <k.torp@samsung.com>");
 diff --color -ruN a/dmabuf_import/Makefile b/dmabuf_import/Makefile
 --- a/dmabuf_import/Makefile	2026-10-14 08:28:41.498795764 +0900
 +++ b/dmabuf_import/Makefile	2026-10-14 08:28:41.499722404 +0900
