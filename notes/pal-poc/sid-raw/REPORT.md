@@ -14,14 +14,15 @@
 | C1 | 번역된 NVMe→GPU | MATCH | MATCH (64K/4K/identity) |
 | C2 | 번역된 GPU→NVMe | 실패 `sc=0x4` | **MATCH (64K/4K/identity)** |
 | D | 미매핑 IOVA | 오류 + DMAR fault | `sct=0x0 sc=0x4` + `PTE Read/Write access is not set` |
-| PTE | 페이지 크기, SNP | 2 MiB × 512, SNP 켜짐 | 2 MiB, entries 514, SNP 켜짐(bit 11=1) |
+| PTE | 페이지 크기, SNP | 2 MiB × 512, SNP 켜짐 | 2 MiB x 512 (entries 514는 머리글 2줄 포함), SNP 켜짐(bit 11=1) |
 
 ## 해석
 
 - **C2가 sid에서 MATCH.** dev PC에서 `sc=0x4`로 실패했던 방향(GPU BAR1을 장치가 읽는 non-posted P2P read)이 sid(Ice Lake-SP)에서는 번역(identity/translated) 모두 성공. → dev PC의 C2 실패는 **클라이언트 루트 콤플렉스(8086:a700)의 cross-root-port P2P read 제약**이었고, PAL/iommufd 번역 문제가 아님을 실기로 확인.
+  - 정정(2026-10-15, results-2026-10-15.md): PAL/iommufd가 원인이 아니라는 것은 확인했지만, 원인이 루트 콤플렉스라는 것은 GPU, NVMe, 경로 구조도 달라 추정이다.
 - **단계 A와 C의 차이 없음.** sid에서는 번역 없이(단계 A)도, PAL 번역(단계 C)으로도 C1/C2 모두 MATCH. 즉 이 플랫폼에서는 P2P 방향 제약이 없고, PAL 경로가 그대로 동작.
 - **SNP(PTE bit 11)가 켜진 상태에서도 C2 성공** → SNP는 원인 아님(dev PC 결론과 일치). `patches/kernel-vtdss-mmio-nosnp.patch` 불필요.
-- **측정**: A0/A1/A2/C0/C1/C2/D/PTE 전부 실측. **추정**: 없음.
+- **측정**: A0/A1/A2/C0/C1/C2/D/PTE 전부 실측. **추정**: 개발 PC 실패 원인을 루트 콤플렉스로 보는 해석.
 - **결론**: 자체 모듈 `iommu_map_pa`의 workaround를 업스트림 PAL(`IOMMU_IOAS_MAP_FILE` + dma-buf mapping types)로 대체할 근거를 sid에서 확보.
 
 ## 기록해 둘 환경·수정

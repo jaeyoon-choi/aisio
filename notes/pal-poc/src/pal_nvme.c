@@ -408,7 +408,7 @@ static int ctrl_init(struct ctx *c)
 	wr64(c, 0x28, c->hm_iova + OFF_ASQ);
 	wr64(c, 0x30, c->hm_iova + OFF_ACQ);
 	/* IOSQES=6 IOCQES=4 MPS=0 (4 KiB) CSS=0 EN=1 */
-	wr32(c, 0x14, (6 << 20) | (4 << 16) | 1);
+	wr32(c, 0x14, (6 << 16) | (4 << 20) | 1);
 	if (wait_csts_rdy(c, 1))
 		return -1;
 	printf("nvme: controller enabled\n");

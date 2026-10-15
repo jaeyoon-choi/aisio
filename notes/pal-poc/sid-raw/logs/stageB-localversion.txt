@@ -2,7 +2,9 @@
 == CONFIG_LOCALVERSION lines ==
 37:CONFIG_LOCALVERSION="-pal"
 == Makefile version lines ==
+REUSE-IgnoreStart
 # SPDX-License-Identifier: GPL-2.0
+REUSE-IgnoreEnd
 VERSION = 7
 PATCHLEVEL = 0
 SUBLEVEL = 0
