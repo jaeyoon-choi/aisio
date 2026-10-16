@@ -1,63 +1,60 @@
 # PAL 기반 iommufd GPU 메모리 매핑 PoC 종합 보고서
 
-- 기간: 2026-10-13 ~ 2026-10-15
-- 호스트: 개발 PC jaeyoon-pc (i9-14900K, RTX PRO 4000 Blackwell), sid (Xeon Ice Lake-SP 2소켓, NVIDIA L4)
+- 기간: 2026-10-13 ~ 2026-10-16
+- 주 시험 호스트: sid (Xeon Ice Lake-SP 2소켓, NVIDIA L4)
+- 보조 호스트: 개발 PC jaeyoon-pc (i9-14900K, RTX PRO 4000 Blackwell). 클라이언트 플랫폼 제약 확인에 썼다.
 - 커널: PAL 브랜치 `jgunthorpe/linux dmabuf_map_type` c37cf2824740 (`7.0.0-rc1-pal+`)
 - 드라이버: NVIDIA 580.178.04 오픈 커널 모듈 이식본, upcie-experimental 0.9.0 이식본
 - 자료: 브랜치 `jaeyoon-choi/aisio poc/iommufd-pal`의 `notes/pal-poc/` (소스, 패치, 매뉴얼, 단계별 보고서 두 편, 원본 로그)
-- 단계별 보고서: `results-2026-10-13.md`(개발 PC), `results-2026-10-15.md`(sid와 개발 PC 재측정). 이 문서는 두 편과 계획 검토(`2026-10-13-iommufd-poc-plan-review.md`)를 하나로 묶는다.
+- 단계별 보고서: `results-2026-10-13.md`(개발 PC), `results-2026-10-15.md`(sid와 개발 PC 재측정). 이 문서는 두 편과 계획 검토(`2026-10-13-iommufd-poc-plan-review.md`), 2026-10-16 개발 PC 재측정을 하나로 묶는다.
 
-이 보고서는 aisio와 xNVMe 팀의 엔지니어를 독자로 쓴다. NVMe 명령 구조(SQ, CQ, PRP)와 PCIe 기본(BAR, 루트 포트, 트랜잭션 종류)은 안다고 가정하고, iommufd와 dma-buf의 커널 내부는 모른다고 가정한다. `iommu_map_pa`를 대체할지 판단하려면 요약과 §10만 읽으면 된다. 본문은 그 판단의 근거를 순서대로 따라간다. PoC를 다시 빌드하거나 이어서 고칠 사람을 위한 코드 수정 상세는 부록 A에 둔다.
+이 보고서는 aisio와 xNVMe 팀의 엔지니어를 독자로 쓴다. NVMe 명령 구조(SQ, CQ, PRP)와 PCIe 기본(BAR, 루트 포트, 트랜잭션 종류)은 안다고 가정하고, iommufd와 dma-buf의 커널 내부는 모른다고 가정한다. `iommu_map_pa`를 대체할지 판단하려면 요약과 §9만 읽으면 된다. 본문은 그 판단의 근거를 sid 결과 중심으로 따라간다. PoC를 다시 빌드하거나 이어서 고칠 사람을 위한 코드 수정 상세는 부록 A에, 개발 PC에서 원인을 좁힌 경과는 부록 B에 둔다.
 
 ## 요약
 
 **질문.** 본 팀은 NVMe SSD가 GPU 메모리에 직접 읽고 쓰게 하려고(GPU P2P DMA), CUDA가 할당한 GPU 메모리의 주소를 자체 커널 모듈 `iommu_map_pa`로 NVMe의 IOMMU 페이지 테이블에 직접 넣고 있다. 이 모듈은 커널의 매핑 관리를 우회하므로 상용 경로로 쓸 수 없다. 업스트림에 제안된 PAL(Physical Address List) RFC 위에서 NVIDIA 드라이버를 고치면, 이 일을 커널 표준 인터페이스인 iommufd의 `IOMMU_IOAS_MAP_FILE`이 대신할 수 있는가.
 
-**답.** 기능 면에서는 대신할 수 있다. NVIDIA 오픈 커널 모듈에 275행(`nv-dmabuf.c` 246행, conftest 28행, Kbuild 1행)을 더하자, PAL 커널의 iommufd가 CUDA 버퍼 1 GiB를 NVMe의 IOMMU에 2 MiB 엔트리 512개로 매핑했다. 그 매핑으로 NVMe가 GPU 메모리에 쓰는 방향(C1, NVMe 읽기 명령)은 두 호스트 모두에서 데이터가 일치했다. NVMe가 GPU 메모리를 읽는 방향(C2, NVMe 쓰기 명령)은 서버 sid에서 일치했고, 개발 PC에서는 실패했다. 개발 PC의 실패는 PAL을 쓰지 않아도 똑같이 나는 플랫폼 제약이다.
+**답.** 기능 면에서는 대신할 수 있다. NVIDIA 오픈 커널 모듈에 275행(`nv-dmabuf.c` 246행, conftest 28행, Kbuild 1행)을 더하자, PAL 커널의 iommufd가 CUDA 버퍼 1 GiB를 NVMe의 IOMMU에 2 MiB 엔트리 512개로 매핑했다. 서버 sid에서 그 매핑으로 NVMe가 GPU 메모리에 쓰는 방향(C1, NVMe 읽기 명령)과 GPU 메모리를 읽는 방향(C2, NVMe 쓰기 명령)이 모두 데이터 일치했다. 다만 클라이언트 플랫폼인 개발 PC(Raptor Lake)에서는 C2가 되지 않는다. 이것은 PAL과 무관한 플랫폼 제약이고, Intel 데이터시트에 적혀 있다.
 
-**이유.** 매핑이 올바르다는 근거는 세 관측이다. 첫째, NVMe에게 준 주소(IOVA 0x400000)가 GPU 메모리의 물리주소와 다른데도 데이터가 일치했다. IOMMU가 주소를 번역해 GPU에 전달했다는 뜻이다. 둘째, 매핑하지 않은 주소로 보낸 요청은 IOMMU가 막고 DMAR fault를 남겼다. 셋째, IOMMU 페이지 테이블 엔트리가 GPU 물리주소를 2 MiB 단위로 가리켰다. 개발 PC의 C2 실패는 IOMMU 번역을 끈 상태에서도 같았다. PCIe 오류 비트를 보면 NVMe의 읽기 요청이 GPU 쪽에 닿기 전에 CPU의 루트 콤플렉스가 거부했다. Intel 데이터시트도 이 PC의 GPU와 NVMe가 붙은 두 루트 포트(PEG10, PEG11)를 포함해 Raptor Lake의 모든 프로세서 루트 포트가 P2P 메모리 읽기를 지원하지 않는다고 적는다. 그래서 PAL, iommufd, NVIDIA 수정은 원인이 아니다.
+**이유.** sid에서 매핑이 올바르다는 근거는 세 관측이다. 첫째, NVMe에게 준 주소(IOVA)가 GPU 메모리의 물리주소와 다른데도 데이터가 일치했다. IOMMU가 주소를 번역해 GPU에 전달했다는 뜻이다. 둘째, 매핑하지 않은 주소로 보낸 요청은 IOMMU가 막고 DMAR fault를 남겼다. 셋째, IOMMU 페이지 테이블 엔트리가 GPU 물리주소를 2 MiB 단위로 가리켰다. 또 같은 sid의 배포 커널은 CUDA dma-buf를 거부했으므로, 매핑 성공은 PAL 커널과 이식한 exporter가 만든 결과다. 개발 PC의 C2 실패는 IOMMU 번역을 끈 상태에서도 같았고, NVMe의 읽기 요청을 CPU의 루트 콤플렉스가 거부했다. Raptor Lake 데이터시트는 프로세서 루트 포트의 P2P 메모리 읽기를 지원하지 않는다고 적는다.
 
 **성립 조건.**
 - 커널: PAL 브랜치 c37cf2824740 그대로.
 - IOMMU: Intel VT-d 번역 켬, vfio-pci cdev와 iommufd.
 - 드라이버: NVIDIA 580.178.04 이식본(discrete GPU).
 - 버퍼와 전송: 1 GiB 단일 구간 CUDA 버퍼, 4 KiB와 64 KiB 전송.
+- 경로: sid에서 GPU와 NVMe가 같은 소켓의 서로 다른 호스트 브리지에 있는 경로.
 - 확인한 것: 데이터 일치만 확인했다. 대역폭, 지연, 수명 시나리오는 측정하지 않았다.
 
 **측정값.**
 
-| 시험 | 개발 PC (Raptor Lake) | sid (Ice Lake-SP) |
+| 시험 | sid (Ice Lake-SP) | 개발 PC (Raptor Lake) |
 |---|---|---|
-| 배포 커널 iommufd가 NVIDIA dma-buf 거부 | 미시험 | 거부 (`errno=95`) |
+| 배포 커널 iommufd가 NVIDIA dma-buf 거부 | 거부 (`errno=95`) | 미시험 |
 | PAL 매핑 `IOMMU_IOAS_MAP_FILE` | OK, 2 MiB x 512 | OK, 2 MiB x 512 |
 | C1 NVMe→GPU (번역) | MATCH | MATCH |
-| C2 GPU→NVMe (번역) | 실패 (`sc=0x4`) | MATCH |
+| C2 GPU→NVMe (번역) | MATCH | 실패 (`sc=0x4`) |
 | C1 번역 없음 | MATCH | MATCH |
-| C2 번역 없음 | 실패 (`sc=0x4`) | MATCH |
+| C2 번역 없음 | MATCH | 실패 (`sc=0x4`) |
 | CPU의 BAR1 읽기 | MATCH | MATCH |
 | D 미매핑 주소 읽기 | 실패 + DMAR Read fault | 실패 + DMAR Read fault |
 | D2 미매핑 주소 쓰기 | 명령 OK + DMAR Write fault | 명령 OK + DMAR Write fault |
-| C2 실패 시 거부를 기록한 장치 | NVMe와 NVMe 쪽 루트 포트만 | 해당 없음 |
-| iommufd selftest | 236 pass, 0 fail, 5 skip | 미실행 |
 
 MATCH는 DMA로 옮기거나 CPU로 읽은 데이터가 원본 패턴과 바이트 단위로 같았다는 뜻이다. 실패(`sc=0x4`)는 NVMe가 명령을 Data Transfer Error로 끝냈다는 뜻이다. 이 표는 매핑과 보호가 두 호스트에서 같게 동작하고, 두 호스트의 차이는 번역을 켜든 끄든 C2에서만 난다는 것을 보인다.
 
 **의미.**
-- 본 팀의 주 사용 경로인 NVMe→GPU 읽기는 업스트림 iommufd 경로로 옮길 수 있다. GPU→NVMe 쓰기는 서버 sid에서는 되고 개발 PC(Raptor Lake)에서는 되지 않는다. 데이터시트가 Raptor Lake 프로세서 루트 포트의 P2P 읽기를 지원하지 않는다고 적으므로, 이 성질은 `iommu_map_pa`를 쓰든 PAL을 쓰든 같다.
-- 같은 데이터시트는 PEG10, PEG11의 P2P 메모리 쓰기도 지원하지 않는다고 적는다. 개발 PC에서 C1이 성공한 것은 측정 사실이지만 Intel이 보증하는 동작은 아니다. 그래서 개발 PC의 P2P 결과는 기능 확인에만 쓰고, 성능과 안정성은 서버에서 판단해야 한다.
-- 이 경로를 실제로 쓰려면 두 가지가 해결되어야 한다. PAL RFC가 업스트림에 머지되어야 하고, NVIDIA가 exporter를 제공해야 한다. PoC는 두 조건이 갖춰지면 기능 요구(양방향 데이터 경로와 미매핑 주소 보호)가 충족된다는 것을 보였다. 성능과 수명 관리는 아직 확인하지 않았다.
+- NVMe→GPU와 GPU→NVMe 두 방향 모두 서버에서는 업스트림 iommufd 경로로 옮길 수 있다.
+- 개발 PC 같은 Raptor Lake 클라이언트에서는 매핑 방식과 관계없이 GPU→NVMe가 되지 않는다. NVMe→GPU도 데이터시트가 보증하지 않는 동작이므로, 성능과 안정성은 서버에서 판단해야 한다.
+- 이 경로를 실제로 쓰려면 PAL RFC가 업스트림에 머지되고, NVIDIA가 exporter를 제공해야 한다. 성능과 수명 관리는 아직 확인하지 않았다.
 
 **바로잡은 이전 기록.**
-- 개발 PC C2 실패의 원인으로 세웠던 SNP 비트 가설은 기각했다. 그 가설의 근거였던 "이 PC에서 GPU→NVMe가 이전에 성공했다"는 기억은 기록으로 확인되지 않았다.
 - sid 실행 보고서의 서술 세 가지를 정정했다. 원인을 "대조로 확인"했다는 서술, 시험 NVMe를 루트 포트 아래로 본 서술, PTE 엔트리를 514개로 센 서술이다.
-- 개발 PC의 루트 콤플렉스가 "peer 쓰기는 전달하고 peer 읽기는 전달하지 않도록 설계되었다"는 추정을 정정했다. Intel 데이터시트는 이 PC의 두 포트에서 P2P 쓰기와 읽기를 모두 지원하지 않는다고 적는다.
-- 시험 도구가 NVMe 컨트롤러 설정 레지스터(CC)에 큐 엔트리 크기를 바꿔 쓰던 버그를 고쳤고, 이 버그가 개발 PC 결과에 영향을 주지 않았음을 번역 없는 경로(10-15)와 PAL 경로(10-16)의 재측정으로 확인했다. 경위는 §9에 있다.
+- 개발 PC의 C2 실패를 분석하며 남긴 기록 다섯 가지를 정정했다. SNP 비트 가설, "이전에 성공했다"는 기억, 쓰기만 전달하도록 설계되었다는 추정, 원래 커널로 되돌렸다는 서술, 시험 도구의 CC 버그다. 표와 경위는 §8에 있다.
 
 **확인하지 못한 것.**
-- 데이터시트가 지원하지 않는다고 적는 PEG10, PEG11 사이의 P2P 쓰기(C1)가 개발 PC에서 전달된 이유는 확인하지 못했다. 데이터시트는 "No"가 하드웨어 차단을 뜻하는지 검증 범위 밖이라는 뜻인지 정의하지 않는다.
-- C2의 대역폭과 지연은 측정하지 않았다.
+- 대역폭과 지연은 측정하지 않았다.
 - 소켓 간 경로, fd close 뒤의 동작, 반복 map/unmap, 강제 종료는 시험하지 않았다.
-- 각 항목의 다음 단계는 §11에 있다.
+- 각 항목의 다음 단계는 §10에 있다.
 
 **반영한 변경.**
 - NVIDIA 580.178.04용 PAL 이식 패치(275행 추가, 25행 삭제)와 upcie-experimental용 이식 패치(27행 추가, 4행 삭제)를 만들었다. 수정 개요는 §4에, 파일별, 함수별 상세는 부록 A에 있다.
@@ -169,7 +166,7 @@ PAL 브랜치의 iommufd는 `IOMMU_IOAS_MAP_FILE`로 dma-buf fd를 받으면 PAL
 | 7 | importer 함수 세 개 | `dma_buf_sgt_*` 이름으로 변경 | A.2.7 |
 | 8 | 고치지 않은 것 | pin, revoke, 심볼 네임스페이스, RM, CUDA 사용자 라이브러리 | A.2.8 |
 
-이 가운데 PoC 결과를 좌우하는 것은 3번과 4번이다. 3번이 iommufd에게 PAL을 내주고, 4번이 BAR1 구간을 넘긴다. 나머지는 빌드를 통과시키고 기존 SGT importer(`dmabuf_import`, RDMA)의 동작을 유지하기 위한 수정이다. RM과 CUDA 사용자 라이브러리는 고치지 않았으므로, CUDA 응용 쪽은 기존 `cuMemGetHandleForAddressRange()` 호출을 그대로 쓴다. 8번의 revoke는 운영에서 따져야 할 항목이다. NVIDIA exporter는 importer에게 매핑 무효화를 알리지 않으므로, GPU 메모리를 먼저 해제했을 때 iommufd 매핑이 어떻게 되는지는 확인하지 않았다(§11).
+이 가운데 PoC 결과를 좌우하는 것은 3번과 4번이다. 3번이 iommufd에게 PAL을 내주고, 4번이 BAR1 구간을 넘긴다. 나머지는 빌드를 통과시키고 기존 SGT importer(`dmabuf_import`, RDMA)의 동작을 유지하기 위한 수정이다. RM과 CUDA 사용자 라이브러리는 고치지 않았으므로, CUDA 응용 쪽은 기존 `cuMemGetHandleForAddressRange()` 호출을 그대로 쓴다. 8번의 revoke는 운영에서 따져야 할 항목이다. NVIDIA exporter는 importer에게 매핑 무효화를 알리지 않으므로, GPU 메모리를 먼저 해제했을 때 iommufd 매핑이 어떻게 되는지는 확인하지 않았다(§10).
 
 ### 4.4 upcie `dmabuf_import` 수정
 
@@ -213,55 +210,13 @@ NVMe 명령의 방향과 PCIe 트랜잭션은 반대로 대응한다. NVMe 읽�
 | 매핑이 틀린 경우 (가정) | MISMATCH 또는 DMAR fault | DMAR fault | 해당 없음 | 해당 없음 |
 | 매핑하지 않은 IOVA | 해당 없음 | 해당 없음 | `sc=0x4` + DMAR Read fault | 명령 OK + DMAR Write fault |
 
-이 표에 따르면 C1 MATCH와 D fault가 함께 나오면 매핑과 보호가 모두 정상이다. 그 상태에서 C2만 fault 없이 `sc=0x4`이면 원인은 IOMMU 뒤쪽, 즉 플랫폼에 있다. 이 표를 기준으로 두 호스트의 결과를 차례로 본다.
+이 표에 따르면 C1 MATCH와 D fault가 함께 나오면 매핑과 보호가 모두 정상이다. 그 상태에서 C2만 fault 없이 `sc=0x4`이면 원인은 IOMMU 뒤쪽, 즉 플랫폼에 있다. 이 표를 기준으로 주 시험 호스트인 sid의 결과를 먼저 보고, 이어서 개발 PC를 본다.
 
-## 6. 개발 PC 결과
+## 6. sid 결과
 
-개발 PC는 i9-14900K(Raptor Lake-S Refresh, 호스트 브리지 8086:a700)다. CPU는 x16 PCIe 링크 하나를 x8 두 개로 나눠 쓸 수 있고, Intel은 이 두 루트 포트를 PEG10(0:1:0)과 PEG11(0:1:1)이라고 부른다. GPU는 PEG10에, 예비 NVMe는 PEG11에 붙어 있다. 그래서 두 장치 사이의 요청은 반드시 CPU의 루트 콤플렉스를 지난다.
+sid는 Ice Lake-SP 2소켓이다. 호스트 브리지 8086:09a2는 커널 p2pdma 허용 목록에 있다. 주 시험 호스트로 sid를 고른 이유는 두 가지다. 서버 플랫폼이고, 본 팀이 실제 벤치마크를 돌리는 호스트다. 실행은 sia의 Claude Code 세션이 매뉴얼을 따라 했고, 운영자가 단계마다 승인했다.
 
-```text
-개발 PC (i9-14900K)
-
-                 CPU 루트 콤플렉스 (VT-d)
-                 │                     │
-   00:01.0 PEG10 (8086:a70d)    00:01.1 PEG11 (8086:a72d)
-                 │                     │
-   01:00.0 GPU (10de:2c34)      02:00.0 예비 NVMe (PM9A1)
-
-C1  NVMe → 00:01.1 → 루트 콤플렉스 → 00:01.0 → GPU    posted write, 전달됨
-C2  NVMe → 00:01.1 → 루트 콤플렉스에서 UR 완료        non-posted read, 거부됨
-```
-
-| 시험 | 결과 |
-|---|---|
-| `pal_probe` (장치 없이, NVMe 부착 후) | `IOMMU_IOAS_MAP_FILE` OK, IOVA 0x200000 |
-| C1 4 KiB, 64 KiB | MATCH |
-| C2 4 KiB, 64 KiB, identity IOVA | `sct=0 sc=0x4`, DMAR fault 없음 |
-| D | `sc=0x4` + "PTE Read access is not set" |
-| D2 | 명령 OK + "PTE Write access is not set" |
-| PTE | 2 MiB x 512, 하위 비트 0x883 (R, W, PS, SNP) |
-| `dmabuf_import` 회귀 | 64 KiB x 16384, 연속 1 GiB |
-
-C1과 D는 §5 표의 "매핑 정상" 행과 일치한다. IOVA 0x400000이 BAR1 물리주소 0x480e800000과 다른데도 데이터가 일치했으므로, NVMe의 쓰기는 VT-d 번역을 거쳐 GPU 메모리에 도달했다. C2는 "장치 간 쓰기만 전달" 행과 같은 모양이다.
-
-위 표는 2026-10-13에 CC 버그가 있던 도구로 측정했다. 그래서 2026-10-16에 수정하지 않은 PAL 커널(이미지 md5 `2b62faa3…`)로 다시 부팅해, 고친 `pal_nvme`로 같은 시험을 반복했다. 버그 도구도 한 번 함께 실행했다.
-
-| 시험 | 고친 도구 | 버그 도구 |
-|---|---|---|
-| C1 64 KiB, 4 KiB (번역 IOVA, identity IOVA) | MATCH | MATCH (64 KiB 번역 IOVA만 실행) |
-| C2 64 KiB, 4 KiB (번역 IOVA, identity IOVA) | `sc=0x4` | `sc=0x4` |
-| D | `sc=0x4` | `sc=0x4` |
-| D2 | 명령 OK | 명령 OK |
-| PTE | `0x000000480f600883`부터 2 MiB 간격, 512개 | 해당 없음 |
-| C2 뒤 UR 수신 비트 | 00:01.1에만 `<MAbort+`, 00:01.0과 GPU에는 없음 | 같은 실행 묶음 |
-
-결과는 2026-10-13과 같다. 따라서 CC 버그는 PAL 경로의 결과에도 영향을 주지 않았다. PTE에 SNP 비트(0x800)가 있는 것은 이 커널이 SNP 패치가 없는 원본이라는 것을 다시 확인한다. 측정 조건의 한계는 두 가지다. 첫째, DMAR fault 로그는 첫 실행(고친 도구, 64 KiB, 번역 IOVA)에서만 남았다(Read 1건, Write 2건). 이후 실행의 D도 `sc=0x4`로 끝났으므로 IOMMU가 막았다고 보지만, 로그가 남지 않은 이유는 확인하지 않았다. 둘째, vfio-pci가 실행마다 NVMe를 리셋하므로 NVMe 02:00.0에는 `<MAbort+`가 남지 않았다. NVMe에 비트가 선 것은 리셋 없이 측정한 §8의 7번 실험에서 확인했다. 원인을 가리기 위해 §8의 순서로 가설을 하나씩 확인했다.
-
-## 7. sid 결과
-
-sid는 Ice Lake-SP 2소켓이다. 호스트 브리지 8086:09a2는 커널 p2pdma 허용 목록에 있다. 비교 호스트로 sid를 고른 이유는 두 가지다. 개발 PC와 달리 서버 플랫폼이고, 본 팀이 실제 벤치마크를 돌리는 호스트다. 실행은 sia의 Claude Code 세션이 매뉴얼을 따라 했고, 운영자가 단계마다 승인했다.
-
-### 7.1 경로 구조
+### 6.1 경로 구조
 
 ```text
 sid 소켓 0 (Ice Lake-SP)
@@ -281,7 +236,7 @@ C1, C2  NVMe → 4c:01.0 → 4b:00.0 → 4a:02.0 → 메시 → 30:02.0 → GPU 
 
 GPU(31:00.0)는 호스트 브리지 30의 루트 포트 30:02.0 바로 아래에 있다. 시험 NVMe 0000:4e:00.0은 호스트 브리지 4a에 있고, 루트 포트 4a:02.0 아래 Microchip PCIe 스위치의 하위 포트 4c:01.0에 붙어 있다. 두 호스트 브리지는 모두 소켓 0의 IIO 스택이다. 스위치 하위 포트는 ACS `ReqRedir+`이므로 장치 간 요청은 스위치 안에서 처리되지 않고 위로 올라간다. 따라서 C2의 읽기 요청은 루트 포트 4a:02.0에서 소켓 0의 메시를 거쳐 루트 포트 30:02.0으로 간다. sid에는 GPU와 같은 호스트 브리지 아래에 NVMe가 없으므로, 같은 호스트 브리지 안의 경로는 시험할 수 없었다.
 
-### 7.2 단계별 결과
+### 6.2 단계별 결과
 
 | 단계 | 커널 | 결과 |
 |---|---|---|
@@ -293,32 +248,45 @@ GPU(31:00.0)는 호스트 브리지 30의 루트 포트 30:02.0 바로 아래에
 | D, D2 | PAL | `sc=0x4` + Read fault, 명령 OK + Write fault |
 | PTE | PAL | `0x000020a031e00883`부터 2 MiB 간격, 512개 |
 
-단계 A를 먼저 한 이유는 커널을 바꾸기 전에 플랫폼이 장치 간 읽기를 전달하는지부터 가리기 위해서다. A1에서 C2가 성공했으므로 sid는 §5 표의 "읽기와 쓰기 전달" 행이다. 단계 C에서는 PAL 경로로도 같은 결과가 나왔다. A0는 배포 커널이 NVIDIA dma-buf를 받지 않는다는 것을 보인다. 따라서 단계 C의 매핑 성공은 PAL 커널과 이식한 exporter가 만든 결과다. sid에서 C2가 성공했으므로, 이제 개발 PC의 C2 실패 원인을 좁힐 수 있다.
+단계 A를 먼저 한 이유는 커널을 바꾸기 전에 플랫폼이 장치 간 읽기를 전달하는지부터 가리기 위해서다. A1에서 C2가 성공했으므로 sid는 §5 표의 "읽기와 쓰기 전달" 행이다. 단계 C에서는 PAL 경로로도 같은 결과가 나왔다. A0는 배포 커널이 NVIDIA dma-buf를 받지 않는다는 것을 보인다. 따라서 단계 C의 매핑 성공은 PAL 커널과 이식한 exporter가 만든 결과다. sid는 PAL 경로로 양방향이 된다. 다음 절은 같은 시험이 클라이언트 플랫폼에서는 어떻게 되는지 본다.
 
-## 8. 원인 분석 경과
+## 7. 개발 PC: 클라이언트 플랫폼 제약
 
-개발 PC의 C2 실패에 대해 세운 가설과 그것을 확인한 실험은 다음 순서다.
+같은 시험을 개발 PC에서도 실행했다. 개발 PC는 팀 엔지니어가 평소 쓰는 데스크톱 클라이언트 플랫폼이므로, 여기서 무엇이 되고 무엇이 안 되는지가 팀의 개발 방식에 직접 영향을 준다.
 
-| 순서 | 가설 | 실험 | 결과 | 판단 |
-|---|---|---|---|---|
-| 1 | 주소 값 문제 | identity IOVA로 C2 | 같은 실패 | 기각 |
-| 2 | 번역된 peer 읽기에 SNP 비트가 붙어 루트 콤플렉스가 거부 | MMIO PTE에서 SNP를 빼는 커널로 C2. PTE `0x...083` 확인 | 같은 실패 | 기각 |
-| 3 | IOMMU 번역 자체가 원인 | identity 도메인과 uio로 물리주소 C2 | 같은 실패 | 기각 |
-| 4 | BAR1 주소나 내용 문제 | CPU로 BAR1 읽기 | MATCH | 기각 |
-| 5 | PAL 경로나 NVIDIA 이식본 문제 | 같은 커널, 모듈, 도구로 sid에서 C2 | MATCH | 기각 |
-| 6 | 시험 도구의 CC 버그 | 고친 도구와 버그 도구로 번역 없는 C2 | 둘 다 같은 실패 | 기각 |
-| 7 | GPU가 읽기를 거부 | 오류 비트를 지운 뒤 C2 한 번, 네 장치의 Status와 DevSta 확인 | NVMe와 00:01.1에만 `<MAbort+`, GPU와 00:01.0은 비트 없음 | 기각 |
+### 7.1 경로 구조
 
-7번 실험의 표는 다음과 같다.
+개발 PC는 i9-14900K(Raptor Lake-S Refresh, 호스트 브리지 8086:a700)다. CPU는 x16 PCIe 링크 하나를 x8 두 개로 나눠 쓸 수 있고, Intel은 이 두 루트 포트를 PEG10(0:1:0)과 PEG11(0:1:1)이라고 부른다. GPU는 PEG10에, 예비 NVMe는 PEG11에 붙어 있다. 그래서 두 장치 사이의 요청은 반드시 CPU의 루트 콤플렉스를 지난다.
 
-| 장치 | 지운 뒤 | C2 한 번 뒤 |
-|---|---|---|
-| 00:01.0 (GPU 쪽 루트 포트) | 비트 없음 | 비트 없음 |
-| 00:01.1 (NVMe 쪽 루트 포트) | 비트 없음 | `<MAbort+` |
-| 01:00.0 (GPU) | 비트 없음 | 비트 없음 |
-| 02:00.0 (NVMe) | 비트 없음 | `<MAbort+` |
+```text
+개발 PC (i9-14900K)
 
-`<MAbort+`는 Received Master Abort이고, UR 완료를 받았다는 뜻이다. GPU와 GPU 쪽 루트 포트에는 아무 기록이 없으므로 요청은 GPU 쪽에 도달하지 않았다. 루트 콤플렉스가 NVMe 쪽 루트 포트에서 들어온 peer 읽기를 UR로 끝냈다. 여기까지는 측정이다.
+                 CPU 루트 콤플렉스 (VT-d)
+                 │                     │
+   00:01.0 PEG10 (8086:a70d)    00:01.1 PEG11 (8086:a72d)
+                 │                     │
+   01:00.0 GPU (10de:2c34)      02:00.0 예비 NVMe (PM9A1)
+
+C1  NVMe → 00:01.1 → 루트 콤플렉스 → 00:01.0 → GPU    posted write, 전달됨
+C2  NVMe → 00:01.1 → 루트 콤플렉스에서 UR 완료        non-posted read, 거부됨
+```
+
+### 7.2 결과
+
+아래 표는 2026-10-16에 수정하지 않은 PAL 커널과 고친 시험 도구로 측정한 값이다. 번역 없는 C2와 UR 비트는 각각 2026-10-15 재측정과 부록 B.1의 7번 실험에서 가져왔다.
+
+| 시험 | 결과 |
+|---|---|
+| PAL 매핑 | OK, PTE `0x000000480f600883`부터 2 MiB 간격, 512개 |
+| C1 64 KiB, 4 KiB (번역 IOVA, identity IOVA) | MATCH |
+| C2 64 KiB, 4 KiB (번역 IOVA, identity IOVA) | `sc=0x4`, DMAR fault 없음 |
+| C2 번역 없음 (identity 도메인, uio) | `sc=0x4` |
+| D / D2 | `sc=0x4` + DMAR Read fault / 명령 OK + DMAR Write fault |
+| C2 뒤 UR 수신 비트 | NVMe와 00:01.1에만 `<MAbort+`, GPU와 00:01.0에는 없음 |
+
+C1과 D는 §5 표의 "매핑 정상" 행과 일치하므로, PAL 매핑은 개발 PC에서도 sid와 같게 동작한다. C2는 "장치 간 쓰기만 전달" 행과 같은 모양이다. UR 비트는 NVMe의 읽기 요청이 GPU 쪽에 닿기 전에 루트 콤플렉스가 UR로 끝냈다는 것을 보인다. 여기까지는 측정이다.
+
+### 7.3 Intel 데이터시트의 P2P 지원 표
 
 Intel 데이터시트가 이 동작을 설명한다. 13세대 Core 프로세서 데이터시트 1권(문서 번호 743844, 개정 006)의 PCI Express Support 절에는 포트별 기능 표가 있다. 그 표는 S, S Refresh, HX 라인의 포트별 P2P 지원을 다음과 같이 적는다. 14900K는 S Refresh 라인이다.
 
@@ -337,20 +305,24 @@ Intel 데이터시트가 이 동작을 설명한다. 13세대 Core 프로세서 
 
 읽기는 데이터시트와 측정이 일치한다. 따라서 개발 PC의 C2 실패는 Raptor Lake 프로세서 루트 포트의 문서화된 제약이다. 데이터시트가 프로세서 루트 포트 전부에서 P2P 읽기를 No로 적으므로, 장치를 다른 프로세서 루트 포트로 옮겨도 해결되지 않는다. 쓰기는 다르다. 데이터시트는 PEG10과 PEG11의 P2P 쓰기도 지원하지 않는다고 적지만 C1은 데이터가 일치했다. 데이터시트는 "No"가 하드웨어 차단인지 검증하지 않은 동작인지를 정의하지 않는다. 측정으로 보면 적어도 쓰기는 차단되지 않는다. 그래서 개발 PC의 C1 성공은 Intel이 보증하지 않는 동작이라고 판단한다. 8086:a700이 커널 p2pdma 허용 목록에 없는 것도 이 문서 내용과 맞는다.
 
-## 9. 바로잡은 이전 기록
+이 결론에 이르기까지 SNP 비트, IOMMU 번역, 시험 도구 버그 같은 가설을 차례로 기각했다. 그 경과는 부록 B에 있다. 이 과정에서 이전 기록 몇 가지가 틀렸다는 것이 드러났고, 다음 절에서 정정한다.
+
+## 8. 바로잡은 이전 기록
+
+개발 PC 관련 정정의 실험 근거는 부록 B에 있다.
 
 | 이전 서술 | 바로잡은 내용 | 경위 |
 |---|---|---|
 | 개발 PC C2 실패는 PTE의 SNP 비트 때문으로 추정 (10-13 §5) | SNP를 끄고도, 번역을 끄고도 실패했다. 원인은 루트 콤플렉스의 peer 읽기 거부다 | PTE에서 SNP를 발견하고, DMA-FQ 경로에서 이전에 성공했다는 사용자 기억과 맞춰 본 정황 추론이었다. 그 기억은 아래 행에서 따로 정정한다 |
-| sid 결과로 개발 PC 실패 원인을 "대조로 확인" (sid 실행 보고서) | sid 결과는 PAL과 IOMMU를 배제할 뿐이다. 루트 콤플렉스 위치는 §8의 7번 실험으로, 문서화된 제약이라는 것은 Intel 데이터시트로 확인했다 | 두 장비는 GPU, NVMe, 경로 구조도 다른데 한 변수의 대조로 보았다 |
+| sid 결과로 개발 PC 실패 원인을 "대조로 확인" (sid 실행 보고서) | sid 결과는 PAL과 IOMMU를 배제할 뿐이다. 루트 콤플렉스 위치는 부록 B.1의 7번 실험으로, 문서화된 제약이라는 것은 Intel 데이터시트로 확인했다 | 두 장비는 GPU, NVMe, 경로 구조도 다른데 한 변수의 대조로 보았다 |
 | 시험 NVMe가 루트 포트 4c:01.0 아래 (sid 실행 보고서) | 4c:01.0은 Microchip 스위치의 하위 포트이고, 루트 포트는 4a:02.0이다 | 사전 점검 스크립트가 NVMe의 바로 위 브리지를 "rootport"로 출력했다 |
-| 개발 PC 루트 콤플렉스는 peer 쓰기는 전달하고 peer 읽기는 전달하지 않도록 설계되었다고 추정 (이 보고서의 이전 판 §8) | 데이터시트는 PEG10, PEG11에서 P2P 쓰기와 읽기를 모두 지원하지 않는다고 적는다. 쓰기가 전달된 것은 보증되지 않은 동작이다 | C1이 성공한 측정 결과를 설계 의도로 일반화했다. 데이터시트를 찾기 전이었다 |
+| 개발 PC 루트 콤플렉스는 peer 쓰기는 전달하고 peer 읽기는 전달하지 않도록 설계되었다고 추정 (이 보고서의 이전 판 §8, 현재 §7.3) | 데이터시트는 PEG10, PEG11에서 P2P 쓰기와 읽기를 모두 지원하지 않는다고 적는다. 쓰기가 전달된 것은 보증되지 않은 동작이다 | C1이 성공한 측정 결과를 설계 의도로 일반화했다. 데이터시트를 찾기 전이었다 |
 | SNP 가설을 기각한 뒤 원래 PAL 커널로 되돌렸다 (이 보고서의 이전 판 부록 A.4) | `/boot`의 PAL 커널 이미지는 SNP 실험 커널로 남아 있었다. 그 커널로 한 시험은 SNP 가설 시험과 번역 없는 uio 시험뿐이라 결과는 바뀌지 않는다 | 되돌리는 작업을 기록에만 적고 실행 여부를 이미지 해시로 확인하지 않았다. 재측정을 준비하며 해시를 비교해 드러났다 |
 | PTE 엔트리 514개 (sid 실행 보고서) | 512개다 | `pte-dump.sh`가 `wc -l`로 세어 머리글 2줄이 들어갔다 |
 | 이 PC에서 GPU→NVMe가 이전에 성공했다 (10-13 보고서가 인용한 사용자 기억) | 이 PC에서 GPU→NVMe를 측정한 기록은 없다. GDS 기록은 읽기와 바운스 버퍼 경로뿐이다. 루트 콤플렉스가 peer 읽기를 UR로 거부하므로, 이전에 성공한 실행이 있었다면 직접 P2P 읽기가 아니라 호스트 메모리를 거친 경로였다고 추정한다 | 기억을 기록으로 확인하지 않은 채 SNP 가설의 근거로 썼다 |
 | 시험 도구가 CC에 IOSQES=6, IOCQES=4를 씀 | 실제로는 두 값을 바꿔 썼다(0x00640001). 개발 PC 결과에는 영향이 없음을 번역 없는 경로(10-15)와 PAL 경로(10-16) 재측정으로 확인했다 | 시프트 16과 20을 바꿔 적었다. 개발 PC 드라이브는 이 값을 검사하지 않았고, sid 드라이브가 I/O CQ 생성을 `0x102`로 거부해 드러났다 |
 
-## 10. 의미와 제언
+## 9. 의미와 제언
 
 **`iommu_map_pa` 대체 가능성.** 기능 면에서는 대체할 수 있다. PAL 경로는 `iommu_map_pa`와 같은 2 MiB 엔트리를 만든다. 또 iommufd IOAS 안에서 매핑하므로, 매핑하지 않은 IOVA에 대한 보호(D, D2)가 그대로 적용된다. 처리량은 측정하지 않았다. 다만 페이지 테이블 모양이 같으므로 `iommu_map_pa` 경로와 같은 처리량이 나올 것으로 추정한다.
 
@@ -360,7 +332,7 @@ Intel 데이터시트가 이 동작을 설명한다. 13세대 Core 프로세서 
 
 **D2가 보여 주는 수명 문제.** 매핑되지 않은 IOVA로 NVMe 읽기 명령을 보내면 데이터는 버려지고 명령은 성공으로 끝난다. 그래서 unmap은 그 IOVA를 쓰는 명령이 모두 끝난 뒤에만 해야 한다. 이 순서는 iommufd가 보장하지 않으므로 사용자 공간 드라이버(xNVMe upcie 백엔드)가 지켜야 한다.
 
-## 11. 확인하지 못한 것과 다음 단계
+## 10. 확인하지 못한 것과 다음 단계
 
 | 항목 | 다음 단계 |
 |---|---|
@@ -373,7 +345,7 @@ Intel 데이터시트가 이 동작을 설명한다. 13세대 Core 프로세서 
 | NVIDIA exporter의 revoke | NVIDIA는 `dma_buf_invalidate_mappings()`를 부르지 않는다. GPU 메모리 해제 시 매핑이 어떻게 되는지 확인한다 |
 | mm memory provider와의 비교 | mm RFC의 다음 버전이 나오면 같은 도구로 매핑 엔트리 수와 지연을 비교한다 |
 
-## 12. 자료 위치
+## 11. 자료 위치
 
 | 자료 | 위치 |
 |---|---|
@@ -606,7 +578,7 @@ NVIDIA 드라이버는 다른 드라이버의 dma-buf를 가져오는 importer �
 #### A.2.8 고치지 않은 것
 
 - **pin.** NVIDIA exporter에는 `pin` 콜백이 없다. 그래서 iommufd가 부르는 `dma_buf_pin()`은 아무 일도 하지 않고 0을 돌려준다. BAR1 구간은 A.2.4의 `phys_refcount`가 붙잡는다.
-- **revoke.** NVIDIA exporter는 `dma_buf_invalidate_mappings()`를 부르지 않는다. 그래서 iommufd의 `iopt_revoke_notify`가 불릴 일이 없다. GPU 메모리를 먼저 해제하는 경우의 동작은 §11의 확인 항목으로 남겼다.
+- **revoke.** NVIDIA exporter는 `dma_buf_invalidate_mappings()`를 부르지 않는다. 그래서 iommufd의 `iopt_revoke_notify`가 불릴 일이 없다. GPU 메모리를 먼저 해제하는 경우의 동작은 §10의 확인 항목으로 남겼다.
 - **심볼 네임스페이스.** `nv.c`에는 이미 conftest 결과에 따라 `MODULE_IMPORT_NS(DMA_BUF)` 또는 `MODULE_IMPORT_NS("DMA_BUF")`를 쓰는 처리가 있다. PAL 심볼 `dma_buf_mapping_pal_type`도 같은 `DMA_BUF` 네임스페이스(`dma-buf-mapping.c` 414행)라서 추가 작업이 필요 없었다.
 - **RM과 CUDA 사용자 라이브러리.** 고치지 않았다. CUDA 쪽은 기존 `cuMemGetHandleForAddressRange()`를 플래그 없이 그대로 쓴다.
 
@@ -638,7 +610,7 @@ make -j16 SYSSRC=/data/linux-pal NV_EXCLUDE_KERNEL_MODULES=nvidia-peermem module
 
 ### A.4 SNP 실험 커널 패치 (최종 경로에서 제외)
 
-개발 PC C2 실패의 원인으로 SNP 비트를 의심했을 때(§8의 2번) 쓴 패치다. generic_pt의 VT-d second-stage 형식은 도메인에 `PT_FEAT_VTDSS_FORCE_COHERENCE`가 켜져 있으면 `iommu_prot`와 관계없이 SNP를 세운다. 이 패치는 MMIO 매핑에서만 SNP를 빼도록 고쳤다.
+개발 PC C2 실패의 원인으로 SNP 비트를 의심했을 때(부록 B.1의 2번) 쓴 패치다. generic_pt의 VT-d second-stage 형식은 도메인에 `PT_FEAT_VTDSS_FORCE_COHERENCE`가 켜져 있으면 `iommu_prot`와 관계없이 SNP를 세운다. 이 패치는 MMIO 매핑에서만 SNP를 빼도록 고쳤다.
 
 ```c
 -	if (pt_feature(common, PT_FEAT_VTDSS_FORCE_COHERENCE))
@@ -711,3 +683,63 @@ make -j16 SYSSRC=/data/linux-pal NV_EXCLUDE_KERNEL_MODULES=nvidia-peermem module
 - `identity-uio.sh`: 그룹을 identity로 바꾸고 uio_pci_generic에 묶는다. 버스 마스터를 켜고 hugepage 64개를 예약한다.
 - `restore-nvme.sh`: 커널 nvme 드라이버와 DMA-FQ로 되돌리고 hugepage를 해제한다.
 - `pte-dump.sh`: VT-d debugfs의 `domain_translation_struct`를 읽는다.
+
+## 부록 B. 개발 PC 원인 분석 경과
+
+이 부록은 개발 PC의 C2 실패 원인을 좁힌 순서와 각 단계의 원본 결과를 남긴다. 결론은 §7에 있다.
+
+### B.1 가설과 실험
+
+개발 PC의 C2 실패에 대해 세운 가설과 그것을 확인한 실험은 다음 순서다.
+
+| 순서 | 가설 | 실험 | 결과 | 판단 |
+|---|---|---|---|---|
+| 1 | 주소 값 문제 | identity IOVA로 C2 | 같은 실패 | 기각 |
+| 2 | 번역된 peer 읽기에 SNP 비트가 붙어 루트 콤플렉스가 거부 | MMIO PTE에서 SNP를 빼는 커널로 C2. PTE `0x...083` 확인 | 같은 실패 | 기각 |
+| 3 | IOMMU 번역 자체가 원인 | identity 도메인과 uio로 물리주소 C2 | 같은 실패 | 기각 |
+| 4 | BAR1 주소나 내용 문제 | CPU로 BAR1 읽기 | MATCH | 기각 |
+| 5 | PAL 경로나 NVIDIA 이식본 문제 | 같은 커널, 모듈, 도구로 sid에서 C2 | MATCH | 기각 |
+| 6 | 시험 도구의 CC 버그 | 고친 도구와 버그 도구로 번역 없는 C2 | 둘 다 같은 실패 | 기각 |
+| 7 | GPU가 읽기를 거부 | 오류 비트를 지운 뒤 C2 한 번, 네 장치의 Status와 DevSta 확인 | NVMe와 00:01.1에만 `<MAbort+`, GPU와 00:01.0은 비트 없음 | 기각 |
+
+7번 실험의 표는 다음과 같다.
+
+| 장치 | 지운 뒤 | C2 한 번 뒤 |
+|---|---|---|
+| 00:01.0 (GPU 쪽 루트 포트) | 비트 없음 | 비트 없음 |
+| 00:01.1 (NVMe 쪽 루트 포트) | 비트 없음 | `<MAbort+` |
+| 01:00.0 (GPU) | 비트 없음 | 비트 없음 |
+| 02:00.0 (NVMe) | 비트 없음 | `<MAbort+` |
+
+`<MAbort+`는 Received Master Abort이고, UR 완료를 받았다는 뜻이다. GPU와 GPU 쪽 루트 포트에는 아무 기록이 없으므로 요청은 GPU 쪽에 도달하지 않았다. 루트 콤플렉스가 NVMe 쪽 루트 포트에서 들어온 peer 읽기를 UR로 끝냈다. 이 거부가 문서화된 제약이라는 것은 그 뒤 Intel 데이터시트로 확인했다(§7.3).
+
+### B.2 2026-10-13 1차 결과
+
+처음 측정은 CC 버그가 있던 시험 도구로 했다. 같은 커널에서 iommufd selftest는 236 pass, 0 fail, 5 skip이었다.
+
+| 시험 | 결과 |
+|---|---|
+| `pal_probe` (장치 없이, NVMe 부착 후) | `IOMMU_IOAS_MAP_FILE` OK, IOVA 0x200000 |
+| C1 4 KiB, 64 KiB | MATCH |
+| C2 4 KiB, 64 KiB, identity IOVA | `sct=0 sc=0x4`, DMAR fault 없음 |
+| D | `sc=0x4` + "PTE Read access is not set" |
+| D2 | 명령 OK + "PTE Write access is not set" |
+| PTE | 2 MiB x 512, 하위 비트 0x883 (R, W, PS, SNP) |
+| `dmabuf_import` 회귀 | 64 KiB x 16384, 연속 1 GiB |
+
+C1과 D는 §5 표의 "매핑 정상" 행과 일치한다. IOVA 0x400000이 BAR1 물리주소 0x480e800000과 다른데도 데이터가 일치했으므로, NVMe의 쓰기는 VT-d 번역을 거쳐 GPU 메모리에 도달했다. C2는 "장치 간 쓰기만 전달" 행과 같은 모양이다. 이 결과에서 B.1의 가설 검증이 시작됐다.
+
+### B.3 2026-10-16 재측정
+
+B.2의 표는 CC 버그가 있던 도구로 측정했다. 그래서 2026-10-16에 수정하지 않은 PAL 커널(이미지 md5 `2b62faa3…`)로 다시 부팅해, 고친 `pal_nvme`로 같은 시험을 반복했다. 버그 도구도 한 번 함께 실행했다.
+
+| 시험 | 고친 도구 | 버그 도구 |
+|---|---|---|
+| C1 64 KiB, 4 KiB (번역 IOVA, identity IOVA) | MATCH | MATCH (64 KiB 번역 IOVA만 실행) |
+| C2 64 KiB, 4 KiB (번역 IOVA, identity IOVA) | `sc=0x4` | `sc=0x4` |
+| D | `sc=0x4` | `sc=0x4` |
+| D2 | 명령 OK | 명령 OK |
+| PTE | `0x000000480f600883`부터 2 MiB 간격, 512개 | 해당 없음 |
+| C2 뒤 UR 수신 비트 | 00:01.1에만 `<MAbort+`, 00:01.0과 GPU에는 없음 | 같은 실행 묶음 |
+
+결과는 2026-10-13과 같다. 따라서 CC 버그는 PAL 경로의 결과에도 영향을 주지 않았다. PTE에 SNP 비트(0x800)가 있는 것은 이 커널이 SNP 패치가 없는 원본이라는 것을 다시 확인한다. 측정 조건의 한계는 두 가지다. 첫째, DMAR fault 로그는 첫 실행(고친 도구, 64 KiB, 번역 IOVA)에서만 남았다(Read 1건, Write 2건). 이후 실행의 D도 `sc=0x4`로 끝났으므로 IOMMU가 막았다고 보지만, 로그가 남지 않은 이유는 확인하지 않았다. 둘째, vfio-pci가 실행마다 NVMe를 리셋하므로 NVMe 02:00.0에는 `<MAbort+`가 남지 않았다. NVMe에 비트가 선 것은 리셋 없이 측정한 B.1의 7번 실험에서 확인했다.
