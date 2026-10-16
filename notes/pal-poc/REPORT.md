@@ -8,7 +8,7 @@
 - 자료: 브랜치 `jaeyoon-choi/aisio poc/iommufd-pal`의 `notes/pal-poc/` (소스, 패치, 매뉴얼, 단계별 보고서 두 편, 원본 로그)
 - 단계별 보고서: `results-2026-10-13.md`(개발 PC), `results-2026-10-15.md`(sid와 개발 PC 재측정). 이 문서는 두 편과 계획 검토(`2026-10-13-iommufd-poc-plan-review.md`), 2026-10-16 개발 PC 재측정을 하나로 묶는다.
 
-이 보고서는 aisio와 xNVMe 팀의 엔지니어를 독자로 쓴다. NVMe 명령 구조(SQ, CQ, PRP)와 PCIe 기본(BAR, 루트 포트, 트랜잭션 종류)은 안다고 가정하고, iommufd와 dma-buf의 커널 내부는 모른다고 가정한다. `iommu_map_pa`를 대체할지 판단하려면 요약과 §9만 읽으면 된다. 본문은 그 판단의 근거를 sid 결과 중심으로 따라간다. PoC를 다시 빌드하거나 이어서 고칠 사람을 위한 코드 수정 상세는 부록 A에, 개발 PC에서 원인을 좁힌 경과는 부록 B에 둔다.
+이 보고서는 aisio와 xNVMe 팀의 엔지니어를 독자로 쓴다. NVMe 명령 구조(SQ, CQ, PRP)와 PCIe 기본(BAR, 루트 포트, 트랜잭션 종류)은 안다고 가정하고, iommufd와 dma-buf의 커널 내부는 모른다고 가정한다. `iommu_map_pa`를 대체할지 판단하려면 요약과 §9만 읽으면 된다. 본문은 그 판단의 근거를 sid 결과 중심으로 따라간다. PoC를 다시 빌드하거나 이어서 고칠 사람을 위한 커널 구성과 코드 수정 상세는 §4와 부록 A에 둔다.
 
 ## 요약
 
@@ -126,9 +126,37 @@ PTE의 하위 비트 `0x883`은 읽기(bit 0), 쓰기(bit 1), 2 MiB 페이지(bi
 
 ## 4. 구현 개요
 
-이 절은 무엇을 고쳤는지와 왜 그만큼이면 되는지를 설명한다. 함수별 코드와 빌드 절차는 부록 A에 있다.
+이 절은 어떤 커널 위에서, 무엇을 고쳤는지와 왜 그만큼이면 되는지를 설명한다. 함수별 코드와 빌드 절차는 부록 A에 있다.
 
-### 4.1 수정 범위
+### 4.1 PAL 커널 구성
+
+PoC 커널은 Jason Gunthorpe(NVIDIA)의 공개 브랜치 `jgunthorpe/linux dmabuf_map_type`의 커밋 c37cf2824740을 수정 없이 빌드한 것이다. 이 브랜치는 메인라인 v7.0-rc1(6de23f81a5e0) 위에 세 층의 커밋을 쌓았다.
+
+| 층 | 범위 | 커밋 수 | 내용 |
+|---|---|---|---|
+| 1. base | v7.0-rc1..41dae5ac5e15 | 165 | drm-misc-next 개발 트리. PAL 시리즈의 전제가 되는 dma-buf 변경 포함 |
+| 2. kunit 전환 시리즈 | 41dae5ac5e15..f1729d539631 | 6 (커버 레터 포함) | dma-buf 자체 시험을 kunit으로 옮김 |
+| 3. mapping type 시리즈 | f1729d539631..c37cf2824740 | 28 (커버 레터 포함) | mapping type 체계와 PAL. 이 PoC가 쓰는 부분 |
+
+1층 base에는 이미 다음 dma-buf 변경이 들어 있다. 이 변경들은 메인라인 v7.0-rc1에는 없으므로, 배포 커널과 비교할 때 차이의 일부는 PAL 시리즈가 아니라 base에서 온다.
+- ef246da8e63c, 95308225e5ba: importer 콜백 `move_notify`와 `dma_buf_move_notify()`를 `invalidate_mappings`로 이름을 바꿨다. upcie `dmabuf_import`를 고쳐야 했던 이유 중 하나다.
+- 8c5f9645c389: iommufd가 dma-buf를 받을 때 `dma_buf_pin()`을 부르게 했다. NVIDIA exporter에 `pin` 콜백이 없어도 되는 이유는 부록 A.2.8에 있다.
+- be6d4c9e9d71, 575157b1b5fc: revoke 흐름(`dma_buf_attach_revocable()`)을 더하고 `invalidate_mappings` 콜백을 선택 사항으로 만들었다.
+
+3층 mapping type 시리즈는 네 단계로 나뉜다. NVIDIA 드라이버를 고쳐야 했던 이유는 모두 이 시리즈에 있다.
+
+| 단계 | 커밋 | 내용 | NVIDIA 드라이버에 미친 영향 |
+|---|---|---|---|
+| 코어 | 476e59f8dedd, 4f2a9799826e, 560b5ff80a0f, 5127679623ac, 8dc8b43eb82b | mapping type 개념, SGT type, `dma_buf_mapping_attach()`, SGT 동작을 `attach->map_type`으로 라우팅 | exporter가 `match_mapping`으로 type을 제시하는 구조가 생김 |
+| exporter 변환 | c4c50f3e8000 외 11개 | 트리 안 exporter(simple exporter, amdgpu, xe, vfio-pci, RDMA, habanalabs 등)를 SGT type으로 옮기고, 83c52177f416에서 공통 구조체의 SGT 필드를 지움 | `dma_buf_ops.map_dma_buf`, `dma_buf_attachment.dev`, `dma_buf_attachment.peer2peer`가 사라져 out-of-tree인 NVIDIA가 빌드에 실패 |
+| importer 이름 변경 | cd9f602bb99b, e3103a83aa3e, 6cdde449bcde, 169394c2e408 | `dma_buf_attach()` 등 importer 함수를 `dma_buf_sgt_*`로 바꿈 | NVIDIA의 importer 경로와 upcie `dmabuf_import`가 빌드에 실패 |
+| PAL | a286ee763f15, 29ddc7d35bb9, f8983286b743, 12e7f38a26d8, 7815c190f793, 3256cae07d96 | PAL type 추가, vfio-pci PAL exporter, iommufd가 PAL만 요청, 여러 물리 구간 지원, selftest와 kunit | NVIDIA가 PAL exporter를 구현하면 iommufd가 받음 |
+
+정리하면 트리 안 exporter는 시리즈가 직접 변환했고, NVIDIA 드라이버는 트리 밖에 있어 변환되지 않았다. 이 PoC의 NVIDIA 패치는 시리즈가 amdgpu와 simple exporter에 한 변환을 NVIDIA에 직접 적용하고, 그 위에 PAL exporter를 더한 것이다.
+
+커널 소스는 고치지 않았다. 설정은 `/boot/config-6.8.12-dmabuf`에서 `localmodconfig`로 줄인 뒤 다음을 켰다. `LOCALVERSION=-pal`, `IOMMUFD=y`, `IOMMUFD_TEST=y`(브랜치에서는 `IOMMU_PT_AMDV1=y`와 `FAULT_INJECTION=y`가 함께 필요), `VFIO_PCI=m`, `VFIO_PCI_DMABUF=y`, `INTEL_IOMMU_DEBUGFS=y`(PTE 덤프용), `KUNIT=m`, `DMABUF_KUNIT_TEST=m`, NVMe와 ext4 내장(루트 파일시스템용), `DEBUG_INFO_NONE`이다. 개발 PC에서는 빌드한 커널을 `make modules_install install`로 설치하고, `grub-reboot`로 한 번만 부팅해 기본 부팅 항목은 바꾸지 않았다. sid는 같은 커밋을 자기 배포 커널의 설정에서 같은 방식으로 줄이고 같은 옵션을 켜서 빌드했다(`MANUAL.md`).
+
+### 4.2 수정 범위
 
 커널은 고치지 않았다. 새로 짠 코드는 NVIDIA exporter의 이식, upcie `dmabuf_import`의 이식, 시험 도구 세 개다. SNP 실험 커널 패치는 가설 검증에만 썼고, 최종 경로에는 들어가지 않는다.
 
@@ -145,11 +173,11 @@ PTE의 하위 비트 `0x883`은 읽기(bit 0), 쓰기(bit 1), 2 MiB 페이지(bi
 
 패치 파일은 `notes/pal-poc/patches/`에 있다. NVIDIA 패치와 upcie 패치는 조건부 컴파일로 짰다. 그래서 같은 소스가 PAL 커널(7.0.0-rc1-pal+)과 기존 커널(6.8.12)에서 모두 빌드된다. 두 커널 모두 실제로 빌드해 확인했다.
 
-### 4.2 exporter에게 필요한 두 가지
+### 4.3 exporter에게 필요한 두 가지
 
 PAL 브랜치의 iommufd는 `IOMMU_IOAS_MAP_FILE`로 dma-buf fd를 받으면 PAL 타입으로만 attach를 요청한다. 그래서 exporter는 두 가지를 해야 한다. 첫째, attach 때 dma-buf 코어가 부르는 `match_mapping` 콜백에서 PAL을 지원한다고 제시해야 한다. 둘째, `map_phys`와 `unmap_phys` 콜백으로 버퍼의 물리주소 구간 목록을 내주고 거둬야 한다. iommufd는 받은 구간을 MMIO 속성(`IOMMU_MMIO`)으로 NVMe의 IOMMU 도메인에 넣는다. 나머지 일(IOVA 할당, 페이지 테이블 기록, unmap)은 iommufd가 한다. iommufd 쪽 호출 경로는 부록 A.1에 있다.
 
-### 4.3 NVIDIA exporter 수정
+### 4.4 NVIDIA exporter 수정
 
 580.178.04는 PAL 커널에서 `nv-dmabuf.c`만 빌드에 실패한다. PAL 브랜치가 dma-buf의 SGT(scatter-gather table) 매핑 콜백을 별도 ops로 옮기고, attachment의 `dev` 멤버를 없애고, importer 함수 이름을 바꿨기 때문이다. 수정은 다음 여덟 항목이다.
 
@@ -164,13 +192,20 @@ PAL 브랜치의 iommufd는 `IOMMU_IOAS_MAP_FILE`로 dma-buf fd를 받으면 PAL
 | 7 | importer 함수 세 개 | `dma_buf_sgt_*` 이름으로 변경 | A.2.7 |
 | 8 | 고치지 않은 것 | pin, revoke, 심볼 네임스페이스, RM, CUDA 사용자 라이브러리 | A.2.8 |
 
-이 가운데 PoC 결과를 좌우하는 것은 3번과 4번이다. 3번이 iommufd에게 PAL을 내주고, 4번이 BAR1 구간을 넘긴다. 나머지는 빌드를 통과시키고 기존 SGT importer(`dmabuf_import`, RDMA)의 동작을 유지하기 위한 수정이다. RM과 CUDA 사용자 라이브러리는 고치지 않았으므로, CUDA 응용 쪽은 기존 `cuMemGetHandleForAddressRange()` 호출을 그대로 쓴다. 8번의 revoke는 운영에서 따져야 할 항목이다. NVIDIA exporter는 importer에게 매핑 무효화를 알리지 않으므로, GPU 메모리를 먼저 해제했을 때 iommufd 매핑이 어떻게 되는지는 확인하지 않았다(§10).
+이 가운데 PoC 결과를 좌우하는 것은 3번과 4번이다. 3번이 iommufd에게 PAL을 내주고, 4번이 BAR1 구간을 넘긴다. 나머지는 빌드를 통과시키고 기존 SGT importer(`dmabuf_import`, RDMA)의 동작을 유지하기 위한 수정이다. 수정 전후의 호출 흐름은 다음과 같다.
 
-### 4.4 upcie `dmabuf_import` 수정
+| importer | PAL 이전 커널 | PAL 커널과 이식 패치 |
+|---|---|---|
+| iommufd (`IOMMU_IOAS_MAP_FILE`) | 배포 7.0 커널은 vfio-pci가 낸 dma-buf만 받으므로 거부한다(sid A0, `errno=95`) | `dma_buf_mapping_attach(PAL)` → `nv_dma_buf_match_mapping()`이 PAL을 고르고 장치 검사를 건너뜀 → `nv_dma_buf_attach()` → `dma_buf_pin()`(콜백 없음, 0) → `nv_dma_buf_pal_map_phys()`가 BAR1 구간 목록을 돌려줌 → iommufd가 `IOMMU_MMIO`로 매핑 |
+| SGT importer (`dmabuf_import`, RDMA 등) | `dma_buf_dynamic_attach()` → `nv_dma_buf_attach()`가 토폴로지와 peer2peer를 검사 → `dma_buf_map_attachment()` → `nv_dma_buf_map()`이 `attachment->dev`로 매핑 | `dma_buf_sgt_dynamic_attach()` → `nv_dma_buf_match_mapping()`이 SGT를 고르고 토폴로지를 검사 → `nv_dma_buf_attach()` → `dma_buf_sgt_map_attachment()` → `nv_dma_buf_map()`이 `dma_buf_sgt_dma_device()`로 매핑 |
+
+dma-buf 코어는 `match_mapping`을 `attach`보다 먼저 부른다(`drivers/dma-buf/dma-buf.c` 1033~1052행). 그래서 장치 검사는 type이 정해지는 `match_mapping` 안으로 옮겼다. 표의 SGT 행에서 peer2peer 검사가 빠진 것은 의도한 변경이 아니라 이식의 한계다. 이유는 부록 A.2.8에 있다. RM과 CUDA 사용자 라이브러리는 고치지 않았으므로, CUDA 응용 쪽은 기존 `cuMemGetHandleForAddressRange()` 호출을 그대로 쓴다. 8번의 revoke는 운영에서 따져야 할 항목이다. NVIDIA exporter는 importer에게 매핑 무효화를 알리지 않으므로, GPU 메모리를 먼저 해제했을 때 iommufd 매핑이 어떻게 되는지는 확인하지 않았다(§10).
+
+### 4.5 upcie `dmabuf_import` 수정
 
 `dmabuf_import`는 CUDA dma-buf를 import해 BAR1 물리주소 목록을 사용자 공간에 주는 upcie 모듈이다. 시험 도구는 identity IOVA 모드, 번역 없는 uio 모드, `bar1_cpu_read`에서 BAR1 물리주소를 얻을 때 이 모듈을 쓴다. PAL 브랜치에서 importer 함수 이름과 콜백 이름이 바뀌어 빌드되지 않았고, 이를 조건부 매크로로 고쳤다. `iommu_map_pa`는 수정 없이 빌드되었다. 상세는 부록 A.3에 있다.
 
-### 4.5 시험 도구
+### 4.6 시험 도구
 
 `pal_nvme`는 vfio cdev와 iommufd 위에서 동작하는 최소 NVMe 드라이버다. 커널 nvme 드라이버나 xNVMe를 쓰지 않고 새로 짠 이유는 두 가지다. 매핑 경로를 `IOMMU_IOAS_MAP_FILE` 하나로 고정해야 했고, 명령 하나하나의 완료 상태(`sct`, `sc`)를 그대로 봐야 했다. 시험은 다음 넷이다. 전송 크기를 `XFER`(기본 64 KiB), 시작 LBA를 `--slba`(기본 0), LBA 크기를 512 B로 놓았다.
 
@@ -271,7 +306,7 @@ C2  NVMe → 00:01.1 → 루트 콤플렉스에서 UR 완료        non-posted r
 
 ### 7.2 결과
 
-아래 표는 2026-10-16에 수정하지 않은 PAL 커널과 고친 시험 도구로 측정한 값이다. 번역 없는 C2와 UR 비트는 각각 2026-10-15 재측정과 부록 B.1의 7번 실험에서 가져왔다.
+아래 표는 2026-10-16에 수정하지 않은 PAL 커널과 고친 시험 도구로 측정한 값이다. 번역 없는 C2는 2026-10-15에 identity 도메인과 uio로 측정했다. UR 비트는 2026-10-15에 네 장치의 오류 비트를 지운 뒤 C2를 한 번 실행하고 읽었다.
 
 | 시험 | 결과 |
 |---|---|
@@ -303,16 +338,14 @@ Intel 데이터시트가 이 동작을 설명한다. 13세대 Core 프로세서 
 
 읽기는 데이터시트와 측정이 일치한다. 따라서 개발 PC의 C2 실패는 Raptor Lake 프로세서 루트 포트의 문서화된 제약이다. 데이터시트가 프로세서 루트 포트 전부에서 P2P 읽기를 No로 적으므로, 장치를 다른 프로세서 루트 포트로 옮겨도 해결되지 않는다. 쓰기는 다르다. 데이터시트는 PEG10과 PEG11의 P2P 쓰기도 지원하지 않는다고 적지만 C1은 데이터가 일치했다. 데이터시트는 "No"가 하드웨어 차단인지 검증하지 않은 동작인지를 정의하지 않는다. 측정으로 보면 적어도 쓰기는 차단되지 않는다. 그래서 개발 PC의 C1 성공은 Intel이 보증하지 않는 동작이라고 판단한다. 8086:a700이 커널 p2pdma 허용 목록에 없는 것도 이 문서 내용과 맞는다.
 
-이 결론에 이르기까지 SNP 비트, IOMMU 번역, 시험 도구 버그 같은 가설을 차례로 기각했다. 그 경과는 부록 B에 있다. 이 과정에서 이전 기록 몇 가지가 틀렸다는 것이 드러났고, 다음 절에서 정정한다.
+이 결론에 이르기 전에 SNP 비트, IOMMU 번역, 시험 도구 버그 같은 다른 원인을 의심했고, 그 과정에서 남긴 기록 몇 가지가 틀렸다. 다음 절에서 정정한다. 원본 로그는 §11의 위치에 있다.
 
 ## 8. 바로잡은 이전 기록
-
-개발 PC 관련 정정의 실험 근거는 부록 B에 있다.
 
 | 이전 서술 | 바로잡은 내용 | 경위 |
 |---|---|---|
 | 개발 PC C2 실패는 PTE의 SNP 비트 때문으로 추정 (10-13 §5) | SNP를 끄고도, 번역을 끄고도 실패했다. 원인은 루트 콤플렉스의 peer 읽기 거부다 | PTE에서 SNP를 발견하고, DMA-FQ 경로에서 이전에 성공했다는 사용자 기억과 맞춰 본 정황 추론이었다. 그 기억은 아래 행에서 따로 정정한다 |
-| sid 결과로 개발 PC 실패 원인을 "대조로 확인" (sid 실행 보고서) | sid 결과는 PAL과 IOMMU를 배제할 뿐이다. 루트 콤플렉스 위치는 부록 B.1의 7번 실험으로, 문서화된 제약이라는 것은 Intel 데이터시트로 확인했다 | 두 장비는 GPU, NVMe, 경로 구조도 다른데 한 변수의 대조로 보았다 |
+| sid 결과로 개발 PC 실패 원인을 "대조로 확인" (sid 실행 보고서) | sid 결과는 PAL과 IOMMU를 배제할 뿐이다. 루트 콤플렉스 위치는 오류 비트 측정(§7.2)으로, 문서화된 제약이라는 것은 Intel 데이터시트로 확인했다 | 두 장비는 GPU, NVMe, 경로 구조도 다른데 한 변수의 대조로 보았다 |
 | 시험 NVMe가 루트 포트 4c:01.0 아래 (sid 실행 보고서) | 4c:01.0은 Microchip 스위치의 하위 포트이고, 루트 포트는 4a:02.0이다 | 사전 점검 스크립트가 NVMe의 바로 위 브리지를 "rootport"로 출력했다 |
 | 개발 PC 루트 콤플렉스는 peer 쓰기는 전달하고 peer 읽기는 전달하지 않도록 설계되었다고 추정 (이 보고서의 이전 판 §8, 현재 §7.3) | 데이터시트는 PEG10, PEG11에서 P2P 쓰기와 읽기를 모두 지원하지 않는다고 적는다. 쓰기가 전달된 것은 보증되지 않은 동작이다 | C1이 성공한 측정 결과를 설계 의도로 일반화했다. 데이터시트를 찾기 전이었다 |
 | SNP 가설을 기각한 뒤 원래 PAL 커널로 되돌렸다 (이 보고서의 이전 판 부록 A.4) | `/boot`의 PAL 커널 이미지는 SNP 실험 커널로 남아 있었다. 그 커널로 한 시험은 SNP 가설 시험과 번역 없는 uio 시험뿐이라 결과는 바뀌지 않는다 | 되돌리는 작업을 기록에만 적고 실행 여부를 이미지 해시로 확인하지 않았다. 재측정을 준비하며 해시를 비교해 드러났다 |
@@ -341,6 +374,7 @@ Intel 데이터시트가 이 동작을 설명한다. 13세대 Core 프로세서 
 | 같은 호스트 브리지 안의 경로 | GPU와 NVMe가 같은 호스트 브리지 아래 있는 서버를 찾는다 |
 | 수명 시나리오 | fd close 뒤 I/O, 반복 map과 unmap, 명령 진행 중 강제 종료를 KASAN 빌드로 시험한다 |
 | NVIDIA exporter의 revoke | NVIDIA는 `dma_buf_invalidate_mappings()`를 부르지 않는다. GPU 메모리 해제 시 매핑이 어떻게 되는지 확인한다 |
+| NVIDIA exporter의 peer2peer 검사 공백 (부록 A.2.8) | P2P SGT type을 제시하거나 `match_mapping`에 같은 검사를 넣고, peer2peer를 지원하지 않는 importer가 거부되는지 시험한다 |
 | mm memory provider와의 비교 | mm RFC의 다음 버전이 나오면 같은 도구로 매핑 엔트리 수와 지연을 비교한다 |
 
 ## 11. 자료 위치
@@ -362,7 +396,7 @@ Intel 데이터시트가 이 동작을 설명한다. 13세대 Core 프로세서 
 
 ## 부록 A. 구현 상세
 
-이 부록은 PoC를 다시 빌드하거나 이어서 고칠 사람을 위한 것이다. 코드 인용은 `notes/pal-poc/patches/`의 패치와 PAL 브랜치 소스에서 그대로 옮겼다. 본문 §4.3 표의 번호는 A.2.1~A.2.8과 같다.
+이 부록은 PoC를 다시 빌드하거나 이어서 고칠 사람을 위한 것이다. 코드 인용은 `notes/pal-poc/patches/`의 패치와 PAL 브랜치 소스에서 그대로 옮겼다. 본문 §4.4 표의 번호는 A.2.1~A.2.8과 같다.
 
 ### A.1 iommufd가 dma-buf를 받는 경로 (PAL 브랜치, 수정 없음)
 
@@ -390,6 +424,23 @@ iommufd는 PAL 하나만 요청하므로, exporter가 PAL을 제시하지 않으
 - PAL 브랜치는 `struct dma_buf_ops`에서 `map_dma_buf`와 `unmap_dma_buf`를 없애고 `struct dma_buf_mapping_sgt_exp_ops`로 옮겼다.
 - `struct dma_buf_attachment`에서 `dev` 멤버가 사라졌다. SGT 매핑의 대상 장치는 `dma_buf_sgt_dma_device(attach)`로 얻는다.
 - importer 함수가 `dma_buf_sgt_attach()`, `dma_buf_sgt_map_attachment()`, `dma_buf_sgt_unmap_attachment()`로 이름이 바뀌었다.
+
+**변경 위치.** 패치는 배포 패키지가 설치한 DKMS 소스 `/usr/src/nvidia-580.178.04`에 `patch -p1`로 그대로 적용된다(2026-10-16에 `--dry-run`으로 확인). `nv-dmabuf.c`는 1926행에서 2147행이 된다. hunk별 위치는 다음과 같다. 행 범위는 패치의 hunk 머리글(앞뒤 문맥 3행 포함)을 따랐다.
+
+| 파일 | hunk (원본 → 수정본) | 함수 | 변경 | 상세 |
+|---|---|---|---|---|
+| `conftest.sh` | 2454~2459 → 2454~2487 | 검사 case 문 | `dma_buf_ops_has_match_mapping` 검사 추가 | A.2.1 |
+| `nvidia/nvidia.Kbuild` | 149~154 → 149~155 | `NV_CONFTEST_FUNCTION_COMPILE_TESTS` | 위 검사 등록 | A.2.1 |
+| `nvidia/nv-dmabuf.c` | 22~27 → 22~30 | include | `<linux/dma-buf-mapping.h>`를 조건부로 포함 | |
+| `nvidia/nv-dmabuf.c` | 1004~1054 → 1007~1097 | `nv_dma_buf_attach()` | 검사 본문을 `nv_dma_buf_check_peer_device()`(1016행)로 분리, `nv_dma_buf_attachment_dev()`(1058행) 추가, `nv_dma_buf_attach()`(1070행)의 검사 호출을 조건부로 | A.2.5, A.2.6 |
+| `nvidia/nv-dmabuf.c` | 1062~1068 → 1105~1111 | `nv_dma_buf_attach()` 끝 | `unlock_priv` 레이블에 `unused` 속성 | A.2.5 |
+| `nvidia/nv-dmabuf.c` | 1078~1083 → 1121~1132 | `nv_dma_buf_map()` | 대상 장치를 `nv_dma_buf_attachment_dev()`로 얻고 NULL이면 실패 | A.2.6 |
+| `nvidia/nv-dmabuf.c` | 1108~1118 → 1157~1167 | `nv_dma_buf_map()` | `nv_dma_buf_map_pages()`, `nv_dma_buf_map_pfns()`에 그 장치를 넘김 | A.2.6 |
+| `nvidia/nv-dmabuf.c` | 1144~1160 → 1193~1210 | `nv_dma_buf_unmap()` | 같은 방식으로 장치를 바꿈 | A.2.6 |
+| `nvidia/nv-dmabuf.c` | 1457~1466 → 1507~1674 | `nv_dma_buf_ops` 앞 | SGT ops(1511행), `nv_dma_buf_pal_map_phys()`(1525행), `nv_dma_buf_pal_unmap_phys()`(1594행), PAL ops(1613행), `nv_dma_buf_match_mapping()`(1626행) 추가, ops 테이블(1664행)을 조건부로 교체 | A.2.2~A.2.4 |
+| `nvidia/nv-dmabuf.c` | 1818~1824 → 2026~2036 | `nv_dma_import_dma_buf()` | `dma_buf_sgt_attach()` | A.2.7 |
+| `nvidia/nv-dmabuf.c` | 1839~1845 → 2051~2061 | `nv_dma_import_dma_buf()` | `dma_buf_sgt_map_attachment()` | A.2.7 |
+| `nvidia/nv-dmabuf.c` | 1915~1922 → 2131~2143 | `nv_dma_release_dma_buf()` | `dma_buf_sgt_unmap_attachment()` | A.2.7 |
 
 아래 여덟 항목이 수정 전체다.
 
@@ -507,7 +558,7 @@ for (i = 0; i < priv->num_objects; i++)
 
 #### A.2.5 attach 검사의 분리: `nv_dma_buf_check_peer_device()`
 
-원래 `nv_dma_buf_attach()`는 `to_pci_dev(attachment->dev)`로 importer의 PCI 토폴로지를 검사했다. mapping type 체계에서는 이 위치를 그대로 쓸 수 없다. attach 시점에는 아직 type이 정해지지 않아 importer 장치를 모르고, `attachment->dev`도 없다. 그래서 검사 본문을 새 함수 `nv_dma_buf_check_peer_device(priv, dev)`로 떼어 냈다.
+원래 `nv_dma_buf_attach()`는 `to_pci_dev(attachment->dev)`로 importer의 PCI 토폴로지를 검사했다. PAL 커널에서는 `attachment->dev`가 없다(83c52177f416). importer 장치는 SGT type이 정해진 뒤 `dma_buf_sgt_dma_device()`로 얻는다. dma-buf 코어의 `dma_buf_mapping_attach()`(`drivers/dma-buf/dma-buf.c` 1033~1052행)는 `match_mapping`을 먼저 부르고 `attach`를 나중에 부르므로, 검사는 type을 정하는 `nv_dma_buf_match_mapping()` 안에서 SGT가 선택된 직후에 한다. 검사에 실패하면 attach 콜백까지 가지 않고 attach 전체가 실패한다. 두 커널에서 같은 검사를 쓰도록 검사 본문을 새 함수 `nv_dma_buf_check_peer_device(priv, dev)`로 떼어 냈다.
 
 ```c
 if (priv->mapping_type == NV_DMABUF_EXPORT_MAPPING_TYPE_FORCE_PCIE)
@@ -577,6 +628,7 @@ NVIDIA 드라이버는 다른 드라이버의 dma-buf를 가져오는 importer �
 
 - **pin.** NVIDIA exporter에는 `pin` 콜백이 없다. 그래서 iommufd가 부르는 `dma_buf_pin()`은 아무 일도 하지 않고 0을 돌려준다. BAR1 구간은 A.2.4의 `phys_refcount`가 붙잡는다.
 - **revoke.** NVIDIA exporter는 `dma_buf_invalidate_mappings()`를 부르지 않는다. 그래서 iommufd의 `iopt_revoke_notify`가 불릴 일이 없다. GPU 메모리를 먼저 해제하는 경우의 동작은 §10의 확인 항목으로 남겼다.
+- **peer2peer 검사.** 원래 `nv_dma_buf_attach()`는 importer가 peer2peer를 지원하지 않고 GPU 메모리에 struct page가 없으면 attach를 거부한다(`NV_DMA_BUF_ATTACHMENT_HAS_PEER2PEER` 블록). PAL 브랜치는 83c52177f416에서 `dma_buf_attachment.peer2peer`를 지웠으므로, PAL 커널 빌드에서는 conftest가 이 매크로를 `#undef`로 정하고 블록이 컴파일되지 않는다(`conftest/functions.h`로 확인). 이식 패치는 SGT를 P2P 전용 type이 아니라 일반 SGT type으로 제시하므로, 이 검사를 대신하는 곳이 없다. 코드로 보면 PAL 커널에서는 MMIO를 다루지 못하는 SGT importer도 NVIDIA dma-buf에 attach할 수 있다. 이 PoC의 시험(iommufd, `dmabuf_import`)에는 영향이 없다. 업스트림에 낼 exporter라면 importer가 PCI 장치일 때는 P2P SGT type을 제시하거나, 같은 검사를 `match_mapping`에 넣어야 한다고 판단한다.
 - **심볼 네임스페이스.** `nv.c`에는 이미 conftest 결과에 따라 `MODULE_IMPORT_NS(DMA_BUF)` 또는 `MODULE_IMPORT_NS("DMA_BUF")`를 쓰는 처리가 있다. PAL 심볼 `dma_buf_mapping_pal_type`도 같은 `DMA_BUF` 네임스페이스(`dma-buf-mapping.c` 414행)라서 추가 작업이 필요 없었다.
 - **RM과 CUDA 사용자 라이브러리.** 고치지 않았다. CUDA 쪽은 기존 `cuMemGetHandleForAddressRange()`를 플래그 없이 그대로 쓴다.
 
@@ -599,7 +651,7 @@ make -j16 SYSSRC=/data/linux-pal NV_EXCLUDE_KERNEL_MODULES=nvidia-peermem module
   ```
 
 - **함수 이름 매크로.** 세 importer 함수를 매크로로 바꿔 부르게 했다. PAL 커널에서는 `dma_buf_sgt_*`로, 기존 커널에서는 원래 이름으로 풀린다. 본문 세 곳(`dma_buf_dynamic_attach`, `dma_buf_map_attachment`, `dma_buf_unmap_attachment`)이 이 매크로를 쓴다.
-- **move_notify 콜백 이름.** PAL 브랜치에서 `struct dma_buf_attach_ops.move_notify`가 `invalidate_mappings`로 바뀌었다. 같은 함수 `dmabuf_import_move_notify`를 조건부로 그 이름에 연결했다.
+- **move_notify 콜백 이름.** PAL 브랜치의 base에 들어 있는 ef246da8e63c에서 `struct dma_buf_attach_ops.move_notify`가 `invalidate_mappings`로 바뀌었다(§4.1). 같은 함수 `dmabuf_import_move_notify`를 조건부로 그 이름에 연결했다.
 - **경고 메시지.** `dev_warn_once(attach->dev, ...)`는 `attach->dev`가 없어져 컴파일되지 않는다. `pr_warn_once("dmabuf_import: ...")`로 바꿨다.
 
 `iommu_map_pa`는 수정 없이 빌드되었다. 이 PoC는 `iommu_map_pa`를 쓰지 않지만, 비교 경로를 남기기 위해 같은 커널에 함께 설치했다.
@@ -608,7 +660,7 @@ make -j16 SYSSRC=/data/linux-pal NV_EXCLUDE_KERNEL_MODULES=nvidia-peermem module
 
 ### A.4 SNP 실험 커널 패치 (최종 경로에서 제외)
 
-개발 PC C2 실패의 원인으로 SNP 비트를 의심했을 때(부록 B.1의 2번) 쓴 패치다. generic_pt의 VT-d second-stage 형식은 도메인에 `PT_FEAT_VTDSS_FORCE_COHERENCE`가 켜져 있으면 `iommu_prot`와 관계없이 SNP를 세운다. 이 패치는 MMIO 매핑에서만 SNP를 빼도록 고쳤다.
+개발 PC C2 실패의 원인으로 SNP 비트를 의심했을 때 쓴 패치다. generic_pt의 VT-d second-stage 형식은 도메인에 `PT_FEAT_VTDSS_FORCE_COHERENCE`가 켜져 있으면 `iommu_prot`와 관계없이 SNP를 세운다. 이 패치는 MMIO 매핑에서만 SNP를 빼도록 고쳤다.
 
 ```c
 -	if (pt_feature(common, PT_FEAT_VTDSS_FORCE_COHERENCE))
@@ -632,7 +684,7 @@ make -j16 SYSSRC=/data/linux-pal NV_EXCLUDE_KERNEL_MODULES=nvidia-peermem module
 
 #### A.5.2 `pal_nvme`
 
-`pal_nvme`를 새로 짠 이유와 시험 정의는 §4.5에 있다. 이 절은 설정과 명령 처리를 설명한다.
+`pal_nvme`를 새로 짠 이유와 시험 정의는 §4.6에 있다. 이 절은 설정과 명령 처리를 설명한다.
 
 **설정 순서.**
 
@@ -663,7 +715,7 @@ make -j16 SYSSRC=/data/linux-pal NV_EXCLUDE_KERNEL_MODULES=nvidia-peermem module
 
 **PRP.** 전송이 4 KiB이면 PRP1만 쓴다. 8 KiB이면 PRP2에 둘째 페이지를 넣는다. 그보다 크면 PRP2가 호스트 메모리의 PRP 리스트를 가리키게 한다. GPU 버퍼로 가는 64 KiB 전송에서는 PRP 엔트리 16개가 모두 GPU IOVA다.
 
-**시험 정의.** 시험 C1, C2, D, D2의 명령, IOVA, LBA, 판정 기준은 §4.5의 표에 있다.
+**시험 정의.** 시험 C1, C2, D, D2의 명령, IOVA, LBA, 판정 기준은 §4.6의 표에 있다.
 
 **선택 모드.**
 - `--identity`: `dmabuf_import`를 misc 장치 명의로 붙여 BAR1 물리주소를 얻는다. 그 주소를 `IOMMU_IOAS_MAP_FIXED_IOVA`로 IOVA에 지정한다. 그래서 IOVA와 물리주소가 같아진다.
@@ -681,63 +733,3 @@ make -j16 SYSSRC=/data/linux-pal NV_EXCLUDE_KERNEL_MODULES=nvidia-peermem module
 - `identity-uio.sh`: 그룹을 identity로 바꾸고 uio_pci_generic에 묶는다. 버스 마스터를 켜고 hugepage 64개를 예약한다.
 - `restore-nvme.sh`: 커널 nvme 드라이버와 DMA-FQ로 되돌리고 hugepage를 해제한다.
 - `pte-dump.sh`: VT-d debugfs의 `domain_translation_struct`를 읽는다.
-
-## 부록 B. 개발 PC 원인 분석 경과
-
-이 부록은 개발 PC의 C2 실패 원인을 좁힌 순서와 각 단계의 원본 결과를 남긴다. 결론은 §7에 있다.
-
-### B.1 가설과 실험
-
-개발 PC의 C2 실패에 대해 세운 가설과 그것을 확인한 실험은 다음 순서다.
-
-| 순서 | 가설 | 실험 | 결과 | 판단 |
-|---|---|---|---|---|
-| 1 | 주소 값 문제 | identity IOVA로 C2 | 같은 실패 | 기각 |
-| 2 | 번역된 peer 읽기에 SNP 비트가 붙어 루트 콤플렉스가 거부 | MMIO PTE에서 SNP를 빼는 커널로 C2. PTE `0x...083` 확인 | 같은 실패 | 기각 |
-| 3 | IOMMU 번역 자체가 원인 | identity 도메인과 uio로 물리주소 C2 | 같은 실패 | 기각 |
-| 4 | BAR1 주소나 내용 문제 | CPU로 BAR1 읽기 | MATCH | 기각 |
-| 5 | PAL 경로나 NVIDIA 이식본 문제 | 같은 커널, 모듈, 도구로 sid에서 C2 | MATCH | 기각 |
-| 6 | 시험 도구의 CC 버그 | 고친 도구와 버그 도구로 번역 없는 C2 | 둘 다 같은 실패 | 기각 |
-| 7 | GPU가 읽기를 거부 | 오류 비트를 지운 뒤 C2 한 번, 네 장치의 Status와 DevSta 확인 | NVMe와 00:01.1에만 `<MAbort+`, GPU와 00:01.0은 비트 없음 | 기각 |
-
-7번 실험의 표는 다음과 같다.
-
-| 장치 | 지운 뒤 | C2 한 번 뒤 |
-|---|---|---|
-| 00:01.0 (GPU 쪽 루트 포트) | 비트 없음 | 비트 없음 |
-| 00:01.1 (NVMe 쪽 루트 포트) | 비트 없음 | `<MAbort+` |
-| 01:00.0 (GPU) | 비트 없음 | 비트 없음 |
-| 02:00.0 (NVMe) | 비트 없음 | `<MAbort+` |
-
-`<MAbort+`는 Received Master Abort이고, UR 완료를 받았다는 뜻이다. GPU와 GPU 쪽 루트 포트에는 아무 기록이 없으므로 요청은 GPU 쪽에 도달하지 않았다. 루트 콤플렉스가 NVMe 쪽 루트 포트에서 들어온 peer 읽기를 UR로 끝냈다. 이 거부가 문서화된 제약이라는 것은 그 뒤 Intel 데이터시트로 확인했다(§7.3).
-
-### B.2 2026-10-13 1차 결과
-
-처음 측정은 CC 버그가 있던 시험 도구로 했다. 같은 커널에서 iommufd selftest는 236 pass, 0 fail, 5 skip이었다.
-
-| 시험 | 결과 |
-|---|---|
-| `pal_probe` (장치 없이, NVMe 부착 후) | `IOMMU_IOAS_MAP_FILE` OK, IOVA 0x200000 |
-| C1 4 KiB, 64 KiB | MATCH |
-| C2 4 KiB, 64 KiB, identity IOVA | `sct=0 sc=0x4`, DMAR fault 없음 |
-| D | `sc=0x4` + "PTE Read access is not set" |
-| D2 | 명령 OK + "PTE Write access is not set" |
-| PTE | 2 MiB x 512, 하위 비트 0x883 (R, W, PS, SNP) |
-| `dmabuf_import` 회귀 | 64 KiB x 16384, 연속 1 GiB |
-
-C1과 D는 §5 표의 "매핑 정상" 행과 일치한다. IOVA 0x400000이 BAR1 물리주소 0x480e800000과 다른데도 데이터가 일치했으므로, NVMe의 쓰기는 VT-d 번역을 거쳐 GPU 메모리에 도달했다. C2는 "장치 간 쓰기만 전달" 행과 같은 모양이다. 이 결과에서 B.1의 가설 검증이 시작됐다.
-
-### B.3 2026-10-16 재측정
-
-B.2의 표는 CC 버그가 있던 도구로 측정했다. 그래서 2026-10-16에 수정하지 않은 PAL 커널(이미지 md5 `2b62faa3…`)로 다시 부팅해, 고친 `pal_nvme`로 같은 시험을 반복했다. 버그 도구도 한 번 함께 실행했다.
-
-| 시험 | 고친 도구 | 버그 도구 |
-|---|---|---|
-| C1 64 KiB, 4 KiB (번역 IOVA, identity IOVA) | MATCH | MATCH (64 KiB 번역 IOVA만 실행) |
-| C2 64 KiB, 4 KiB (번역 IOVA, identity IOVA) | `sc=0x4` | `sc=0x4` |
-| D | `sc=0x4` | `sc=0x4` |
-| D2 | 명령 OK | 명령 OK |
-| PTE | `0x000000480f600883`부터 2 MiB 간격, 512개 | 해당 없음 |
-| C2 뒤 UR 수신 비트 | 00:01.1에만 `<MAbort+`, 00:01.0과 GPU에는 없음 | 같은 실행 묶음 |
-
-결과는 2026-10-13과 같다. 따라서 CC 버그는 PAL 경로의 결과에도 영향을 주지 않았다. PTE에 SNP 비트(0x800)가 있는 것은 이 커널이 SNP 패치가 없는 원본이라는 것을 다시 확인한다. 측정 조건의 한계는 두 가지다. 첫째, DMAR fault 로그는 첫 실행(고친 도구, 64 KiB, 번역 IOVA)에서만 남았다(Read 1건, Write 2건). 이후 실행의 D도 `sc=0x4`로 끝났으므로 IOMMU가 막았다고 보지만, 로그가 남지 않은 이유는 확인하지 않았다. 둘째, vfio-pci가 실행마다 NVMe를 리셋하므로 NVMe 02:00.0에는 `<MAbort+`가 남지 않았다. NVMe에 비트가 선 것은 리셋 없이 측정한 B.1의 7번 실험에서 확인했다.
