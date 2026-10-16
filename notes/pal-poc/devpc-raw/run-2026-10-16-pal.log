@@ -1,0 +1,229 @@
++ cd /data/aisio/pal-poc
++ S=/data/aisio/aisio/.claude/worktrees/iommufd-gpu-memory/notes/pal-poc/scripts
++ date
++ uname -a
++ echo == Fri Oct 16 02:52:44 PM KST 2026 Linux jaeyoon-pc 7.0.0-rc1-pal+ #1 SMP PREEMPT_DYNAMIC Tue Oct 13 17:03:50 KST 2026 x86_64 x86_64 x86_64 GNU/Linux
+== Fri Oct 16 02:52:44 PM KST 2026 Linux jaeyoon-pc 7.0.0-rc1-pal+ #1 SMP PREEMPT_DYNAMIC Tue Oct 13 17:03:50 KST 2026 x86_64 x86_64 x86_64 GNU/Linux
++ cat /proc/cmdline
+BOOT_IMAGE=/boot/vmlinuz-7.0.0-rc1-pal+ root=UUID=139af898-a3b9-418c-a88d-ca556d4b9e48 ro quiet splash intel_iommu=on vt.handoff=7
++ md5sum /boot/vmlinuz-7.0.0-rc1-pal+ /boot/vmlinuz-7.0.0-rc1-pal+.snp-orig
+2b62faa37919eea50095ca083bbfe186  /boot/vmlinuz-7.0.0-rc1-pal+
+2b62faa37919eea50095ca083bbfe186  /boot/vmlinuz-7.0.0-rc1-pal+.snp-orig
++ sort
++ + catuniq /sys/kernel/iommu_groups/0/type -c /sys/kernel/iommu_groups/1/type
+ /sys/kernel/iommu_groups/10/type /sys/kernel/iommu_groups/11/type /sys/kernel/iommu_groups/12/type /sys/kernel/iommu_groups/13/type /sys/kernel/iommu_groups/14/type /sys/kernel/iommu_groups/15/type /sys/kernel/iommu_groups/16/type /sys/kernel/iommu_groups/17/type /sys/kernel/iommu_groups/18/type /sys/kernel/iommu_groups/19/type /sys/kernel/iommu_groups/2/type /sys/kernel/iommu_groups/20/type /sys/kernel/iommu_groups/21/type /sys/kernel/iommu_groups/22/type /sys/kernel/iommu_groups/23/type /sys/kernel/iommu_groups/24/type /sys/kernel/iommu_groups/25/type /sys/kernel/iommu_groups/26/type /sys/kernel/iommu_groups/27/type /sys/kernel/iommu_groups/28/type /sys/kernel/iommu_groups/29/type /sys/kernel/iommu_groups/3/type /sys/kernel/iommu_groups/4/type /sys/kernel/iommu_groups/5/type /sys/kernel/iommu_groups/6/type /sys/kernel/iommu_groups/7/type /sys/kernel/iommu_groups/8/type /sys/kernel/iommu_groups/9/type
+     30 DMA-FQ
++ dmesg -C
++ modprobe dmabuf_import
++ modprobe iommu_map_pa
++ lsmod
++ grep -E ^(nvidia|dmabuf_import|iommu_map_pa)
+nvidia              14692352  34 nvidia_uvm,nvidia_modeset
+iommu_map_pa           16384  0
+dmabuf_import          20480  0
++ ./bind-nvme-vfio.sh jaeyoon
+driver: vfio-pci
+crw------- 1 jaeyoon root  10, 263 Oct 16 14:52 /dev/dmabuf_import
+crw------- 1 jaeyoon root  10, 259 Oct 16 14:52 /dev/iommu
+crw------- 1 jaeyoon root  10, 264 Oct 16 14:52 /dev/iommu_map_pa
+crw------- 1 jaeyoon root 509,   0 Oct 16 14:52 /dev/vfio/20
+crw------- 1 jaeyoon root 508,   0 Oct 16 14:52 /dev/vfio/devices/vfio0
+group 20, vfio cdev: vfio0
++ cat /sys/bus/pci/devices/0000:02:00.0/iommu_group/type
+DMA-FQ
++ echo #### pal_probe + PTE
+#### pal_probe + PTE
++ ./pal_probe --vfio /dev/vfio/devices/vfio0 --hold 15
++ sleep 8
+cuda: dptr=0x7587cc000000 size=1073741824 dmabuf_fd=34
+iommufd: ioas_id=1
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 attached
+IOMMU_IOAS_MAP_FILE: OK iova=0x200000 length=0x40000000
+holding 15 s (pid 18887)
++ sh /data/aisio/aisio/.claude/worktrees/iommufd-gpu-memory/notes/pal-poc/scripts/pte-dump.sh 0000:02:00.0
+Device 0000:02:00.0 @0x36aa7a000
+IOVA_PFN         	PML5E             	PML4E             	PDPE              	PDE               	PTE
+0x0000000000200 |	0x0000000000000000	0x0000000441bdc403	0x00000003ac774403	0x000000480f600883
+0x0000000000400 |	0x0000000000000000	0x0000000441bdc403	0x00000003ac774403	0x000000480f800883
+0x0000000000600 |	0x0000000000000000	0x0000000441bdc403	0x00000003ac774403	0x000000480fa00883
+0x0000000000800 |	0x0000000000000000	0x0000000441bdc403	0x00000003ac774403	0x000000480fc00883
+entries: 514
++ wait
+IOMMU_IOAS_UNMAP: OK
++ echo #### fixed CC, vfio, xfer 65536
+#### fixed CC, vfio, xfer 65536
++ ./pal_nvme --xfer 65536
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 2048 KiB mapped at iova 0x200000
+gpu: dma-buf fd 34 (1024 MiB) mapped at iova 0x400000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+test LBAs: 0 .. 383 (overwritten)
+C1 write LBA0 from host: OK
+C1 read LBA0 into GPU iova: OK
+C1 compare: MATCH (65536 bytes)
+C2 write LBA16 from GPU iova: status sct=0x0 sc=0x4
+C2 read LBA16 into host: OK
+C2 compare: MISMATCH
+D write LBA from unmapped iova (device read): status sct=0x0 sc=0x4
+D expectation: an error status or timeout, not OK (iova 0x80400000)
+D2 read LBA0 into unmapped iova (device write, posted): OK
+result: FAIL (2 failure(s))
++ echo #### fixed CC, identity IOVA, xfer 65536
+#### fixed CC, identity IOVA, xfer 65536
++ ./pal_nvme --identity --xfer 65536
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 2048 KiB mapped at iova 0x200000
+dmabuf_import: 16384 entries, first pa 0x480f600000, contiguous 1024 MiB
+gpu: dma-buf fd 34 (1024 MiB) mapped at iova 0x480f600000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+test LBAs: 0 .. 383 (overwritten)
+C1 write LBA0 from host: OK
+C1 read LBA0 into GPU iova: OK
+C1 compare: MATCH (65536 bytes)
+C2 write LBA16 from GPU iova: status sct=0x0 sc=0x4
+C2 read LBA16 into host: OK
+C2 compare: MISMATCH
+D write LBA from unmapped iova (device read): status sct=0x0 sc=0x4
+D expectation: an error status or timeout, not OK (iova 0x488f600000)
+D2 read LBA0 into unmapped iova (device write, posted): OK
+result: FAIL (2 failure(s))
++ echo #### fixed CC, vfio, xfer 4096
+#### fixed CC, vfio, xfer 4096
++ ./pal_nvme --xfer 4096
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 2048 KiB mapped at iova 0x200000
+gpu: dma-buf fd 34 (1024 MiB) mapped at iova 0x400000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+test LBAs: 0 .. 23 (overwritten)
+C1 write LBA0 from host: OK
+C1 read LBA0 into GPU iova: OK
+C1 compare: MATCH (4096 bytes)
+C2 write LBA16 from GPU iova: status sct=0x0 sc=0x4
+C2 read LBA16 into host: OK
+C2 compare: MISMATCH
+D write LBA from unmapped iova (device read): status sct=0x0 sc=0x4
+D expectation: an error status or timeout, not OK (iova 0x80400000)
+D2 read LBA0 into unmapped iova (device write, posted): OK
+result: FAIL (2 failure(s))
++ echo #### fixed CC, identity IOVA, xfer 4096
+#### fixed CC, identity IOVA, xfer 4096
++ ./pal_nvme --identity --xfer 4096
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 2048 KiB mapped at iova 0x200000
+dmabuf_import: 16384 entries, first pa 0x480f600000, contiguous 1024 MiB
+gpu: dma-buf fd 34 (1024 MiB) mapped at iova 0x480f600000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+test LBAs: 0 .. 23 (overwritten)
+C1 write LBA0 from host: OK
+C1 read LBA0 into GPU iova: OK
+C1 compare: MATCH (4096 bytes)
+C2 write LBA16 from GPU iova: status sct=0x0 sc=0x4
+C2 read LBA16 into host: OK
+C2 compare: MISMATCH
+D write LBA from unmapped iova (device read): status sct=0x0 sc=0x4
+D expectation: an error status or timeout, not OK (iova 0x488f600000)
+D2 read LBA0 into unmapped iova (device write, posted): OK
+result: FAIL (2 failure(s))
++ echo #### buggy CC, vfio, xfer 65536
+#### buggy CC, vfio, xfer 65536
++ ./pal_nvme.ccbug --xfer 65536
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 2048 KiB mapped at iova 0x200000
+gpu: dma-buf fd 34 (1024 MiB) mapped at iova 0x400000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+test LBAs: 0 .. 383 (overwritten)
+C1 write LBA0 from host: OK
+C1 read LBA0 into GPU iova: OK
+C1 compare: MATCH (65536 bytes)
+C2 write LBA16 from GPU iova: status sct=0x0 sc=0x4
+C2 read LBA16 into host: OK
+C2 compare: MISMATCH
+D write LBA from unmapped iova (device read): status sct=0x0 sc=0x4
+D expectation: an error status or timeout, not OK (iova 0x80400000)
+D2 read LBA0 into unmapped iova (device write, posted): OK
+result: FAIL (2 failure(s))
++ echo #### dmesg
+#### dmesg
++ dmesg
++ grep -i -E dmar|iommu|vfio|nvme|AER
++ tail -40
+[   44.023547] VFIO - User Level meta-driver version: 0.3
+[   44.668500] vfio-pci 0000:02:00.0: resetting
+[   44.776352] vfio-pci 0000:02:00.0: reset done
+[   60.308476] vfio-pci 0000:02:00.0: resetting
+[   60.417350] vfio-pci 0000:02:00.0: reset done
+[   60.419984] DMAR: DRHD: handling fault status reg 3
+[   60.419987] DMAR: [DMA Read NO_PASID] Request device [02:00.0] fault addr 0x80400000 [fault reason 0x06] PTE Read access is not set
+[   60.419990] DMAR: Dump dmar1 table entries for IOVA 0x80400000
+[   60.419990] DMAR: root entry: 0x000000010746b001
+[   60.419991] DMAR: context entry: hi 0x0000000000001502, low 0x000000042e2f1001
+[   60.419992] DMAR: pte level: 4, pte value: 0x00000001d680f403
+[   60.419992] DMAR: pte level: 3, pte value: 0x0000000000000000
+[   60.419993] DMAR: page table not present at level 2
+[   60.420210] DMAR: DRHD: handling fault status reg 3
+[   60.420212] DMAR: [DMA Write NO_PASID] Request device [02:00.0] fault addr 0x80400000 [fault reason 0x05] PTE Write access is not set
+[   60.420213] DMAR: Dump dmar1 table entries for IOVA 0x80400000
+[   60.420214] DMAR: root entry: 0x000000010746b001
+[   60.420214] DMAR: context entry: hi 0x0000000000001502, low 0x000000042e2f1001
+[   60.420214] DMAR: pte level: 4, pte value: 0x00000001d680f403
+[   60.420215] DMAR: pte level: 3, pte value: 0x0000000000000000
+[   60.420215] DMAR: page table not present at level 2
+[   60.420217] DMAR: DRHD: handling fault status reg 3
+[   60.420219] DMAR: [DMA Write NO_PASID] Request device [02:00.0] fault addr 0x80401000 [fault reason 0x05] PTE Write access is not set
+[   60.420221] DMAR: Dump dmar1 table entries for IOVA 0x80401000
+[   60.420221] DMAR: root entry: 0x000000010746b001
+[   60.420221] DMAR: context entry: hi 0x0000000000001502, low 0x000000042e2f1001
+[   60.420222] DMAR: pte level: 4, pte value: 0x00000001d680f403
+[   60.420222] DMAR: pte level: 3, pte value: 0x0000000000000000
+[   60.420222] DMAR: page table not present at level 2
+[   60.420230] DMAR: DRHD: handling fault status reg 3
+[   60.954448] vfio-pci 0000:02:00.0: resetting
+[   61.056390] vfio-pci 0000:02:00.0: reset done
+[   61.571399] vfio-pci 0000:02:00.0: resetting
+[   61.672451] vfio-pci 0000:02:00.0: reset done
+[   62.211522] vfio-pci 0000:02:00.0: resetting
+[   62.313384] vfio-pci 0000:02:00.0: reset done
+[   62.840479] vfio-pci 0000:02:00.0: resetting
+[   62.945350] vfio-pci 0000:02:00.0: reset done
++ lspci -vv -s 00:01.0
++ + grep -E Status:|DevSta:
+tr -s
++ tr \n
++ echo 00:01.0: 	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx- 		DevSta:	CorrErr- NonFatalErr- FatalErr- UnsupReq- AuxPwr+ TransPend- 		SltSta:	Status: AttnBtn- PowerFlt- MRL- CmdCplt- PresDet+ Interlock- 		Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=0 PME-
+00:01.0: 	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx- 		DevSta:	CorrErr- NonFatalErr- FatalErr- UnsupReq- AuxPwr+ TransPend- 		SltSta:	Status: AttnBtn- PowerFlt- MRL- CmdCplt- PresDet+ Interlock- 		Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=0 PME-
++ lspci -vv -s 00:01.1
++ grep -E Status:|DevSta:
++ tr -s
++ tr \n
++ echo 00:01.1: 	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort+ >SERR- <PERR- INTx- 		DevSta:	CorrErr- NonFatalErr- FatalErr- UnsupReq- AuxPwr+ TransPend- 		SltSta:	Status: AttnBtn- PowerFlt- MRL- CmdCplt- PresDet+ Interlock- 		Status: D3 NoSoftRst- PME-Enable+ DSel=0 DScale=0 PME-
+00:01.1: 	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort+ >SERR- <PERR- INTx- 		DevSta:	CorrErr- NonFatalErr- FatalErr- UnsupReq- AuxPwr+ TransPend- 		SltSta:	Status: AttnBtn- PowerFlt- MRL- CmdCplt- PresDet+ Interlock- 		Status: D3 NoSoftRst- PME-Enable+ DSel=0 DScale=0 PME-
++ lspci -vv -s 01:00.0
++ tr -s
++ grep -E Status:|DevSta:
++ tr \n
++ echo 01:00.0: 	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx- 		Status: D0 NoSoftRst+ PME-Enable- DSel=0 DScale=0 PME- 		DevSta:	CorrErr- NonFatalErr- FatalErr- UnsupReq- AuxPwr- TransPend-
+01:00.0: 	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx- 		Status: D0 NoSoftRst+ PME-Enable- DSel=0 DScale=0 PME- 		DevSta:	CorrErr- NonFatalErr- FatalErr- UnsupReq- AuxPwr- TransPend-
++ lspci -vv -s 02:00.0
++ tr -s
++ grep -E Status:|DevSta:
++ tr \n
++ echo 02:00.0: 	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx- 		Status: D3 NoSoftRst+ PME-Enable- DSel=0 DScale=0 PME- 		DevSta:	CorrErr- NonFatalErr- FatalErr- UnsupReq- AuxPwr- TransPend-
+02:00.0: 	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx- 		Status: D3 NoSoftRst+ PME-Enable- DSel=0 DScale=0 PME- 		DevSta:	CorrErr- NonFatalErr- FatalErr- UnsupReq- AuxPwr- TransPend-
++ date
++ echo == done Fri Oct 16 02:53:04 PM KST 2026
+== done Fri Oct 16 02:53:04 PM KST 2026
