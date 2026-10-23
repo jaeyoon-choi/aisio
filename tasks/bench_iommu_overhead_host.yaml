@@ -27,20 +27,13 @@ doc: |
   `iommu_overhead_combine --results-dir` at a directory holding both result
   sets: the report keys on `memory` and charts the two apart.
 
+  The devices come from the top-level `[[devices]]` entries of a config such
+  as `configs/devices_16.toml`, and a single entry measures one device. Devices
+  are pinned to the CPU an entry names with `cpu = N`, or to its position in the
+  list when it names none. A run refuses to start without `[[devices]]`, or when
+  a CPU it would pin to is offline.
+
   Example:
-
-    cijoe --monitor \
-      -c configs/transport.toml \
-      -c configs/aisio.toml \
-      -c configs/datasets.toml \
-      -c configs/iommu_overhead.toml \
-      tasks/bench_iommu_overhead_host.yaml
-
-  Multi-device mode uses the same task and benchmark config, plus a config with
-  top-level `[[devices]]` entries such as `configs/devices_16.toml`. Devices are
-  pinned to the CPU an entry names with `cpu = N`, or to its position in the
-  list when it names none. A run refuses to start when a CPU it would pin to is
-  offline:
 
     cijoe --monitor \
       -c configs/transport.toml \

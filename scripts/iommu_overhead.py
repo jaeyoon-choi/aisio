@@ -166,7 +166,10 @@ def configured_devices(cijoe):
     """
     devices = cijoe.getconf("devices", [])
     if not devices:
-        return []
+        raise ValueError(
+            "Missing [[devices]] in config; pass a devices config such as "
+            "configs/devices_16.toml"
+        )
 
     resolved = []
     seen = set()
@@ -378,9 +381,6 @@ def run_with_vfio_retry(cijoe, cmd, driver, what):
 
 
 def bind_driver(cijoe, driver, pci_addrs, mountpoint, hugepages):
-    if isinstance(pci_addrs, str):
-        pci_addrs = [pci_addrs]
-
     if driver == "vfio-pci":
         err = check_vfio_kernel(cijoe)
         if err:
@@ -406,9 +406,6 @@ def bind_driver(cijoe, driver, pci_addrs, mountpoint, hugepages):
 
 
 def reset_driver(cijoe, pci_addrs):
-    if isinstance(pci_addrs, str):
-        pci_addrs = [pci_addrs]
-
     cmd = "\n".join(
         f"devbind --device {q(pci_addr)} --bind nvme || true" for pci_addr in pci_addrs
     )
@@ -433,7 +430,7 @@ def build_xnvmeperf_cmd(args, cijoe, devices, rw, iosize, iodepth):
     )
 
 
-def fio_cmd_multi(args, cijoe, devices, rw, iosize, iodepth):
+def fio_cmd(args, cijoe, devices, rw, iosize, iodepth):
     runtime = int(conf(cijoe, "runtime", 10))
     ramp_time = int(conf(cijoe, "fio_ramp_time", 5))
     size = conf(cijoe, "fio_size", "100%")
@@ -470,38 +467,6 @@ def fio_cmd_multi(args, cijoe, devices, rw, iosize, iodepth):
     return runner_env(args) + " ".join(parts)
 
 
-def fio_cmd(args, cijoe, pci_addr, rw, iosize, iodepth):
-    runtime = int(conf(cijoe, "runtime", 10))
-    ramp_time = int(conf(cijoe, "fio_ramp_time", 5))
-    size = conf(cijoe, "fio_size", "100%")
-    fio_device = str(pci_addr).replace(":", r"\:")
-    return runner_env(args) + " ".join(
-        [
-            "fio",
-            "--name=aisio-iommu-overhead",
-            f"--filename={q(fio_device)}",
-            "--ioengine=xnvme",
-            f"--xnvme_be={backend_for(args.memory)}",
-            "--xnvme_dev_nsid=1",
-            "--thread=1",
-            "--direct=1",
-            f"--rw={q(rw)}",
-            f"--size={q(size)}",
-            f"--bs={q(iosize)}",
-            f"--iodepth={q(iodepth)}",
-            "--time_based=1",
-            f"--runtime={q(runtime)}",
-            f"--ramp_time={q(ramp_time)}",
-            "--norandommap=1",
-            "--group_reporting=1",
-            "--output-format=json",
-            f"--percentile_list={FIO_PERCENTILE_LIST}",
-            "--numjobs=1",
-            "--cpus_allowed=0",
-        ]
-    )
-
-
 def parse_xnvmeperf(output):
     match = re.search(
         r"^\s*Total:?\s+(?:[0-9,]+\s+)?(?P<iops>[0-9.]+)\s+"
@@ -514,28 +479,7 @@ def parse_xnvmeperf(output):
     return {key: float(value) for key, value in match.groupdict().items()}
 
 
-def parse_fio(output, rw):
-    data = json.loads(output)
-    job = data["jobs"][0]
-    if int(job.get("error", 0)):
-        raise ValueError(f"fio job failed with error {job['error']}")
-
-    if rw not in RW_TO_OP:
-        raise ValueError(f"unsupported rw={rw!r}; mixed workloads are not supported")
-    stats = job[RW_TO_OP[rw]]
-    percentiles = stats["clat_ns"]["percentile"]
-
-    return {
-        "iops": float(stats["iops"]),
-        "mibs": float(stats.get("bw_bytes", 0)) / (1024 * 1024),
-        "lat_ns": float(stats["lat_ns"]["mean"]),
-        "tail_lat_ns": {
-            name: float(percentiles[key]) for name, key in TAIL_LATENCIES.items()
-        },
-    }
-
-
-def parse_fio_multi(output, rw, devices):
+def parse_fio(output, rw, devices):
     data = json.loads(output)
     jobs = data.get("jobs", [])
     if len(jobs) != len(devices):
@@ -587,14 +531,12 @@ def parse_fio_multi(output, rw, devices):
 
 
 def result_file(
-    path, label, memory, runner, rw, iosize, iodepth, rep, devcount=None, dev=None
+    path, label, memory, runner, rw, iosize, iodepth, rep, devcount, dev=None
 ):
     suffix = (
         f"label_{label}-mem_{memory}-runner_{runner}-rw_{rw}-"
-        f"iosize_{iosize}-iodepth_{iodepth}"
+        f"iosize_{iosize}-iodepth_{iodepth}-devcount_{devcount}"
     )
-    if devcount is not None:
-        suffix += f"-devcount_{devcount}"
     if dev is not None:
         suffix += f"-dev_{bdf_safe(dev)}"
     return path / f"{suffix}-rep_{rep}.json"
@@ -613,8 +555,8 @@ def base_result(
     iosize,
     iodepth,
     rep,
+    devcount,
     cpu=0,
-    devcount=None,
     dev=None,
     cpumask=None,
 ):
@@ -632,14 +574,13 @@ def base_result(
         "runtime": int(conf(cijoe, "runtime", 10)),
         "cpu": int(cpu),
         "cpumask": cpumask or cpu_to_cpumask(cpu),
+        "devcount": int(devcount),
     }
     if runner == "fio":
         result["fio_numjobs"] = 1
         result["fio_cpus_allowed"] = str(cpu)
     if gpu_memory(args):
         result["gpu_id"] = int(args.gpu_id)
-    if devcount is not None:
-        result["devcount"] = int(devcount)
     if dev is not None:
         result["dev"] = dev
     return result
@@ -654,9 +595,7 @@ def xnvmeperf_pass(args, cijoe, devices, cases, repeat, out_dir, progress):
     Run xnvmeperf once per case, over every device at once.
 
     The row it writes is already summed over the devices, since that is what
-    xnvmeperf's Total line reports, so it carries devcount but no dev. The fio
-    pass below also covers GPU memory: it selects the upcie-cuda backend, which
-    allocates data buffers from the CUDA heap.
+    xnvmeperf's Total line reports, so it carries devcount but no dev.
     """
     devcount = len(devices)
     cpumask = cpus_to_cpumask(device["cpu"] for device in devices)
@@ -673,7 +612,7 @@ def xnvmeperf_pass(args, cijoe, devices, cases, repeat, out_dir, progress):
                 iosize,
                 iodepth,
                 rep,
-                devcount=devcount,
+                devcount,
             )
             if path.exists():
                 progress["done"] += 1
@@ -703,7 +642,7 @@ def xnvmeperf_pass(args, cijoe, devices, cases, repeat, out_dir, progress):
                 iosize,
                 iodepth,
                 rep,
-                devcount=devcount,
+                devcount,
                 cpumask=cpumask,
             )
             result.update(parse_xnvmeperf(output))
@@ -721,105 +660,75 @@ def xnvmeperf_pass(args, cijoe, devices, cases, repeat, out_dir, progress):
     return 0
 
 
-def run_multi(args, cijoe, devices, cases):
-    mountpoint = cijoe.getconf("filesystems.dset.mountpoint", "/mnt/datasets")
+def fio_pass(args, cijoe, devices, cases, repeat, out_dir, progress):
+    """
+    Run fio once per case, with one job per device, and write a row per device.
 
-    err = check_iommu_state(args, cijoe)
-    if err:
-        return err
-    err = check_cpu_pinning(cijoe, devices)
-    if err:
-        return err
-    warn_gpu_cross_node(args, cijoe, [device["pci_addr"] for device in devices])
-
-    repeat = int(conf(cijoe, "repeat", 3))
-    hugepages = int(conf(cijoe, "hugepages", 1024))
-    workload_pause = int(conf(cijoe, "workload_pause", 5))
-    out_dir = results_path(args)
+    A case counts as done only when every device has its row, so a run that
+    stopped part way through a case is refused rather than mixed with a new one.
+    """
     devcount = len(devices)
+    workload_pause = int(conf(cijoe, "workload_pause", 5))
 
-    err = bind_driver(
-        cijoe,
-        args.driver,
-        [device["pci_addr"] for device in devices],
-        mountpoint,
-        hugepages,
-    )
-    if err:
-        reset_driver(cijoe, [device["pci_addr"] for device in devices])
-        return err
-
-    runners = 2
-    progress = {"done": 0, "total": len(cases) * repeat * runners}
-
-    try:
-        err = xnvmeperf_pass(args, cijoe, devices, cases, repeat, out_dir, progress)
-        if err:
-            return err
-
-        for case_idx, (rw, iosize, iodepth) in enumerate(cases, start=1):
-            for rep in range(1, repeat + 1):
-                workload = (
-                    f"{args.label}/{args.memory} {rw} iosize={iosize} "
-                    f"iodepth={iodepth} devices={devcount} rep={rep}"
+    for case_idx, (rw, iosize, iodepth) in enumerate(cases, start=1):
+        for rep in range(1, repeat + 1):
+            workload = (
+                f"{args.label}/{args.memory} {rw} iosize={iosize} "
+                f"iodepth={iodepth} devices={devcount} rep={rep}"
+            )
+            paths = {
+                device["pci_addr"]: result_file(
+                    out_dir,
+                    args.label,
+                    args.memory,
+                    "fio",
+                    rw,
+                    iosize,
+                    iodepth,
+                    rep,
+                    devcount,
+                    dev=device["pci_addr"],
                 )
-                paths = {
-                    device["pci_addr"]: result_file(
-                        out_dir,
-                        args.label,
-                        args.memory,
-                        "fio",
-                        rw,
-                        iosize,
-                        iodepth,
-                        rep,
-                        devcount=devcount,
-                        dev=device["pci_addr"],
-                    )
-                    for device in devices
-                }
-                if all(path.exists() for path in paths.values()):
-                    progress["done"] += 1
-                    continue
-                if any(path.exists() for path in paths.values()):
-                    log.error(f"partial fio result set exists for {workload}")
-                    return errno.EEXIST
-
-                print_progress(
-                    progress["done"], progress["total"], f"running fio {workload}"
-                )
-                err, output = run_with_vfio_retry(
-                    cijoe,
-                    fio_cmd_multi(args, cijoe, devices, rw, iosize, iodepth),
-                    args.driver,
-                    f"fio {workload}",
-                )
-                if err:
-                    return err
-
-                for device, parsed in parse_fio_multi(output, rw, devices):
-                    result = base_result(
-                        args,
-                        cijoe,
-                        "fio",
-                        rw,
-                        iosize,
-                        iodepth,
-                        rep,
-                        cpu=device["cpu"],
-                        devcount=devcount,
-                        dev=device["pci_addr"],
-                    )
-                    result.update(parsed)
-                    write_result(paths[device["pci_addr"]], result)
+                for device in devices
+            }
+            if all(path.exists() for path in paths.values()):
                 progress["done"] += 1
+                continue
+            if any(path.exists() for path in paths.values()):
+                log.error(f"partial fio result set exists for {workload}")
+                return errno.EEXIST
 
-            if workload_pause > 0 and case_idx < len(cases):
-                time.sleep(workload_pause)
+            print_progress(
+                progress["done"], progress["total"], f"running fio {workload}"
+            )
+            err, output = run_with_vfio_retry(
+                cijoe,
+                fio_cmd(args, cijoe, devices, rw, iosize, iodepth),
+                args.driver,
+                f"fio {workload}",
+            )
+            if err:
+                return err
 
-        print(f"{progress['done']}/{progress['total']}: complete")
-    finally:
-        reset_driver(cijoe, [device["pci_addr"] for device in devices])
+            for device, parsed in parse_fio(output, rw, devices):
+                result = base_result(
+                    args,
+                    cijoe,
+                    "fio",
+                    rw,
+                    iosize,
+                    iodepth,
+                    rep,
+                    devcount,
+                    cpu=device["cpu"],
+                    dev=device["pci_addr"],
+                )
+                result.update(parsed)
+                write_result(paths[device["pci_addr"]], result)
+            progress["done"] += 1
+
+        if workload_pause > 0 and case_idx < len(cases):
+            time.sleep(workload_pause)
 
     return 0
 
@@ -838,74 +747,37 @@ def main(args, cijoe):
         log.error(str(exc))
         return errno.EINVAL
 
-    if devices:
-        return run_multi(args, cijoe, devices, cases)
-
-    pci_addr = cijoe.getconf("filesystems.dset.pci_addr", None)
+    pci_addrs = [device["pci_addr"] for device in devices]
     mountpoint = cijoe.getconf("filesystems.dset.mountpoint", "/mnt/datasets")
-    if not pci_addr:
-        log.error("Missing filesystems.dset.pci_addr in config")
-        return errno.EINVAL
 
     err = check_iommu_state(args, cijoe)
     if err:
         return err
-    warn_gpu_cross_node(args, cijoe, [pci_addr])
+    err = check_cpu_pinning(cijoe, devices)
+    if err:
+        return err
+    warn_gpu_cross_node(args, cijoe, pci_addrs)
 
     repeat = int(conf(cijoe, "repeat", 3))
     hugepages = int(conf(cijoe, "hugepages", 1024))
-    workload_pause = int(conf(cijoe, "workload_pause", 5))
     out_dir = results_path(args)
 
-    err = bind_driver(cijoe, args.driver, pci_addr, mountpoint, hugepages)
+    err = bind_driver(cijoe, args.driver, pci_addrs, mountpoint, hugepages)
     if err:
-        reset_driver(cijoe, pci_addr)
+        reset_driver(cijoe, pci_addrs)
         return err
 
     runners = 2
     progress = {"done": 0, "total": len(cases) * repeat * runners}
-    single = [{"pci_addr": pci_addr, "cpu": 0}]
 
     try:
-        err = xnvmeperf_pass(args, cijoe, single, cases, repeat, out_dir, progress)
-        if err:
-            return err
-
-        for case_idx, (rw, iosize, iodepth) in enumerate(cases, start=1):
-            for rep in range(1, repeat + 1):
-                workload = (
-                    f"{args.label}/{args.memory} {rw} iosize={iosize} "
-                    f"iodepth={iodepth} rep={rep}"
-                )
-                path = result_file(
-                    out_dir, args.label, args.memory, "fio", rw, iosize, iodepth, rep
-                )
-
-                if path.exists():
-                    progress["done"] += 1
-                    continue
-
-                print_progress(
-                    progress["done"], progress["total"], f"running fio {workload}"
-                )
-                err, output = run_with_vfio_retry(
-                    cijoe,
-                    fio_cmd(args, cijoe, pci_addr, rw, iosize, iodepth),
-                    args.driver,
-                    f"fio {workload}",
-                )
-                if err:
-                    return err
-                result = base_result(args, cijoe, "fio", rw, iosize, iodepth, rep)
-                result.update(parse_fio(output, rw))
-                write_result(path, result)
-                progress["done"] += 1
-
-            if workload_pause > 0 and case_idx < len(cases):
-                time.sleep(workload_pause)
+        for run_pass in (xnvmeperf_pass, fio_pass):
+            err = run_pass(args, cijoe, devices, cases, repeat, out_dir, progress)
+            if err:
+                return err
 
         print(f"{progress['done']}/{progress['total']}: complete")
     finally:
-        reset_driver(cijoe, pci_addr)
+        reset_driver(cijoe, pci_addrs)
 
     return 0

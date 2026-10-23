@@ -14,9 +14,9 @@ hugepages = 1024
 # the same either way.
 iommu_strict = false
 
-# Multi-device mode is enabled by adding a config with [[devices]] entries,
-# such as configs/devices_16.toml. An entry may name the CPU it pins to, and
-# without one it falls back to its position in the list (device 0 -> CPU 0):
+# Every run also needs a config with [[devices]] entries, such as
+# configs/devices_16.toml. An entry may name the CPU it pins to, and without one
+# it falls back to its position in the list (device 0 -> CPU 0):
 #
 #   [[devices]]
 #   pci_addr = "0000:4a:00.0"
