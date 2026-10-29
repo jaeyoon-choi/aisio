@@ -1,0 +1,4 @@
+
+7.0.0-rc1-pal+
+grubenv: []
+NVIDIA L4, 580.178.04

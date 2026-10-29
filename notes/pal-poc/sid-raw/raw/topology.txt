@@ -1,0 +1,634 @@
+### uname -a (PAL build host info is from sia query)
+### lspci -nn
+00:00.0 System peripheral [0880]: Intel Corporation Ice Lake Memory Map/VT-d [8086:09a2] (rev 03)
+00:00.1 System peripheral [0880]: Intel Corporation Ice Lake Mesh 2 PCIe [8086:09a4] (rev 03)
+00:00.2 System peripheral [0880]: Intel Corporation Ice Lake RAS [8086:09a3] (rev 03)
+00:00.4 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+00:01.0 System peripheral [0880]: Intel Corporation Ice Lake CBDMA [QuickData Technology] [8086:0b00]
+00:01.1 System peripheral [0880]: Intel Corporation Ice Lake CBDMA [QuickData Technology] [8086:0b00]
+00:01.2 System peripheral [0880]: Intel Corporation Ice Lake CBDMA [QuickData Technology] [8086:0b00]
+00:01.3 System peripheral [0880]: Intel Corporation Ice Lake CBDMA [QuickData Technology] [8086:0b00]
+00:01.4 System peripheral [0880]: Intel Corporation Ice Lake CBDMA [QuickData Technology] [8086:0b00]
+00:01.5 System peripheral [0880]: Intel Corporation Ice Lake CBDMA [QuickData Technology] [8086:0b00]
+00:01.6 System peripheral [0880]: Intel Corporation Ice Lake CBDMA [QuickData Technology] [8086:0b00]
+00:01.7 System peripheral [0880]: Intel Corporation Ice Lake CBDMA [QuickData Technology] [8086:0b00]
+00:02.0 System peripheral [0880]: Intel Corporation Ice Lake MSM [8086:09a6]
+00:02.1 System peripheral [0880]: Intel Corporation Ice Lake PMON MSM [8086:09a7]
+00:02.2 System peripheral [0880]: Intel Corporation Device [8086:09a8]
+00:02.4 Non-Essential Instrumentation [1300]: Intel Corporation Ice Lake NorthPeak [8086:3456] (rev 01)
+00:11.0 Unassigned class [ff00]: Intel Corporation C620 Series Chipset Family MROM 0 [8086:a1ec] (rev 05)
+00:11.1 Unassigned class [ff00]: Intel Corporation C620 Series Chipset Family MROM 1 [8086:a1ed] (rev 05)
+00:11.5 RAID bus controller [0104]: Intel Corporation sSATA Controller [RAID Mode] [8086:2827] (rev 05)
+00:14.0 USB controller [0c03]: Intel Corporation C620 Series Chipset Family USB 3.0 xHCI Controller [8086:a1af] (rev 05)
+00:14.2 Signal processing controller [1180]: Intel Corporation C620 Series Chipset Family Thermal Subsystem [8086:a1b1] (rev 05)
+00:16.0 Communication controller [0780]: Intel Corporation C620 Series Chipset Family MEI Controller #1 [8086:a1ba] (rev 05)
+00:16.1 Communication controller [0780]: Intel Corporation C620 Series Chipset Family MEI Controller #2 [8086:a1bb] (rev 05)
+00:16.4 Communication controller [0780]: Intel Corporation C620 Series Chipset Family MEI Controller #3 [8086:a1be] (rev 05)
+00:17.0 SATA controller [0106]: Intel Corporation C620 Series Chipset Family SATA Controller [AHCI mode] [8086:a182] (rev 05)
+00:1c.0 PCI bridge [0604]: Intel Corporation C620 Series Chipset Family PCI Express Root Port #1 [8086:a190] (rev f5)
+00:1c.4 PCI bridge [0604]: Intel Corporation C620 Series Chipset Family PCI Express Root Port #5 [8086:a194] (rev f5)
+00:1c.5 PCI bridge [0604]: Intel Corporation C620 Series Chipset Family PCI Express Root Port #6 [8086:a195] (rev f5)
+00:1f.0 ISA bridge [0601]: Intel Corporation Device [8086:a1cb] (rev 05)
+00:1f.2 Memory controller [0580]: Intel Corporation C620 Series Chipset Family Power Management Controller [8086:a1a1] (rev 05)
+00:1f.4 SMBus [0c05]: Intel Corporation C620 Series Chipset Family SMBus [8086:a1a3] (rev 05)
+00:1f.5 Serial bus controller [0c80]: Intel Corporation C620 Series Chipset Family SPI Controller [8086:a1a4] (rev 05)
+03:00.0 PCI bridge [0604]: ASPEED Technology, Inc. AST1150 PCI-to-PCI Bridge [1a03:1150] (rev 04)
+04:00.0 VGA compatible controller [0300]: ASPEED Technology, Inc. ASPEED Graphics Family [1a03:2000] (rev 41)
+16:00.0 System peripheral [0880]: Intel Corporation Ice Lake Memory Map/VT-d [8086:09a2] (rev 03)
+16:00.1 System peripheral [0880]: Intel Corporation Ice Lake Mesh 2 PCIe [8086:09a4] (rev 03)
+16:00.2 System peripheral [0880]: Intel Corporation Ice Lake RAS [8086:09a3] (rev 03)
+16:00.4 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+30:00.0 System peripheral [0880]: Intel Corporation Ice Lake Memory Map/VT-d [8086:09a2] (rev 03)
+30:00.1 System peripheral [0880]: Intel Corporation Ice Lake Mesh 2 PCIe [8086:09a4] (rev 03)
+30:00.2 System peripheral [0880]: Intel Corporation Ice Lake RAS [8086:09a3] (rev 03)
+30:00.4 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+30:02.0 PCI bridge [0604]: Intel Corporation Ice Lake PCI Express Root Port A [8086:347a]
+31:00.0 3D controller [0302]: NVIDIA Corporation AD104GL [L4] [10de:27b8] (rev a1)
+4a:00.0 System peripheral [0880]: Intel Corporation Ice Lake Memory Map/VT-d [8086:09a2] (rev 03)
+4a:00.1 System peripheral [0880]: Intel Corporation Ice Lake Mesh 2 PCIe [8086:09a4] (rev 03)
+4a:00.2 System peripheral [0880]: Intel Corporation Ice Lake RAS [8086:09a3] (rev 03)
+4a:00.4 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+4a:02.0 PCI bridge [0604]: Intel Corporation Ice Lake PCI Express Root Port A [8086:347a]
+4b:00.0 PCI bridge [0604]: Microchip Technology Device [11f8:4000]
+4b:00.1 Memory controller [0580]: Microchip Technology Device [11f8:4000]
+4c:00.0 PCI bridge [0604]: Microchip Technology Device [11f8:4000]
+4c:01.0 PCI bridge [0604]: Microchip Technology Device [11f8:4000]
+4c:02.0 PCI bridge [0604]: Microchip Technology Device [11f8:4000]
+4c:03.0 PCI bridge [0604]: Microchip Technology Device [11f8:4000]
+4c:04.0 PCI bridge [0604]: Microchip Technology Device [11f8:4000]
+4c:05.0 PCI bridge [0604]: Microchip Technology Device [11f8:4000]
+4c:06.0 PCI bridge [0604]: Microchip Technology Device [11f8:4000]
+4c:07.0 PCI bridge [0604]: Microchip Technology Device [11f8:4000]
+4d:00.0 Non-Volatile memory controller [0108]: Samsung Electronics Co Ltd Device [144d:ac02]
+4e:00.0 Non-Volatile memory controller [0108]: Samsung Electronics Co Ltd Device [144d:ac02]
+4f:00.0 Non-Volatile memory controller [0108]: Samsung Electronics Co Ltd Device [144d:ac02]
+50:00.0 Non-Volatile memory controller [0108]: Samsung Electronics Co Ltd Device [144d:ac02]
+51:00.0 Non-Volatile memory controller [0108]: Samsung Electronics Co Ltd Device [144d:ac02]
+52:00.0 Non-Volatile memory controller [0108]: Samsung Electronics Co Ltd Device [144d:ac02]
+53:00.0 Non-Volatile memory controller [0108]: Samsung Electronics Co Ltd Device [144d:ac02]
+54:00.0 Non-Volatile memory controller [0108]: Samsung Electronics Co Ltd Device [144d:ac02]
+64:00.0 System peripheral [0880]: Intel Corporation Ice Lake Memory Map/VT-d [8086:09a2] (rev 03)
+64:00.1 System peripheral [0880]: Intel Corporation Ice Lake Mesh 2 PCIe [8086:09a4] (rev 03)
+64:00.2 System peripheral [0880]: Intel Corporation Ice Lake RAS [8086:09a3] (rev 03)
+64:00.4 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+64:02.0 PCI bridge [0604]: Intel Corporation Ice Lake PCI Express Root Port A [8086:347a]
+65:00.0 PCI bridge [0604]: Microchip Technology Device [11f8:4000]
+65:00.1 Memory controller [0580]: Microchip Technology Device [11f8:4000]
+66:00.0 PCI bridge [0604]: Microchip Technology Device [11f8:4000]
+66:01.0 PCI bridge [0604]: Microchip Technology Device [11f8:4000]
+66:02.0 PCI bridge [0604]: Microchip Technology Device [11f8:4000]
+66:03.0 PCI bridge [0604]: Microchip Technology Device [11f8:4000]
+66:04.0 PCI bridge [0604]: Microchip Technology Device [11f8:4000]
+66:05.0 PCI bridge [0604]: Microchip Technology Device [11f8:4000]
+66:06.0 PCI bridge [0604]: Microchip Technology Device [11f8:4000]
+66:07.0 PCI bridge [0604]: Microchip Technology Device [11f8:4000]
+67:00.0 Non-Volatile memory controller [0108]: Samsung Electronics Co Ltd Device [144d:ac02]
+68:00.0 Non-Volatile memory controller [0108]: Samsung Electronics Co Ltd Device [144d:ac02]
+69:00.0 Non-Volatile memory controller [0108]: Samsung Electronics Co Ltd Device [144d:ac02]
+6a:00.0 Non-Volatile memory controller [0108]: Samsung Electronics Co Ltd Device [144d:ac02]
+6b:00.0 Non-Volatile memory controller [0108]: Samsung Electronics Co Ltd Device [144d:ac02]
+6c:00.0 Non-Volatile memory controller [0108]: Samsung Electronics Co Ltd Device [144d:ac02]
+6d:00.0 Non-Volatile memory controller [0108]: Samsung Electronics Co Ltd Device [144d:ac02]
+6e:00.0 Non-Volatile memory controller [0108]: Samsung Electronics Co Ltd Device [144d:ac02]
+7e:00.0 System peripheral [0880]: Intel Corporation Ice Lake Ubox Registers [8086:3450]
+7e:00.1 System peripheral [0880]: Intel Corporation Ice Lake Ubox Registers [8086:3451]
+7e:00.2 System peripheral [0880]: Intel Corporation Ice Lake Ubox Registers [8086:3452]
+7e:00.3 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+7e:00.5 System peripheral [0880]: Intel Corporation Ice Lake Ubox Registers [8086:3455]
+7e:02.0 System peripheral [0880]: Intel Corporation Ice Lake UPI Misc [8086:3440]
+7e:02.1 System peripheral [0880]: Intel Corporation Ice Lake UPI Link/Phy0 [8086:3441]
+7e:02.2 System peripheral [0880]: Intel Corporation Ice Lake UPI Phy0 Registers [8086:3442]
+7e:03.0 System peripheral [0880]: Intel Corporation Ice Lake UPI Misc [8086:3440]
+7e:03.1 System peripheral [0880]: Intel Corporation Ice Lake UPI Link/Phy0 [8086:3441]
+7e:03.2 System peripheral [0880]: Intel Corporation Ice Lake UPI Phy0 Registers [8086:3442]
+7e:04.0 System peripheral [0880]: Intel Corporation Ice Lake UPI Misc [8086:3440]
+7e:04.1 System peripheral [0880]: Intel Corporation Ice Lake UPI Link/Phy0 [8086:3441]
+7e:04.2 System peripheral [0880]: Intel Corporation Ice Lake UPI Phy0 Registers [8086:3442]
+7e:04.3 System peripheral [0880]: Intel Corporation Device [8086:3443]
+7e:05.0 System peripheral [0880]: Intel Corporation Ice Lake UPI Mesh Stop Registers [8086:3445]
+7e:05.1 System peripheral [0880]: Intel Corporation Ice Lake UPI PMON0 Registers [8086:3446]
+7e:05.2 System peripheral [0880]: Intel Corporation Ice Lake UPI PMON1 Registers [8086:3447]
+7e:06.0 System peripheral [0880]: Intel Corporation Ice Lake UPI Mesh Stop Registers [8086:3445]
+7e:06.1 System peripheral [0880]: Intel Corporation Ice Lake UPI PMON0 Registers [8086:3446]
+7e:06.2 System peripheral [0880]: Intel Corporation Ice Lake UPI PMON1 Registers [8086:3447]
+7e:07.0 System peripheral [0880]: Intel Corporation Ice Lake UPI Mesh Stop Registers [8086:3445]
+7e:07.1 System peripheral [0880]: Intel Corporation Ice Lake UPI PMON0 Registers [8086:3446]
+7e:07.2 System peripheral [0880]: Intel Corporation Ice Lake UPI PMON1 Registers [8086:3447]
+7e:0b.0 System peripheral [0880]: Intel Corporation Ice Lake PCU Registers [8086:3448]
+7e:0b.1 System peripheral [0880]: Intel Corporation Ice Lake PCU Registers [8086:3448]
+7e:0b.2 System peripheral [0880]: Intel Corporation Ice Lake PCU Registers [8086:344b]
+7e:0c.0 Performance counters [1101]: Intel Corporation Ice Lake Integrated Memory Controller [8086:344a]
+7e:0d.0 Performance counters [1101]: Intel Corporation Ice Lake Integrated Memory Controller [8086:344a]
+7e:0e.0 Performance counters [1101]: Intel Corporation Ice Lake Integrated Memory Controller [8086:344a]
+7e:0f.0 Performance counters [1101]: Intel Corporation Ice Lake Integrated Memory Controller [8086:344a]
+7e:1a.0 Performance counters [1101]: Intel Corporation Ice Lake DDRIO Registers [8086:2880]
+7e:1b.0 Performance counters [1101]: Intel Corporation Ice Lake DDRIO Registers [8086:2880]
+7e:1c.0 Performance counters [1101]: Intel Corporation Ice Lake DDRIO Registers [8086:2880]
+7e:1d.0 Performance counters [1101]: Intel Corporation Ice Lake DDRIO Registers [8086:2880]
+7f:00.0 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:00.1 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:00.2 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:00.3 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:00.4 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:00.5 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:00.6 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:00.7 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:01.0 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:01.1 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:01.2 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:01.3 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:01.4 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:01.5 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:01.6 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:01.7 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:02.0 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:02.1 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:02.2 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:02.3 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:02.4 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:02.5 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:02.6 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:02.7 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:03.0 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:03.1 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:03.2 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:03.3 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:0a.0 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0a.1 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0a.2 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0a.3 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0a.4 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0a.5 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0a.6 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0a.7 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0b.0 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0b.1 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0b.2 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0b.3 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0b.4 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0b.5 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0b.6 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0b.7 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0c.0 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0c.1 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0c.2 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0c.3 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0c.4 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0c.5 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0c.6 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0c.7 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0d.0 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0d.1 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0d.2 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0d.3 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:1d.0 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344f]
+7f:1d.1 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:3457]
+7f:1e.0 System peripheral [0880]: Intel Corporation Ice Lake PCU Registers [8086:3458] (rev 04)
+7f:1e.1 System peripheral [0880]: Intel Corporation Ice Lake PCU Registers [8086:3459] (rev 04)
+7f:1e.2 System peripheral [0880]: Intel Corporation Ice Lake PCU Registers [8086:345a] (rev 04)
+7f:1e.3 System peripheral [0880]: Intel Corporation Ice Lake PCU Registers [8086:345b] (rev 04)
+7f:1e.4 System peripheral [0880]: Intel Corporation Ice Lake PCU Registers [8086:345c] (rev 04)
+7f:1e.5 System peripheral [0880]: Intel Corporation Ice Lake PCU Registers [8086:345d] (rev 04)
+7f:1e.6 System peripheral [0880]: Intel Corporation Ice Lake PCU Registers [8086:345e] (rev 04)
+7f:1e.7 System peripheral [0880]: Intel Corporation Device [8086:345f] (rev 04)
+80:00.0 System peripheral [0880]: Intel Corporation Ice Lake Memory Map/VT-d [8086:09a2] (rev 03)
+80:00.1 System peripheral [0880]: Intel Corporation Ice Lake Mesh 2 PCIe [8086:09a4] (rev 03)
+80:00.2 System peripheral [0880]: Intel Corporation Ice Lake RAS [8086:09a3] (rev 03)
+80:00.4 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+80:01.0 System peripheral [0880]: Intel Corporation Ice Lake CBDMA [QuickData Technology] [8086:0b00]
+80:01.1 System peripheral [0880]: Intel Corporation Ice Lake CBDMA [QuickData Technology] [8086:0b00]
+80:01.2 System peripheral [0880]: Intel Corporation Ice Lake CBDMA [QuickData Technology] [8086:0b00]
+80:01.3 System peripheral [0880]: Intel Corporation Ice Lake CBDMA [QuickData Technology] [8086:0b00]
+80:01.4 System peripheral [0880]: Intel Corporation Ice Lake CBDMA [QuickData Technology] [8086:0b00]
+80:01.5 System peripheral [0880]: Intel Corporation Ice Lake CBDMA [QuickData Technology] [8086:0b00]
+80:01.6 System peripheral [0880]: Intel Corporation Ice Lake CBDMA [QuickData Technology] [8086:0b00]
+80:01.7 System peripheral [0880]: Intel Corporation Ice Lake CBDMA [QuickData Technology] [8086:0b00]
+80:02.0 System peripheral [0880]: Intel Corporation Ice Lake MSM [8086:09a6]
+80:02.1 System peripheral [0880]: Intel Corporation Ice Lake PMON MSM [8086:09a7]
+80:02.2 System peripheral [0880]: Intel Corporation Device [8086:09a8]
+80:02.4 Non-Essential Instrumentation [1300]: Intel Corporation Ice Lake NorthPeak [8086:3456] (rev 01)
+97:00.0 System peripheral [0880]: Intel Corporation Ice Lake Memory Map/VT-d [8086:09a2] (rev 03)
+97:00.1 System peripheral [0880]: Intel Corporation Ice Lake Mesh 2 PCIe [8086:09a4] (rev 03)
+97:00.2 System peripheral [0880]: Intel Corporation Ice Lake RAS [8086:09a3] (rev 03)
+97:00.4 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+97:02.0 PCI bridge [0604]: Intel Corporation Ice Lake PCI Express Root Port A [8086:347a]
+98:00.0 Ethernet controller [0200]: Mellanox Technologies MT28800 Family [ConnectX-5 Ex] [15b3:1019]
+98:00.1 Ethernet controller [0200]: Mellanox Technologies MT28800 Family [ConnectX-5 Ex] [15b3:1019]
+b0:00.0 System peripheral [0880]: Intel Corporation Ice Lake Memory Map/VT-d [8086:09a2] (rev 03)
+b0:00.1 System peripheral [0880]: Intel Corporation Ice Lake Mesh 2 PCIe [8086:09a4] (rev 03)
+b0:00.2 System peripheral [0880]: Intel Corporation Ice Lake RAS [8086:09a3] (rev 03)
+b0:00.4 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+b0:02.0 PCI bridge [0604]: Intel Corporation Ice Lake PCI Express Root Port A [8086:347a]
+b1:00.0 Ethernet controller [0200]: Intel Corporation Ethernet Controller 10-Gigabit X540-AT2 [8086:1528] (rev 01)
+b1:00.1 Ethernet controller [0200]: Intel Corporation Ethernet Controller 10-Gigabit X540-AT2 [8086:1528] (rev 01)
+c9:00.0 System peripheral [0880]: Intel Corporation Ice Lake Memory Map/VT-d [8086:09a2] (rev 03)
+c9:00.1 System peripheral [0880]: Intel Corporation Ice Lake Mesh 2 PCIe [8086:09a4] (rev 03)
+c9:00.2 System peripheral [0880]: Intel Corporation Ice Lake RAS [8086:09a3] (rev 03)
+c9:00.4 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+c9:02.0 PCI bridge [0604]: Intel Corporation Ice Lake PCI Express Root Port A [8086:347a]
+ca:00.0 PCI bridge [0604]: Microchip Technology Device [11f8:4000]
+ca:00.1 Memory controller [0580]: Microchip Technology Device [11f8:4000]
+cb:00.0 PCI bridge [0604]: Microchip Technology Device [11f8:4000]
+cb:01.0 PCI bridge [0604]: Microchip Technology Device [11f8:4000]
+cb:02.0 PCI bridge [0604]: Microchip Technology Device [11f8:4000]
+cb:03.0 PCI bridge [0604]: Microchip Technology Device [11f8:4000]
+cb:04.0 PCI bridge [0604]: Microchip Technology Device [11f8:4000]
+cb:05.0 PCI bridge [0604]: Microchip Technology Device [11f8:4000]
+cb:06.0 PCI bridge [0604]: Microchip Technology Device [11f8:4000]
+cb:07.0 PCI bridge [0604]: Microchip Technology Device [11f8:4000]
+cc:00.0 Non-Volatile memory controller [0108]: Samsung Electronics Co Ltd Device [144d:ac02]
+cd:00.0 Non-Volatile memory controller [0108]: Samsung Electronics Co Ltd Device [144d:ac02]
+ce:00.0 Non-Volatile memory controller [0108]: Samsung Electronics Co Ltd Device [144d:ac02]
+cf:00.0 Non-Volatile memory controller [0108]: Samsung Electronics Co Ltd Device [144d:ac02]
+d0:00.0 Non-Volatile memory controller [0108]: Samsung Electronics Co Ltd Device [144d:ac02]
+d1:00.0 Non-Volatile memory controller [0108]: Samsung Electronics Co Ltd Device [144d:ac02]
+d2:00.0 Non-Volatile memory controller [0108]: Samsung Electronics Co Ltd Device [144d:ac02]
+d3:00.0 Non-Volatile memory controller [0108]: Samsung Electronics Co Ltd Device [144d:ac02]
+e2:00.0 System peripheral [0880]: Intel Corporation Ice Lake Memory Map/VT-d [8086:09a2] (rev 03)
+e2:00.1 System peripheral [0880]: Intel Corporation Ice Lake Mesh 2 PCIe [8086:09a4] (rev 03)
+e2:00.2 System peripheral [0880]: Intel Corporation Ice Lake RAS [8086:09a3] (rev 03)
+e2:00.4 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+e2:02.0 PCI bridge [0604]: Intel Corporation Ice Lake PCI Express Root Port A [8086:347a]
+e3:00.0 PCI bridge [0604]: Microchip Technology Device [11f8:4000]
+e3:00.1 Memory controller [0580]: Microchip Technology Device [11f8:4000]
+e4:00.0 PCI bridge [0604]: Microchip Technology Device [11f8:4000]
+e4:01.0 PCI bridge [0604]: Microchip Technology Device [11f8:4000]
+e4:02.0 PCI bridge [0604]: Microchip Technology Device [11f8:4000]
+e4:03.0 PCI bridge [0604]: Microchip Technology Device [11f8:4000]
+e4:04.0 PCI bridge [0604]: Microchip Technology Device [11f8:4000]
+e4:05.0 PCI bridge [0604]: Microchip Technology Device [11f8:4000]
+e4:06.0 PCI bridge [0604]: Microchip Technology Device [11f8:4000]
+e4:07.0 PCI bridge [0604]: Microchip Technology Device [11f8:4000]
+e5:00.0 Non-Volatile memory controller [0108]: Samsung Electronics Co Ltd Device [144d:ac02]
+e6:00.0 Non-Volatile memory controller [0108]: Samsung Electronics Co Ltd Device [144d:ac02]
+e7:00.0 Non-Volatile memory controller [0108]: Samsung Electronics Co Ltd Device [144d:ac02]
+e8:00.0 Non-Volatile memory controller [0108]: Samsung Electronics Co Ltd Device [144d:ac02]
+e9:00.0 Non-Volatile memory controller [0108]: Samsung Electronics Co Ltd Device [144d:ac02]
+ea:00.0 Non-Volatile memory controller [0108]: Samsung Electronics Co Ltd Device [144d:ac02]
+eb:00.0 Non-Volatile memory controller [0108]: Samsung Electronics Co Ltd Device [144d:ac02]
+ec:00.0 Non-Volatile memory controller [0108]: Samsung Electronics Co Ltd Device [144d:ac02]
+fe:00.0 System peripheral [0880]: Intel Corporation Ice Lake Ubox Registers [8086:3450]
+fe:00.1 System peripheral [0880]: Intel Corporation Ice Lake Ubox Registers [8086:3451]
+fe:00.2 System peripheral [0880]: Intel Corporation Ice Lake Ubox Registers [8086:3452]
+fe:00.3 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+fe:00.5 System peripheral [0880]: Intel Corporation Ice Lake Ubox Registers [8086:3455]
+fe:02.0 System peripheral [0880]: Intel Corporation Ice Lake UPI Misc [8086:3440]
+fe:02.1 System peripheral [0880]: Intel Corporation Ice Lake UPI Link/Phy0 [8086:3441]
+fe:02.2 System peripheral [0880]: Intel Corporation Ice Lake UPI Phy0 Registers [8086:3442]
+fe:03.0 System peripheral [0880]: Intel Corporation Ice Lake UPI Misc [8086:3440]
+fe:03.1 System peripheral [0880]: Intel Corporation Ice Lake UPI Link/Phy0 [8086:3441]
+fe:03.2 System peripheral [0880]: Intel Corporation Ice Lake UPI Phy0 Registers [8086:3442]
+fe:04.0 System peripheral [0880]: Intel Corporation Ice Lake UPI Misc [8086:3440]
+fe:04.1 System peripheral [0880]: Intel Corporation Ice Lake UPI Link/Phy0 [8086:3441]
+fe:04.2 System peripheral [0880]: Intel Corporation Ice Lake UPI Phy0 Registers [8086:3442]
+fe:04.3 System peripheral [0880]: Intel Corporation Device [8086:3443]
+fe:05.0 System peripheral [0880]: Intel Corporation Ice Lake UPI Mesh Stop Registers [8086:3445]
+fe:05.1 System peripheral [0880]: Intel Corporation Ice Lake UPI PMON0 Registers [8086:3446]
+fe:05.2 System peripheral [0880]: Intel Corporation Ice Lake UPI PMON1 Registers [8086:3447]
+fe:06.0 System peripheral [0880]: Intel Corporation Ice Lake UPI Mesh Stop Registers [8086:3445]
+fe:06.1 System peripheral [0880]: Intel Corporation Ice Lake UPI PMON0 Registers [8086:3446]
+fe:06.2 System peripheral [0880]: Intel Corporation Ice Lake UPI PMON1 Registers [8086:3447]
+fe:07.0 System peripheral [0880]: Intel Corporation Ice Lake UPI Mesh Stop Registers [8086:3445]
+fe:07.1 System peripheral [0880]: Intel Corporation Ice Lake UPI PMON0 Registers [8086:3446]
+fe:07.2 System peripheral [0880]: Intel Corporation Ice Lake UPI PMON1 Registers [8086:3447]
+fe:0b.0 System peripheral [0880]: Intel Corporation Ice Lake PCU Registers [8086:3448]
+fe:0b.1 System peripheral [0880]: Intel Corporation Ice Lake PCU Registers [8086:3448]
+fe:0b.2 System peripheral [0880]: Intel Corporation Ice Lake PCU Registers [8086:344b]
+fe:0c.0 Performance counters [1101]: Intel Corporation Ice Lake Integrated Memory Controller [8086:344a]
+fe:0d.0 Performance counters [1101]: Intel Corporation Ice Lake Integrated Memory Controller [8086:344a]
+fe:0e.0 Performance counters [1101]: Intel Corporation Ice Lake Integrated Memory Controller [8086:344a]
+fe:0f.0 Performance counters [1101]: Intel Corporation Ice Lake Integrated Memory Controller [8086:344a]
+fe:1a.0 Performance counters [1101]: Intel Corporation Ice Lake DDRIO Registers [8086:2880]
+fe:1b.0 Performance counters [1101]: Intel Corporation Ice Lake DDRIO Registers [8086:2880]
+fe:1c.0 Performance counters [1101]: Intel Corporation Ice Lake DDRIO Registers [8086:2880]
+fe:1d.0 Performance counters [1101]: Intel Corporation Ice Lake DDRIO Registers [8086:2880]
+ff:00.0 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:00.1 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:00.2 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:00.3 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:00.4 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:00.5 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:00.6 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:00.7 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:01.0 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:01.1 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:01.2 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:01.3 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:01.4 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:01.5 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:01.6 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:01.7 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:02.0 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:02.1 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:02.2 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:02.3 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:02.4 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:02.5 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:02.6 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:02.7 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:03.0 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:03.1 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:03.2 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:03.3 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:0a.0 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0a.1 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0a.2 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0a.3 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0a.4 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0a.5 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0a.6 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0a.7 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0b.0 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0b.1 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0b.2 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0b.3 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0b.4 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0b.5 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0b.6 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0b.7 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0c.0 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0c.1 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0c.2 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0c.3 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0c.4 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0c.5 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0c.6 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0c.7 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0d.0 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0d.1 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0d.2 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0d.3 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:1d.0 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344f]
+ff:1d.1 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:3457]
+ff:1e.0 System peripheral [0880]: Intel Corporation Ice Lake PCU Registers [8086:3458] (rev 04)
+ff:1e.1 System peripheral [0880]: Intel Corporation Ice Lake PCU Registers [8086:3459] (rev 04)
+ff:1e.2 System peripheral [0880]: Intel Corporation Ice Lake PCU Registers [8086:345a] (rev 04)
+ff:1e.3 System peripheral [0880]: Intel Corporation Ice Lake PCU Registers [8086:345b] (rev 04)
+ff:1e.4 System peripheral [0880]: Intel Corporation Ice Lake PCU Registers [8086:345c] (rev 04)
+ff:1e.5 System peripheral [0880]: Intel Corporation Ice Lake PCU Registers [8086:345d] (rev 04)
+ff:1e.6 System peripheral [0880]: Intel Corporation Ice Lake PCU Registers [8086:345e] (rev 04)
+ff:1e.7 System peripheral [0880]: Intel Corporation Device [8086:345f] (rev 04)
+
+### host bridges / IIO
+00:00.0 System peripheral [0880]: Intel Corporation Ice Lake Memory Map/VT-d [8086:09a2] (rev 03)
+00:00.1 System peripheral [0880]: Intel Corporation Ice Lake Mesh 2 PCIe [8086:09a4] (rev 03)
+00:00.2 System peripheral [0880]: Intel Corporation Ice Lake RAS [8086:09a3] (rev 03)
+00:00.4 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+00:01.0 System peripheral [0880]: Intel Corporation Ice Lake CBDMA [QuickData Technology] [8086:0b00]
+00:01.1 System peripheral [0880]: Intel Corporation Ice Lake CBDMA [QuickData Technology] [8086:0b00]
+00:01.2 System peripheral [0880]: Intel Corporation Ice Lake CBDMA [QuickData Technology] [8086:0b00]
+00:01.3 System peripheral [0880]: Intel Corporation Ice Lake CBDMA [QuickData Technology] [8086:0b00]
+00:01.4 System peripheral [0880]: Intel Corporation Ice Lake CBDMA [QuickData Technology] [8086:0b00]
+00:01.5 System peripheral [0880]: Intel Corporation Ice Lake CBDMA [QuickData Technology] [8086:0b00]
+00:01.6 System peripheral [0880]: Intel Corporation Ice Lake CBDMA [QuickData Technology] [8086:0b00]
+00:01.7 System peripheral [0880]: Intel Corporation Ice Lake CBDMA [QuickData Technology] [8086:0b00]
+00:02.0 System peripheral [0880]: Intel Corporation Ice Lake MSM [8086:09a6]
+00:02.1 System peripheral [0880]: Intel Corporation Ice Lake PMON MSM [8086:09a7]
+00:02.2 System peripheral [0880]: Intel Corporation Device [8086:09a8]
+16:00.0 System peripheral [0880]: Intel Corporation Ice Lake Memory Map/VT-d [8086:09a2] (rev 03)
+16:00.1 System peripheral [0880]: Intel Corporation Ice Lake Mesh 2 PCIe [8086:09a4] (rev 03)
+16:00.2 System peripheral [0880]: Intel Corporation Ice Lake RAS [8086:09a3] (rev 03)
+16:00.4 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+30:00.0 System peripheral [0880]: Intel Corporation Ice Lake Memory Map/VT-d [8086:09a2] (rev 03)
+30:00.1 System peripheral [0880]: Intel Corporation Ice Lake Mesh 2 PCIe [8086:09a4] (rev 03)
+30:00.2 System peripheral [0880]: Intel Corporation Ice Lake RAS [8086:09a3] (rev 03)
+30:00.4 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+4a:00.0 System peripheral [0880]: Intel Corporation Ice Lake Memory Map/VT-d [8086:09a2] (rev 03)
+4a:00.1 System peripheral [0880]: Intel Corporation Ice Lake Mesh 2 PCIe [8086:09a4] (rev 03)
+4a:00.2 System peripheral [0880]: Intel Corporation Ice Lake RAS [8086:09a3] (rev 03)
+4a:00.4 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+64:00.0 System peripheral [0880]: Intel Corporation Ice Lake Memory Map/VT-d [8086:09a2] (rev 03)
+64:00.1 System peripheral [0880]: Intel Corporation Ice Lake Mesh 2 PCIe [8086:09a4] (rev 03)
+64:00.2 System peripheral [0880]: Intel Corporation Ice Lake RAS [8086:09a3] (rev 03)
+64:00.4 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+7e:00.0 System peripheral [0880]: Intel Corporation Ice Lake Ubox Registers [8086:3450]
+7e:00.1 System peripheral [0880]: Intel Corporation Ice Lake Ubox Registers [8086:3451]
+7e:00.2 System peripheral [0880]: Intel Corporation Ice Lake Ubox Registers [8086:3452]
+7e:00.3 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+7e:00.5 System peripheral [0880]: Intel Corporation Ice Lake Ubox Registers [8086:3455]
+7e:02.0 System peripheral [0880]: Intel Corporation Ice Lake UPI Misc [8086:3440]
+7e:02.1 System peripheral [0880]: Intel Corporation Ice Lake UPI Link/Phy0 [8086:3441]
+7e:02.2 System peripheral [0880]: Intel Corporation Ice Lake UPI Phy0 Registers [8086:3442]
+7e:03.0 System peripheral [0880]: Intel Corporation Ice Lake UPI Misc [8086:3440]
+7e:03.1 System peripheral [0880]: Intel Corporation Ice Lake UPI Link/Phy0 [8086:3441]
+7e:03.2 System peripheral [0880]: Intel Corporation Ice Lake UPI Phy0 Registers [8086:3442]
+7e:04.0 System peripheral [0880]: Intel Corporation Ice Lake UPI Misc [8086:3440]
+7e:04.1 System peripheral [0880]: Intel Corporation Ice Lake UPI Link/Phy0 [8086:3441]
+7e:04.2 System peripheral [0880]: Intel Corporation Ice Lake UPI Phy0 Registers [8086:3442]
+7e:04.3 System peripheral [0880]: Intel Corporation Device [8086:3443]
+7e:05.0 System peripheral [0880]: Intel Corporation Ice Lake UPI Mesh Stop Registers [8086:3445]
+7e:05.1 System peripheral [0880]: Intel Corporation Ice Lake UPI PMON0 Registers [8086:3446]
+7e:05.2 System peripheral [0880]: Intel Corporation Ice Lake UPI PMON1 Registers [8086:3447]
+7e:06.0 System peripheral [0880]: Intel Corporation Ice Lake UPI Mesh Stop Registers [8086:3445]
+7e:06.1 System peripheral [0880]: Intel Corporation Ice Lake UPI PMON0 Registers [8086:3446]
+7e:06.2 System peripheral [0880]: Intel Corporation Ice Lake UPI PMON1 Registers [8086:3447]
+7e:07.0 System peripheral [0880]: Intel Corporation Ice Lake UPI Mesh Stop Registers [8086:3445]
+7e:07.1 System peripheral [0880]: Intel Corporation Ice Lake UPI PMON0 Registers [8086:3446]
+7e:07.2 System peripheral [0880]: Intel Corporation Ice Lake UPI PMON1 Registers [8086:3447]
+7e:0b.0 System peripheral [0880]: Intel Corporation Ice Lake PCU Registers [8086:3448]
+7e:0b.1 System peripheral [0880]: Intel Corporation Ice Lake PCU Registers [8086:3448]
+7e:0b.2 System peripheral [0880]: Intel Corporation Ice Lake PCU Registers [8086:344b]
+7f:00.0 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:00.1 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:00.2 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:00.3 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:00.4 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:00.5 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:00.6 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:00.7 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:01.0 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:01.1 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:01.2 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:01.3 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:01.4 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:01.5 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:01.6 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:01.7 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:02.0 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:02.1 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:02.2 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:02.3 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:02.4 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:02.5 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:02.6 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:02.7 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:03.0 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:03.1 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:03.2 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:03.3 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+7f:0a.0 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0a.1 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0a.2 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0a.3 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0a.4 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0a.5 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0a.6 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0a.7 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0b.0 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0b.1 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0b.2 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0b.3 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0b.4 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0b.5 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0b.6 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0b.7 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0c.0 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0c.1 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0c.2 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0c.3 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0c.4 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0c.5 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0c.6 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0c.7 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0d.0 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0d.1 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0d.2 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:0d.3 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+7f:1d.0 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344f]
+7f:1d.1 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:3457]
+7f:1e.0 System peripheral [0880]: Intel Corporation Ice Lake PCU Registers [8086:3458] (rev 04)
+7f:1e.1 System peripheral [0880]: Intel Corporation Ice Lake PCU Registers [8086:3459] (rev 04)
+7f:1e.2 System peripheral [0880]: Intel Corporation Ice Lake PCU Registers [8086:345a] (rev 04)
+7f:1e.3 System peripheral [0880]: Intel Corporation Ice Lake PCU Registers [8086:345b] (rev 04)
+7f:1e.4 System peripheral [0880]: Intel Corporation Ice Lake PCU Registers [8086:345c] (rev 04)
+7f:1e.5 System peripheral [0880]: Intel Corporation Ice Lake PCU Registers [8086:345d] (rev 04)
+7f:1e.6 System peripheral [0880]: Intel Corporation Ice Lake PCU Registers [8086:345e] (rev 04)
+7f:1e.7 System peripheral [0880]: Intel Corporation Device [8086:345f] (rev 04)
+80:00.0 System peripheral [0880]: Intel Corporation Ice Lake Memory Map/VT-d [8086:09a2] (rev 03)
+80:00.1 System peripheral [0880]: Intel Corporation Ice Lake Mesh 2 PCIe [8086:09a4] (rev 03)
+80:00.2 System peripheral [0880]: Intel Corporation Ice Lake RAS [8086:09a3] (rev 03)
+80:00.4 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+80:01.0 System peripheral [0880]: Intel Corporation Ice Lake CBDMA [QuickData Technology] [8086:0b00]
+80:01.1 System peripheral [0880]: Intel Corporation Ice Lake CBDMA [QuickData Technology] [8086:0b00]
+80:01.2 System peripheral [0880]: Intel Corporation Ice Lake CBDMA [QuickData Technology] [8086:0b00]
+80:01.3 System peripheral [0880]: Intel Corporation Ice Lake CBDMA [QuickData Technology] [8086:0b00]
+80:01.4 System peripheral [0880]: Intel Corporation Ice Lake CBDMA [QuickData Technology] [8086:0b00]
+80:01.5 System peripheral [0880]: Intel Corporation Ice Lake CBDMA [QuickData Technology] [8086:0b00]
+80:01.6 System peripheral [0880]: Intel Corporation Ice Lake CBDMA [QuickData Technology] [8086:0b00]
+80:01.7 System peripheral [0880]: Intel Corporation Ice Lake CBDMA [QuickData Technology] [8086:0b00]
+80:02.0 System peripheral [0880]: Intel Corporation Ice Lake MSM [8086:09a6]
+80:02.1 System peripheral [0880]: Intel Corporation Ice Lake PMON MSM [8086:09a7]
+80:02.2 System peripheral [0880]: Intel Corporation Device [8086:09a8]
+97:00.0 System peripheral [0880]: Intel Corporation Ice Lake Memory Map/VT-d [8086:09a2] (rev 03)
+97:00.1 System peripheral [0880]: Intel Corporation Ice Lake Mesh 2 PCIe [8086:09a4] (rev 03)
+97:00.2 System peripheral [0880]: Intel Corporation Ice Lake RAS [8086:09a3] (rev 03)
+97:00.4 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+b0:00.0 System peripheral [0880]: Intel Corporation Ice Lake Memory Map/VT-d [8086:09a2] (rev 03)
+b0:00.1 System peripheral [0880]: Intel Corporation Ice Lake Mesh 2 PCIe [8086:09a4] (rev 03)
+b0:00.2 System peripheral [0880]: Intel Corporation Ice Lake RAS [8086:09a3] (rev 03)
+b0:00.4 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+c9:00.0 System peripheral [0880]: Intel Corporation Ice Lake Memory Map/VT-d [8086:09a2] (rev 03)
+c9:00.1 System peripheral [0880]: Intel Corporation Ice Lake Mesh 2 PCIe [8086:09a4] (rev 03)
+c9:00.2 System peripheral [0880]: Intel Corporation Ice Lake RAS [8086:09a3] (rev 03)
+c9:00.4 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+e2:00.0 System peripheral [0880]: Intel Corporation Ice Lake Memory Map/VT-d [8086:09a2] (rev 03)
+e2:00.1 System peripheral [0880]: Intel Corporation Ice Lake Mesh 2 PCIe [8086:09a4] (rev 03)
+e2:00.2 System peripheral [0880]: Intel Corporation Ice Lake RAS [8086:09a3] (rev 03)
+e2:00.4 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+fe:00.0 System peripheral [0880]: Intel Corporation Ice Lake Ubox Registers [8086:3450]
+fe:00.1 System peripheral [0880]: Intel Corporation Ice Lake Ubox Registers [8086:3451]
+fe:00.2 System peripheral [0880]: Intel Corporation Ice Lake Ubox Registers [8086:3452]
+fe:00.3 Host bridge [0600]: Intel Corporation Ice Lake IEH [8086:0998]
+fe:00.5 System peripheral [0880]: Intel Corporation Ice Lake Ubox Registers [8086:3455]
+fe:02.0 System peripheral [0880]: Intel Corporation Ice Lake UPI Misc [8086:3440]
+fe:02.1 System peripheral [0880]: Intel Corporation Ice Lake UPI Link/Phy0 [8086:3441]
+fe:02.2 System peripheral [0880]: Intel Corporation Ice Lake UPI Phy0 Registers [8086:3442]
+fe:03.0 System peripheral [0880]: Intel Corporation Ice Lake UPI Misc [8086:3440]
+fe:03.1 System peripheral [0880]: Intel Corporation Ice Lake UPI Link/Phy0 [8086:3441]
+fe:03.2 System peripheral [0880]: Intel Corporation Ice Lake UPI Phy0 Registers [8086:3442]
+fe:04.0 System peripheral [0880]: Intel Corporation Ice Lake UPI Misc [8086:3440]
+fe:04.1 System peripheral [0880]: Intel Corporation Ice Lake UPI Link/Phy0 [8086:3441]
+fe:04.2 System peripheral [0880]: Intel Corporation Ice Lake UPI Phy0 Registers [8086:3442]
+fe:04.3 System peripheral [0880]: Intel Corporation Device [8086:3443]
+fe:05.0 System peripheral [0880]: Intel Corporation Ice Lake UPI Mesh Stop Registers [8086:3445]
+fe:05.1 System peripheral [0880]: Intel Corporation Ice Lake UPI PMON0 Registers [8086:3446]
+fe:05.2 System peripheral [0880]: Intel Corporation Ice Lake UPI PMON1 Registers [8086:3447]
+fe:06.0 System peripheral [0880]: Intel Corporation Ice Lake UPI Mesh Stop Registers [8086:3445]
+fe:06.1 System peripheral [0880]: Intel Corporation Ice Lake UPI PMON0 Registers [8086:3446]
+fe:06.2 System peripheral [0880]: Intel Corporation Ice Lake UPI PMON1 Registers [8086:3447]
+fe:07.0 System peripheral [0880]: Intel Corporation Ice Lake UPI Mesh Stop Registers [8086:3445]
+fe:07.1 System peripheral [0880]: Intel Corporation Ice Lake UPI PMON0 Registers [8086:3446]
+fe:07.2 System peripheral [0880]: Intel Corporation Ice Lake UPI PMON1 Registers [8086:3447]
+fe:0b.0 System peripheral [0880]: Intel Corporation Ice Lake PCU Registers [8086:3448]
+fe:0b.1 System peripheral [0880]: Intel Corporation Ice Lake PCU Registers [8086:3448]
+fe:0b.2 System peripheral [0880]: Intel Corporation Ice Lake PCU Registers [8086:344b]
+ff:00.0 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:00.1 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:00.2 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:00.3 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:00.4 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:00.5 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:00.6 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:00.7 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:01.0 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:01.1 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:01.2 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:01.3 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:01.4 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:01.5 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:01.6 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:01.7 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:02.0 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:02.1 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:02.2 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:02.3 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:02.4 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:02.5 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:02.6 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:02.7 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:03.0 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:03.1 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:03.2 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:03.3 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344c]
+ff:0a.0 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0a.1 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0a.2 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0a.3 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0a.4 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0a.5 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0a.6 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0a.7 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0b.0 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0b.1 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0b.2 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0b.3 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0b.4 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0b.5 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0b.6 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0b.7 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0c.0 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0c.1 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0c.2 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0c.3 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0c.4 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0c.5 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0c.6 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0c.7 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0d.0 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0d.1 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0d.2 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:0d.3 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344d]
+ff:1d.0 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:344f]
+ff:1d.1 System peripheral [0880]: Intel Corporation Ice Lake CHA Registers [8086:3457]
+ff:1e.0 System peripheral [0880]: Intel Corporation Ice Lake PCU Registers [8086:3458] (rev 04)
+ff:1e.1 System peripheral [0880]: Intel Corporation Ice Lake PCU Registers [8086:3459] (rev 04)
+ff:1e.2 System peripheral [0880]: Intel Corporation Ice Lake PCU Registers [8086:345a] (rev 04)
+ff:1e.3 System peripheral [0880]: Intel Corporation Ice Lake PCU Registers [8086:345b] (rev 04)
+ff:1e.4 System peripheral [0880]: Intel Corporation Ice Lake PCU Registers [8086:345c] (rev 04)
+ff:1e.5 System peripheral [0880]: Intel Corporation Ice Lake PCU Registers [8086:345d] (rev 04)
+ff:1e.6 System peripheral [0880]: Intel Corporation Ice Lake PCU Registers [8086:345e] (rev 04)
+ff:1e.7 System peripheral [0880]: Intel Corporation Device [8086:345f] (rev 04)
+
+### GPU path
+/sys/devices/pci0000:30/0000:30:02.0/0000:31:00.0
+### GPU root port 30:02.0 ACS/Lnk
+		DevCap:	MaxPayload 128 bytes, PhantFunc 0
+		LnkCap:	Port #5, Speed 16GT/s, Width x16, ASPM not supported
+		LnkSta:	Speed 2.5GT/s, Width x16
+		ACSCap:	SrcValid+ TransBlk+ ReqRedir+ CmpltRedir+ UpstreamFwd+ EgressCtrl- DirectTrans-
+		ACSCtl:	SrcValid+ TransBlk- ReqRedir+ CmpltRedir+ UpstreamFwd+ EgressCtrl- DirectTrans-
+### candidate RP 4c:01.0 ACS
+		ACSCap:	SrcValid+ TransBlk+ ReqRedir+ CmpltRedir+ UpstreamFwd+ EgressCtrl+ DirectTrans+
+		ACSCtl:	SrcValid+ TransBlk- ReqRedir+ CmpltRedir+ UpstreamFwd+ EgressCtrl- DirectTrans-
+### NVMe 4e BDF
+4e:00.0 Non-Volatile memory controller [0108]: Samsung Electronics Co Ltd Device [144d:ac02]

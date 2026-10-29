@@ -1,0 +1,8 @@
+
+
+WARNING: Detected GRUB environment block on lvm device
+Advanced options for Ubuntu>Ubuntu, with Linux 7.0.0-rc1-pal+ will remain the default boot entry until manually cleared with:
+    grub-editenv /boot/grub/grubenv unset next_entry
+
+rc=0
+grubenv: [next_entry=Advanced options for Ubuntu>Ubuntu, with Linux 7.0.0-rc1-pal+]

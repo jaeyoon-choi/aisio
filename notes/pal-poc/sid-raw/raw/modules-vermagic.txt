@@ -1,0 +1,12 @@
+nvidia-pal/nvidia.ko: 7.0.0-rc1-pal+ SMP preempt mod_unload modversions 
+nvidia-pal/nvidia-uvm.ko: 7.0.0-rc1-pal+ SMP preempt mod_unload modversions 
+nvidia-pal/nvidia-modeset.ko: 7.0.0-rc1-pal+ SMP preempt mod_unload modversions 
+nvidia-pal/nvidia-drm.ko: 7.0.0-rc1-pal+ SMP preempt mod_unload modversions 
+upcie-pal/dmabuf_import/dmabuf_import.ko: 7.0.0-rc1-pal+ SMP preempt mod_unload modversions 
+upcie-pal/iommu_map_pa/iommu_map_pa.ko: 7.0.0-rc1-pal+ SMP preempt mod_unload modversions 
+
+### kernelrelease
+7.0.0-rc1-pal+
+### vmlinux size
+-rw-r--r-- 1 root root  15249600 Oct 14 09:14 arch/x86/boot/bzImage
+-rwxr-xr-x 1 root root 475960848 Oct 14 09:14 vmlinux

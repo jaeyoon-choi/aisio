@@ -1,0 +1,38 @@
+
+== initrd 7.0.0-rc1-pal+: sample .ko entries ==
+usr/lib/modules/7.0.0-rc1-pal+/extra/dmabuf_import.ko
+usr/lib/modules/7.0.0-rc1-pal+/extra/iommu_map_pa.ko
+usr/lib/modules/7.0.0-rc1-pal+/kernel/arch/x86/crypto/aesni-intel.ko
+usr/lib/modules/7.0.0-rc1-pal+/kernel/arch/x86/crypto/ghash-clmulni-intel.ko
+usr/lib/modules/7.0.0-rc1-pal+/kernel/arch/x86/kernel/msr.ko
+usr/lib/modules/7.0.0-rc1-pal+/kernel/crypto/af_alg.ko
+== dm/lvm/md entries in new initrd ==
+etc/cmdline.d/20-lvm.conf
+etc/lvm
+etc/lvm/lvm.conf
+etc/lvm/lvmlocal.conf
+etc/udev/rules.d/64-lvm.rules
+usr/lib/modules/7.0.0-rc1-pal+/kernel/drivers/md/dm-log.ko
+usr/lib/modules/7.0.0-rc1-pal+/kernel/drivers/md/dm-mirror.ko
+usr/lib/modules/7.0.0-rc1-pal+/kernel/drivers/md/dm-multipath.ko
+usr/lib/modules/7.0.0-rc1-pal+/kernel/drivers/md/dm-region-hash.ko
+usr/lib/modules/7.0.0-rc1-pal+/kernel/drivers/md/dm-round-robin.ko
+usr/lib/systemd/system/initrd-udevadm-cleanup-db.service
+usr/lib/udev/rules.d/56-lvm.rules
+usr/lib/udev/rules.d/95-dm-notify.rules
+usr/sbin/lvm
+usr/sbin/lvm_scan
+== initramfs generator ==
+/usr/sbin/update-initramfs
+dracut 110-11ubuntu0.1
+dracut-core 110-11ubuntu0.1
+dracut-install 110-11ubuntu0.1
+dracut-network 110-11ubuntu0.1
+initramfs-tools-bin 0.151ubuntu1
+initramfs-tools-core 0.151ubuntu1
+== baseline: running kernel initrd ==
+-rw------- 1 root root 150734834 Sep 25 06:04 /boot/initrd.img-7.0.0-34-generic
+dm count=0
+== dracut conf ==
+== root fs ==
+/dev/mapper/vg0-lv--0 ext4

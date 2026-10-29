@@ -1,0 +1,6 @@
+
+4a56fdb6b8ef905b34f49d3e8cc2adeb  /root/pal-poc/followup/followup-run.sh
+7:#      ORDER ("pal pa host": bench path order), SETTLE (30 s after the fill)
+17:ORDER=${ORDER:-"pal pa host"}
+18:SETTLE=${SETTLE:-30}
+36:echo "== $(date) $(uname -r) bdf=$BDF slba=$SLBA secs=$SECS span=$SPAN xfer_big=$XFER_BIG wr=$WR order=$ORDER"

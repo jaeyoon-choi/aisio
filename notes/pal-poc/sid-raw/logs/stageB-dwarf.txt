@@ -1,0 +1,53 @@
+
+== dwarf.h present? ==
+ls: cannot access '/usr/include/dwarf.h': No such file or directory
+ls: cannot access '/usr/include/elfutils/dwarf.h': No such file or directory
+ls: cannot access '/usr/include/libdwarf*.h': No such file or directory
+== libdw libs ==
+/usr/lib/x86_64-linux-gnu/libdw-0.194.so
+/usr/lib/x86_64-linux-gnu/libdw.so.1
+/usr/lib/x86_64-linux-gnu/libdwarves.so.1
+/usr/lib/x86_64-linux-gnu/libdwarves.so.1.0.0
+/usr/lib/x86_64-linux-gnu/libdwarves_emit.so.1
+/usr/lib/x86_64-linux-gnu/libdwarves_emit.so.1.0.0
+/usr/lib/x86_64-linux-gnu/libdwarves_reorganize.so.1
+/usr/lib/x86_64-linux-gnu/libdwarves_reorganize.so.1.0.0
+== dpkg -S dwarf.h ==
+linux-headers-7.0.0-30: /usr/src/linux-headers-7.0.0-30/arch/arc/include/asm/dwarf.h
+linux-headers-7.0.0-34: /usr/src/linux-headers-7.0.0-34/arch/arc/include/asm/dwarf.h
+linux-headers-7.0.0-38: /usr/src/linux-headers-7.0.0-38/arch/s390/include/asm/dwarf.h
+linux-headers-7.0.0-30: /usr/src/linux-headers-7.0.0-30/arch/parisc/include/asm/dwarf.h
+linux-headers-7.0.0-38: /usr/src/linux-headers-7.0.0-38/arch/arc/include/asm/dwarf.h
+linux-headers-7.0.0-34: /usr/src/linux-headers-7.0.0-34/arch/s390/include/asm/dwarf.h
+linux-headers-7.0.0-38: /usr/src/linux-headers-7.0.0-38/arch/sh/include/asm/dwarf.h
+linux-headers-7.0.0-30: /usr/src/linux-headers-7.0.0-30/arch/s390/include/asm/dwarf.h
+linux-headers-7.0.0-34: /usr/src/linux-headers-7.0.0-34/arch/sh/include/asm/dwarf.h
+linux-headers-7.0.0-38: /usr/src/linux-headers-7.0.0-38/arch/parisc/include/asm/dwarf.h
+== apt policy ==
+libdw-dev:
+  Installed: (none)
+  Candidate: 0.194-4
+libdwarf-dev:
+  Installed: (none)
+  Candidate: 1:0.11.1-1build1
+== gendwarfksyms Makefile ==
+2:hostprogs-always-y += gendwarfksyms
+4:gendwarfksyms-objs += gendwarfksyms.o
+5:gendwarfksyms-objs += cache.o
+6:gendwarfksyms-objs += die.o
+7:gendwarfksyms-objs += dwarf.o
+8:gendwarfksyms-objs += kabi.o
+9:gendwarfksyms-objs += symbols.o
+10:gendwarfksyms-objs += types.o
+12:HOSTLDLIBS_gendwarfksyms := -ldw -lelf -lz
+== needed config ==
+CONFIG_MODULE_SIG_FORMAT=y
+CONFIG_MODVERSIONS=y
+CONFIG_MODULE_SIG=y
+CONFIG_MODULE_SIG_ALL=y
+CONFIG_MODULE_SIG_SHA512=y
+CONFIG_MODULE_SIG_HASH="sha512"
+CONFIG_DRM=y
+CONFIG_DRM_KMS_HELPER=y
+CONFIG_DRM_DRAW=y
+CONFIG_DRM_PANIC=y

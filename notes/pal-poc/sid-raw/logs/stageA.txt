@@ -1,0 +1,70 @@
+
+== A0 stock iommufd refuses the NVIDIA dma-buf
+cuda: dptr=0x7efeb0000000 size=1073741824 dmabuf_fd=34
+iommufd: ioas_id=1
+IOMMU_IOAS_MAP_FILE: FAILED errno=95 (Operation not supported)
+A0 rc=3
+== A1 untranslated (identity IOMMU + uio)
+driver uio_pci_generic, group type identity, cmd 0406, hugepages 64
+identity-uio rc=0
+-- A1 64K
+dmabuf_import: 16384 entries, first pa 0x20a031e00000, contiguous 1024 MiB
+uio: 0000:4e:00.0 bar0 via sysfs, host pa 0x225fc00000, gpu pa 0x20a031e00000 (no translation)
+nvme: CAP mqes=1024 dstrd=0 timeout=55000 ms VS=0x20100
+nvme: controller enabled
+nvme: ns1 lba_size=512 nsze=30001856512
+nvme: io queue pair 1 created (depth 64)
+test LBAs: 0 .. 383 (overwritten)
+C1 write LBA0 from host: OK
+C1 read LBA0 into GPU iova: OK
+C1 compare: MATCH (65536 bytes)
+C2 write LBA16 from GPU iova: OK
+C2 read LBA16 into host: OK
+C2 compare: MATCH (65536 bytes)
+result: PASS (0 failure(s))
+rc=0
+-- A1 4K
+dmabuf_import: 16384 entries, first pa 0x20a031e00000, contiguous 1024 MiB
+uio: 0000:4e:00.0 bar0 via sysfs, host pa 0x225fc00000, gpu pa 0x20a031e00000 (no translation)
+nvme: CAP mqes=1024 dstrd=0 timeout=55000 ms VS=0x20100
+nvme: controller enabled
+nvme: ns1 lba_size=512 nsze=30001856512
+nvme: io queue pair 1 created (depth 64)
+test LBAs: 0 .. 23 (overwritten)
+C1 write LBA0 from host: OK
+C1 read LBA0 into GPU iova: OK
+C1 compare: MATCH (4096 bytes)
+C2 write LBA16 from GPU iova: OK
+C2 read LBA16 into host: OK
+C2 compare: MATCH (4096 bytes)
+result: PASS (0 failure(s))
+rc=0
+== A2 cpu read through BAR1
+bar1 base 0x20a000000000, buffer pa 0x20a031e00000, offset 0x31e00000
+CPU read through BAR1: MATCH
+first bytes got 03 0a 11 18 want 03 0a 11 18
+A2 rc=0
+== restore
+driver nvme, group type DMA-FQ
+restore rc=0
+== dmesg
+[    6.956530] pcieport 0000:97:02.0: PME: Signaling with IRQ 152
+[    6.956910] pcieport 0000:b0:02.0: PME: Signaling with IRQ 153
+[    6.957115] pcieport 0000:c9:02.0: PME: Signaling with IRQ 154
+[    6.959744] pcieport 0000:cb:00.0: pciehp: Slot #1 AttnBtn- PwrCtrl- MRL- AttnInd- PwrInd- HotPlug+ Surprise+ Interlock- NoCompl+ IbPresDis- LLActRep+
+[    6.962319] pcieport 0000:cb:01.0: pciehp: Slot #2 AttnBtn- PwrCtrl- MRL- AttnInd- PwrInd- HotPlug+ Surprise+ Interlock- NoCompl+ IbPresDis- LLActRep+
+[    6.964993] pcieport 0000:cb:02.0: pciehp: Slot #3 AttnBtn- PwrCtrl- MRL- AttnInd- PwrInd- HotPlug+ Surprise+ Interlock- NoCompl+ IbPresDis- LLActRep+
+[    6.967696] pcieport 0000:cb:03.0: pciehp: Slot #4 AttnBtn- PwrCtrl- MRL- AttnInd- PwrInd- HotPlug+ Surprise+ Interlock- NoCompl+ IbPresDis- LLActRep+
+[    6.970394] pcieport 0000:cb:04.0: pciehp: Slot #5 AttnBtn- PwrCtrl- MRL- AttnInd- PwrInd- HotPlug+ Surprise+ Interlock- NoCompl+ IbPresDis- LLActRep+
+[    6.973067] pcieport 0000:cb:05.0: pciehp: Slot #6 AttnBtn- PwrCtrl- MRL- AttnInd- PwrInd- HotPlug+ Surprise+ Interlock- NoCompl+ IbPresDis- LLActRep+
+[    6.975779] pcieport 0000:cb:06.0: pciehp: Slot #7 AttnBtn- PwrCtrl- MRL- AttnInd- PwrInd- HotPlug+ Surprise+ Interlock- NoCompl+ IbPresDis- LLActRep+
+[    6.978469] pcieport 0000:cb:07.0: pciehp: Slot #8 AttnBtn- PwrCtrl- MRL- AttnInd- PwrInd- HotPlug+ Surprise+ Interlock- NoCompl+ IbPresDis- LLActRep+
+[    6.980386] pcieport 0000:e2:02.0: PME: Signaling with IRQ 163
+[    6.983033] pcieport 0000:e4:00.0: pciehp: Slot #1 AttnBtn- PwrCtrl- MRL- AttnInd- PwrInd- HotPlug+ Surprise+ Interlock- NoCompl+ IbPresDis- LLActRep+
+[    6.985603] pcieport 0000:e4:01.0: pciehp: Slot #2 AttnBtn- PwrCtrl- MRL- AttnInd- PwrInd- HotPlug+ Surprise+ Interlock- NoCompl+ IbPresDis- LLActRep+
+[    6.988283] pcieport 0000:e4:02.0: pciehp: Slot #3 AttnBtn- PwrCtrl- MRL- AttnInd- PwrInd- HotPlug+ Surprise+ Interlock- NoCompl+ IbPresDis- LLActRep+
+[    6.990976] pcieport 0000:e4:03.0: pciehp: Slot #4 AttnBtn- PwrCtrl- MRL- AttnInd- PwrInd- HotPlug+ Surprise+ Interlock- NoCompl+ IbPresDis- LLActRep+
+[    6.993670] pcieport 0000:e4:04.0: pciehp: Slot #5 AttnBtn- PwrCtrl- MRL- AttnInd- PwrInd- HotPlug+ Surprise+ Interlock- NoCompl+ IbPresDis- LLActRep+
+[    6.996358] pcieport 0000:e4:05.0: pciehp: Slot #6 AttnBtn- PwrCtrl- MRL- AttnInd- PwrInd- HotPlug+ Surprise+ Interlock- NoCompl+ IbPresDis- LLActRep+
+[    6.999051] pcieport 0000:e4:06.0: pciehp: Slot #7 AttnBtn- PwrCtrl- MRL- AttnInd- PwrInd- HotPlug+ Surprise+ Interlock- NoCompl+ IbPresDis- LLActRep+
+[    7.001742] pcieport 0000:e4:07.0: pciehp: Slot #8 AttnBtn- PwrCtrl- MRL- AttnInd- PwrInd- HotPlug+ Surprise+ Interlock- NoCompl+ IbPresDis- LLActRep+

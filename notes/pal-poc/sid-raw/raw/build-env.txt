@@ -1,0 +1,7 @@
+gcc   : gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0
+make  : GNU Make 4.4.1
+nvcc  : Build cuda_13.3.r13.3/compiler.38244171_0
+cuda.h: #define CUDA_VERSION 13030
+nproc : 96
+mem   : 247G
+dkms  : nvidia/580.178.04, 7.0.0-34-generic, x86_64: installed|nvidia/580.178.04, 7.0.0-38-generic, x86_64: installed|nvidia-fs/2.29.4, 7.0.0-34-generic, x86_64: installed|nvidia-fs/2.29.4, 7.0.0-38-generic, x86_64: installed|upcie-experimental/0.9.0, 7.0.0-34-generic, x86_64: installed|upcie-experimental/0.9.0, 7.0.0-38-generic, x86_64: installed|

@@ -1,0 +1,92 @@
+Oct 13 18:13:02 jaeyoon-pc kernel: ACPI: DMAR 0x000000003230B000 000088 (v01 INTEL  EDK2     00000002      01000013)
+Oct 13 18:13:02 jaeyoon-pc kernel: ACPI: Reserving DMAR table memory at [mem 0x3230b000-0x3230b087]
+Oct 13 18:13:02 jaeyoon-pc kernel: DMAR: IOMMU enabled
+Oct 13 18:13:02 jaeyoon-pc kernel: DMAR: Host address width 39
+Oct 13 18:13:02 jaeyoon-pc kernel: DMAR: DRHD base: 0x000000fed90000 flags: 0x0
+Oct 13 18:13:02 jaeyoon-pc kernel: DMAR: dmar0: reg_base_addr fed90000 ver 4:0 cap 1c0000c40660462 ecap 29a00f0505e
+Oct 13 18:13:02 jaeyoon-pc kernel: DMAR: DRHD base: 0x000000fed91000 flags: 0x1
+Oct 13 18:13:02 jaeyoon-pc kernel: DMAR: dmar1: reg_base_addr fed91000 ver 5:0 cap d2008c40660462 ecap f050da
+Oct 13 18:13:02 jaeyoon-pc kernel: DMAR: RMRR base: 0x0000003c000000 end: 0x000000407fffff
+Oct 13 18:13:02 jaeyoon-pc kernel: DMAR-IR: IOAPIC id 2 under DRHD base  0xfed91000 IOMMU 1
+Oct 13 18:13:02 jaeyoon-pc kernel: DMAR-IR: HPET id 0 under DRHD base 0xfed91000
+Oct 13 18:13:02 jaeyoon-pc kernel: DMAR-IR: Queued invalidation will be enabled to support x2apic and Intr-remapping.
+Oct 13 18:13:02 jaeyoon-pc kernel: DMAR-IR: Enabled IRQ remapping in x2apic mode
+Oct 13 18:13:02 jaeyoon-pc kernel: pci 0000:00:02.0: DMAR: Skip IOMMU disabling for graphics
+Oct 13 18:13:02 jaeyoon-pc kernel: DMAR: No ATSR found
+Oct 13 18:13:02 jaeyoon-pc kernel: DMAR: No SATC found
+Oct 13 18:13:02 jaeyoon-pc kernel: DMAR: dmar0: Using Queued invalidation
+Oct 13 18:13:02 jaeyoon-pc kernel: DMAR: dmar1: Using Queued invalidation
+Oct 13 18:13:02 jaeyoon-pc kernel: DMAR: Intel(R) Virtualization Technology for Directed I/O
+Oct 13 18:20:44 jaeyoon-pc kernel: nvidia 0000:01:00.0: added peer-to-peer DMA memory 0x4800000000-0x4fffffffff
+Oct 13 18:21:15 jaeyoon-pc kernel: nvidia 0000:01:00.0: added peer-to-peer DMA memory 0x4800000000-0x4fffffffff
+Oct 13 18:24:22 jaeyoon-pc kernel: nvidia 0000:01:00.0: added peer-to-peer DMA memory 0x4800000000-0x4fffffffff
+Oct 13 18:24:22 jaeyoon-pc kernel: DMAR: DRHD: handling fault status reg 3
+Oct 13 18:24:22 jaeyoon-pc kernel: DMAR: [DMA Write NO_PASID] Request device [02:00.0] fault addr 0x80400000 [fault reason 0x05] PTE Write access is not set
+Oct 13 18:24:22 jaeyoon-pc kernel: DMAR: Dump dmar1 table entries for IOVA 0x80400000
+Oct 13 18:24:22 jaeyoon-pc kernel: DMAR: root entry: 0x00000001079d8001
+Oct 13 18:24:22 jaeyoon-pc kernel: DMAR: context entry: hi 0x0000000000001502, low 0x0000000107ab7001
+Oct 13 18:24:22 jaeyoon-pc kernel: DMAR: pte level: 4, pte value: 0x0000000337412403
+Oct 13 18:24:22 jaeyoon-pc kernel: DMAR: pte level: 3, pte value: 0x0000000000000000
+Oct 13 18:24:22 jaeyoon-pc kernel: DMAR: page table not present at level 2
+Oct 13 18:24:22 jaeyoon-pc kernel: DMAR: DRHD: handling fault status reg 3
+Oct 13 18:24:22 jaeyoon-pc kernel: DMAR: [DMA Write NO_PASID] Request device [02:00.0] fault addr 0x8040c000 [fault reason 0x05] PTE Write access is not set
+Oct 13 18:24:22 jaeyoon-pc kernel: DMAR: Dump dmar1 table entries for IOVA 0x8040c000
+Oct 13 18:24:22 jaeyoon-pc kernel: DMAR: root entry: 0x00000001079d8001
+Oct 13 18:24:22 jaeyoon-pc kernel: DMAR: context entry: hi 0x0000000000001502, low 0x0000000107ab7001
+Oct 13 18:24:22 jaeyoon-pc kernel: DMAR: pte level: 4, pte value: 0x0000000337412403
+Oct 13 18:24:22 jaeyoon-pc kernel: DMAR: pte level: 3, pte value: 0x0000000000000000
+Oct 13 18:24:22 jaeyoon-pc kernel: DMAR: page table not present at level 2
+Oct 13 18:25:25 jaeyoon-pc kernel: nvidia 0000:01:00.0: added peer-to-peer DMA memory 0x4800000000-0x4fffffffff
+Oct 13 18:25:26 jaeyoon-pc kernel: DMAR: DRHD: handling fault status reg 3
+Oct 13 18:25:26 jaeyoon-pc kernel: DMAR: [DMA Read NO_PASID] Request device [02:00.0] fault addr 0x80400000 [fault reason 0x06] PTE Read access is not set
+Oct 13 18:25:26 jaeyoon-pc kernel: DMAR: Dump dmar1 table entries for IOVA 0x80400000
+Oct 13 18:25:26 jaeyoon-pc kernel: DMAR: root entry: 0x00000001079d8001
+Oct 13 18:25:26 jaeyoon-pc kernel: DMAR: context entry: hi 0x0000000000001502, low 0x00000004445f2001
+Oct 13 18:25:26 jaeyoon-pc kernel: DMAR: pte level: 4, pte value: 0x00000003138ea403
+Oct 13 18:25:26 jaeyoon-pc kernel: DMAR: pte level: 3, pte value: 0x0000000000000000
+Oct 13 18:25:26 jaeyoon-pc kernel: DMAR: page table not present at level 2
+Oct 13 18:25:26 jaeyoon-pc kernel: nvidia 0000:01:00.0: added peer-to-peer DMA memory 0x4800000000-0x4fffffffff
+Oct 13 18:25:26 jaeyoon-pc kernel: DMAR: DRHD: handling fault status reg 3
+Oct 13 18:25:26 jaeyoon-pc kernel: DMAR: [DMA Read NO_PASID] Request device [02:00.0] fault addr 0x80400000 [fault reason 0x06] PTE Read access is not set
+Oct 13 18:25:26 jaeyoon-pc kernel: DMAR: Dump dmar1 table entries for IOVA 0x80400000
+Oct 13 18:25:26 jaeyoon-pc kernel: DMAR: root entry: 0x00000001079d8001
+Oct 13 18:25:26 jaeyoon-pc kernel: DMAR: context entry: hi 0x0000000000001502, low 0x00000004249e8001
+Oct 13 18:25:26 jaeyoon-pc kernel: DMAR: pte level: 4, pte value: 0x0000000446904403
+Oct 13 18:25:26 jaeyoon-pc kernel: DMAR: pte level: 3, pte value: 0x0000000000000000
+Oct 13 18:25:26 jaeyoon-pc kernel: DMAR: page table not present at level 2
+Oct 13 18:25:26 jaeyoon-pc kernel: DMAR: DRHD: handling fault status reg 3
+Oct 13 18:25:26 jaeyoon-pc kernel: DMAR: [DMA Write NO_PASID] Request device [02:00.0] fault addr 0x80400000 [fault reason 0x05] PTE Write access is not set
+Oct 13 18:25:26 jaeyoon-pc kernel: DMAR: Dump dmar1 table entries for IOVA 0x80400000
+Oct 13 18:25:26 jaeyoon-pc kernel: DMAR: root entry: 0x00000001079d8001
+Oct 13 18:25:26 jaeyoon-pc kernel: DMAR: context entry: hi 0x0000000000001502, low 0x00000004249e8001
+Oct 13 18:25:26 jaeyoon-pc kernel: DMAR: pte level: 4, pte value: 0x0000000446904403
+Oct 13 18:25:26 jaeyoon-pc kernel: DMAR: pte level: 3, pte value: 0x0000000000000000
+Oct 13 18:25:26 jaeyoon-pc kernel: DMAR: page table not present at level 2
+Oct 13 18:25:26 jaeyoon-pc kernel: DMAR: DRHD: handling fault status reg 3
+Oct 13 18:27:49 jaeyoon-pc kernel: nvidia 0000:01:00.0: added peer-to-peer DMA memory 0x4800000000-0x4fffffffff
+Oct 13 18:27:49 jaeyoon-pc kernel: nvidia 0000:01:00.0: added peer-to-peer DMA memory 0x4800000000-0x4fffffffff
+Oct 13 18:27:50 jaeyoon-pc kernel: DMAR: DRHD: handling fault status reg 3
+Oct 13 18:27:50 jaeyoon-pc kernel: DMAR: [DMA Read NO_PASID] Request device [02:00.0] fault addr 0x80400000 [fault reason 0x06] PTE Read access is not set
+Oct 13 18:27:50 jaeyoon-pc kernel: DMAR: Dump dmar1 table entries for IOVA 0x80400000
+Oct 13 18:27:50 jaeyoon-pc kernel: DMAR: root entry: 0x00000001079d8001
+Oct 13 18:27:50 jaeyoon-pc kernel: DMAR: context entry: hi 0x0000000000001502, low 0x000000058b1e8001
+Oct 13 18:27:50 jaeyoon-pc kernel: DMAR: pte level: 4, pte value: 0x000000058b1ea403
+Oct 13 18:27:50 jaeyoon-pc kernel: DMAR: pte level: 3, pte value: 0x0000000000000000
+Oct 13 18:27:50 jaeyoon-pc kernel: DMAR: page table not present at level 2
+Oct 13 18:27:50 jaeyoon-pc kernel: nvidia 0000:01:00.0: added peer-to-peer DMA memory 0x4800000000-0x4fffffffff
+Oct 13 18:27:50 jaeyoon-pc kernel: DMAR: DRHD: handling fault status reg 3
+Oct 13 18:27:50 jaeyoon-pc kernel: DMAR: [DMA Read NO_PASID] Request device [02:00.0] fault addr 0x80400000 [fault reason 0x06] PTE Read access is not set
+Oct 13 18:27:50 jaeyoon-pc kernel: DMAR: Dump dmar1 table entries for IOVA 0x80400000
+Oct 13 18:27:50 jaeyoon-pc kernel: DMAR: root entry: 0x00000001079d8001
+Oct 13 18:27:50 jaeyoon-pc kernel: DMAR: context entry: hi 0x0000000000001502, low 0x0000000487ca7001
+Oct 13 18:27:50 jaeyoon-pc kernel: DMAR: pte level: 4, pte value: 0x00000005abd7f403
+Oct 13 18:27:50 jaeyoon-pc kernel: DMAR: pte level: 3, pte value: 0x0000000000000000
+Oct 13 18:27:50 jaeyoon-pc kernel: DMAR: page table not present at level 2
+Oct 13 18:27:50 jaeyoon-pc kernel: DMAR: DRHD: handling fault status reg 3
+Oct 13 18:27:50 jaeyoon-pc kernel: DMAR: [DMA Write NO_PASID] Request device [02:00.0] fault addr 0x80400000 [fault reason 0x05] PTE Write access is not set
+Oct 13 18:27:50 jaeyoon-pc kernel: DMAR: Dump dmar1 table entries for IOVA 0x80400000
+Oct 13 18:27:50 jaeyoon-pc kernel: DMAR: root entry: 0x00000001079d8001
+Oct 13 18:27:50 jaeyoon-pc kernel: DMAR: context entry: hi 0x0000000000001502, low 0x0000000487ca7001
+Oct 13 18:27:50 jaeyoon-pc kernel: DMAR: pte level: 4, pte value: 0x00000005abd7f403
+Oct 13 18:27:50 jaeyoon-pc kernel: DMAR: pte level: 3, pte value: 0x0000000000000000
+Oct 13 18:27:50 jaeyoon-pc kernel: DMAR: page table not present at level 2

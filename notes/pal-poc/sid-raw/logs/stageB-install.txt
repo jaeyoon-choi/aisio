@@ -1,0 +1,32 @@
+
+K=7.0.0-rc1-pal+
+modules_install=0
+depmod=0
+update-initramfs: Generating /boot/initrd.img-7.0.0-rc1-pal+
+dracut[E]: Module 'overlayroot' depends on module 'overlayfs', which can't be installed
+== /boot files ==
+-rw-r--r-- 1 root root   190315 Oct 14 09:24 /boot/config-7.0.0-rc1-pal+
+-rw------- 1 root root 68909350 Oct 14 09:24 /boot/initrd.img-7.0.0-rc1-pal+
+-rw-r--r-- 1 root root 15249600 Oct 14 09:24 /boot/vmlinuz-7.0.0-rc1-pal+
+== initramfs dm modules count ==
+0
+== extra modules ==
+dmabuf_import.ko
+iommu_map_pa.ko
+nvidia-drm.ko
+nvidia-modeset.ko
+nvidia-uvm.ko
+nvidia.ko
+== DRY RUN grub-mkconfig -> /tmp/grub.new (real grub.cfg untouched) ==
+--- menu order (top 14) ---
+171:menuentry 'Ubuntu' --class ubuntu --class gnu-linux --class gnu --class os $menuentry_id_option 'gnulinux-simple-fe4c1301-ceca-491f-a85c-4733d87cd8de' {
+189:submenu 'Advanced options for Ubuntu' $menuentry_id_option 'gnulinux-advanced-fe4c1301-ceca-491f-a85c-4733d87cd8de' {
+190:	menuentry 'Ubuntu, with Linux 7.0.0-rc1-pal+' --class ubuntu --class gnu-linux --class gnu --class os $menuentry_id_option 'gnulinux-7.0.0-rc1-pal+-advanced-fe4c1301-ceca-491f-a85c-4733d87cd8de' {
+210:	menuentry 'Ubuntu, with Linux 7.0.0-rc1-pal+ (recovery mode)' --class ubuntu --class gnu-linux --class gnu --class os $menuentry_id_option 'gnulinux-7.0.0-rc1-pal+-recovery-fe4c1301-ceca-491f-a85c-4733d87cd8de' {
+229:	menuentry 'Ubuntu, with Linux 7.0.0-38-generic' --class ubuntu --class gnu-linux --class gnu --class os $menuentry_id_option 'gnulinux-7.0.0-38-generic-advanced-fe4c1301-ceca-491f-a85c-4733d87cd8de' {
+249:	menuentry 'Ubuntu, with Linux 7.0.0-38-generic (recovery mode)' --class ubuntu --class gnu-linux --class gnu --class os $menuentry_id_option 'gnulinux-7.0.0-38-generic-recovery-fe4c1301-ceca-491f-a85c-4733d87cd8de' {
+268:	menuentry 'Ubuntu, with Linux 7.0.0-34-generic' --class ubuntu --class gnu-linux --class gnu --class os $menuentry_id_option 'gnulinux-7.0.0-34-generic-advanced-fe4c1301-ceca-491f-a85c-4733d87cd8de' {
+288:	menuentry 'Ubuntu, with Linux 7.0.0-34-generic (recovery mode)' --class ubuntu --class gnu-linux --class gnu --class os $menuentry_id_option 'gnulinux-7.0.0-34-generic-recovery-fe4c1301-ceca-491f-a85c-4733d87cd8de' {
+325:		menuentry 'UEFI Firmware Settings' $menuentry_id_option 'uefi-firmware' {
+--- real grub.cfg mtime (should be unchanged) ---
+-rw------- 1 root root 10334 06:25:57 /boot/grub/grub.cfg

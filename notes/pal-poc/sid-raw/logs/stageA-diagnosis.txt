@@ -1,0 +1,23 @@
+단계 A 실패 진단 (2026-10-14)
+================================
+현상: A1이 C1/C2 도달 전에 'create io cq failed: 0x102'로 실패.
+  SF=0x102. Linux nvme.h 인코딩(SCT<<8|SC, phase 제거) 기준 NVME_SC_QUEUE_SIZE=0x102
+  = "Invalid Queue Size". (consult 확인)
+
+근본 원인: 시험 하네스 pal_nvme.c가 CC의 IOSQES/IOCQES를 뒤바꿔 기록.
+  pal_nvme.c:411  wr32(c, 0x14, (6 << 20) | (4 << 16) | 1);   == 0x00640001
+  커널 include/linux/nvme.h:
+     NVME_CC_IOSQES_SHIFT = 16, NVME_CC_IOCQES_SHIFT = 20
+     NVME_NVM_IOSQES = 6,       NVME_NVM_IOCQES = 4
+  -> 0x00640001: IOSQES(bits19:16)=4, IOCQES(bits23:20)=6  (주석의도 IOSQES=6/IOCQES=4와 반대)
+  -> 올바른 값 0x00460001: IOSQES=6, IOCQES=4
+
+왜 AQ는 됐나: admin queue 엔트리 크기는 64B/16B 고정, CC.IOSQES/IOCQES와 무관.
+왜 sid만: I/O CQ 생성 시 CC.IOCQES=6(CQ 엔트리 64B, 정상 16B)을 sid 엔터프라이즈
+  드라이브(MZTLD15THEPB, FW VPT95B5Q)가 검증/거부. dev PC 소비자급 드라이브는 관용.
+
+최소 수정:  (6 << 20) | (4 << 16) | 1   ->   (6 << 16) | (4 << 20) | 1
+판정: 시험 대상(P2P)의 실패가 아니라 하네스 결함. 규칙 5에 따라 operator 승인 필요.
+
+검증(읽기 전용, 권장): enable 후 CC raw hex(bits19:16=6,23:20=4), Identify Controller의
+  SQES/CQES, 제출한 64B SQE의 CDW10(byte40)=0x003F0001 / CDW11(byte44)=0x1 덤프 대조.

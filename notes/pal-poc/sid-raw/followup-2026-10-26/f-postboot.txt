@@ -1,0 +1,6 @@
+
+7.0.0-rc1-pal+
+grubenv: []
+NVIDIA L4, 580.178.04
+compute apps:
+BOOT_IMAGE=/boot/vmlinuz-7.0.0-rc1-pal+ root=/dev/mapper/vg0-lv--0 ro intel_iommu=on crashkernel=2G-4G:320M,4G-32G:512M,32G-64G:1024M,64G-128G:2048M,128G-:4096M

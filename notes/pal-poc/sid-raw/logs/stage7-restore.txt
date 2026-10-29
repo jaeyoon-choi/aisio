@@ -1,0 +1,9 @@
+
+driver nvme, group type DMA-FQ
+restore rc=0
+== nvme back? ==
+nvme
+/dev/nvme2n1
+== grubenv ==
+(empty = boots default 38-generic)
+recovery reboot scheduled

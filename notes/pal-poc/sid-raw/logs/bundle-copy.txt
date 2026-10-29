@@ -1,0 +1,20 @@
+
+drwxrwxr-x 5 jaeyoon jaeyoon 140 Oct 14 01:04 /tmp/sid-bundle
+SRC_OK=12 files
+MOVED_OK
+/root/pal-poc/sid-bundle
+/root/pal-poc/sid-bundle/MANUAL.md
+/root/pal-poc/sid-bundle/patches
+/root/pal-poc/sid-bundle/patches/kernel-vtdss-mmio-nosnp.patch
+/root/pal-poc/sid-bundle/patches/nvidia-580.178.04-pal-port.patch
+/root/pal-poc/sid-bundle/patches/upcie-experimental-0.9.0-pal-port.patch
+/root/pal-poc/sid-bundle/results-2026-10-13.md
+/root/pal-poc/sid-bundle/scripts
+/root/pal-poc/sid-bundle/scripts/bind-vfio.sh
+/root/pal-poc/sid-bundle/scripts/identity-uio.sh
+/root/pal-poc/sid-bundle/scripts/pte-dump.sh
+/root/pal-poc/sid-bundle/scripts/restore-nvme.sh
+/root/pal-poc/sid-bundle/src
+/root/pal-poc/sid-bundle/src/bar1_cpu_read.c
+/root/pal-poc/sid-bundle/src/pal_nvme.c
+/root/pal-poc/sid-bundle/src/pal_probe.c

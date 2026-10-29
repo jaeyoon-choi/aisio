@@ -1,0 +1,22 @@
+
+== current grub.cfg default logic ==
+11:  load_env
+17:  load_env -f "${env_block}"
+23:   set next_entry="${prev_entry}"
+25:   save_env prev_entry
+26:   if [ "${next_entry}" ]; then
+30:if [ "${next_entry}" ] ; then
+31:   set default="${next_entry}"
+32:   set next_entry=
+34:     save_env -f "${env_block}" next_entry
+36:     save_env next_entry
+40:   set default="0"
+51:if [ "${prev_saved_entry}" ]; then
+52:  set saved_entry="${prev_saved_entry}"
+53:  save_env saved_entry
+54:  set prev_saved_entry=
+55:  save_env prev_saved_entry
+61:    saved_entry="${chosen}"
+63:      save_env -f "${env_block}" saved_entry
+65:      save_env saved_entry
+76:          save_env prev_entry

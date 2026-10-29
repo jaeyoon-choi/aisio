@@ -1,0 +1,24 @@
+
+7.0.0-38-generic
+System.map-7.0.0-rc1-pal+
+config-7.0.0-rc1-pal+
+initrd.img-7.0.0-rc1-pal+
+vmlinuz-7.0.0-rc1-pal+
+dmabuf_import.ko
+iommu_map_pa.ko
+nvidia-drm.ko
+nvidia-modeset.ko
+nvidia-uvm.ko
+nvidia.ko
+GRUB_DEFAULT="Advanced options for Ubuntu>Ubuntu, with Linux 7.0.0-38-generic"
+/root/pal-poc/sid-cuda13-compat.h
+/root/pal-poc/upcie-pal/iommu_map_pa/iommu_map_pa.h
+
+/root/pal-poc:
+linux-pal
+logs
+nvidia-pal
+sid-bundle
+sid-cuda13-compat.h
+upcie-pal
+pid, process_name

@@ -1,0 +1,7 @@
+
+In file included from <command-line>:
+/root/pal-poc/sid-cuda13-compat.h:7:37: warning: ‘/*’ within comment [-Wcomment]
+    7 |    Injected with gcc -include so src/*.c stay byte-for-byte unmodified. */
+385502967a5f965fdcbb6dac8947c956  pal_nvme.c
+904a161a7aa35580d68b54af4f12d6c1  followup-run.sh
+-rwxr-xr-x 1 root root 38848 Oct 27 02:47 pal_nvme

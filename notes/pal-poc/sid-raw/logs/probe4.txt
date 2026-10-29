@@ -1,0 +1,25 @@
+
+== fstab ==
+/dev/disk/by-id/dm-uuid-LVM-rDxaflnCdsJGubEqCTlxWz0ACjsZaibcwEX3xVO7TjwPtDhkWzSoutJy09OvcwsW / ext4 defaults 0 1
+/dev/disk/by-uuid/6C0B-F32C /boot/efi vfat defaults 0 1
+/swap.img	none	swap	sw	0	0
+== systemd mounts ==
+(none)
+== lsblk holders/mounts (nvme) ==
+lsblk: unknown column: HOLDERS,FSTYPE,MOUNTPOINT
+== fuser on sample candidates ==
+/dev/nvme2n1: 
+/dev/nvme4n1: 
+/dev/nvme11n1: 
+/dev/nvme1n1: 
+== lsof present? ==
+/usr/bin/lsof
+== dataset nvme1 vs candidate serials ==
+/dev/nvme1n1 /dev/nvme2n1 /dev/nvme11n1 == candidates: any signature anywhere? (first 1MiB + last 1MiB) ==
+--- /dev/nvme2n1
+--- /dev/nvme11n1
+== /mnt/datasets ==
+total 8
+drwxr-xr-x  2 root root 4096 Aug 26 04:45 .
+drwxr-xr-x 21 root root 4096 Sep  8 03:53 ..
+(done)

@@ -1,0 +1,35 @@
+
+== error lines ==
+57:scripts/gendwarfksyms/gendwarfksyms.h:6:10: fatal error: dwarf.h: No such file or directory
+61:make[3]: *** [scripts/Makefile.host:131: scripts/gendwarfksyms/cache.o] Error 1
+64:scripts/gendwarfksyms/gendwarfksyms.h:6:10: fatal error: dwarf.h: No such file or directory
+69:scripts/gendwarfksyms/gendwarfksyms.h:6:10: fatal error: dwarf.h: No such file or directory
+73:make[3]: *** [scripts/Makefile.host:131: scripts/gendwarfksyms/symbols.o] Error 1
+74:make[3]: *** [scripts/Makefile.host:131: scripts/gendwarfksyms/dwarf.o] Error 1
+76:scripts/gendwarfksyms/gendwarfksyms.h:6:10: fatal error: dwarf.h: No such file or directory
+80:scripts/gendwarfksyms/gendwarfksyms.h:6:10: fatal error: dwarf.h: No such file or directory
+87:scripts/gendwarfksyms/gendwarfksyms.h:6:10: fatal error: dwarf.h: No such file or directory
+91:make[3]: *** [scripts/Makefile.host:131: scripts/gendwarfksyms/kabi.o] Error 1
+92:make[3]: *** [scripts/Makefile.host:131: scripts/gendwarfksyms/die.o] Error 1
+94:make[3]: *** [scripts/Makefile.host:131: scripts/gendwarfksyms/gendwarfksyms.o] Error 1
+97:scripts/gendwarfksyms/gendwarfksyms.h:6:10: fatal error: dwarf.h: No such file or directory
+101:make[3]: *** [scripts/Makefile.host:131: scripts/gendwarfksyms/types.o] Error 1
+102:make[2]: *** [scripts/Makefile.build:546: scripts/gendwarfksyms] Error 2
+105:make[1]: *** [/root/pal-poc/linux-pal/Makefile:1316: scripts] Error 2
+148:make: *** [Makefile:248: __sub-make] Error 2
+== first error context ==
+  HOSTCC  scripts/gendwarfksyms/die.o
+  HOSTCC  scripts/gendwarfksyms/dwarf.o
+  HOSTCC  scripts/gendwarfksyms/kabi.o
+  HOSTCC  scripts/gendwarfksyms/symbols.o
+  HOSTCC  scripts/gendwarfksyms/types.o
+  HOSTCC  scripts/ipe/polgen/polgen
+  HOSTCC  scripts/selinux/mdp/mdp
+In file included from scripts/gendwarfksyms/cache.c:6:
+scripts/gendwarfksyms/gendwarfksyms.h:6:10: fatal error: dwarf.h: No such file or directory
+    6 | #include <dwarf.h>
+      |          ^~~~~~~~~
+compilation terminated.
+make[3]: *** [scripts/Makefile.host:131: scripts/gendwarfksyms/cache.o] Error 1
+make[3]: *** Waiting for unfinished jobs....
+In file included from scripts/gendwarfksyms/symbols.c:7:

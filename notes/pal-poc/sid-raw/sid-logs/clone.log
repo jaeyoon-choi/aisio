@@ -1,0 +1,5 @@
+Cloning into 'linux-pal'...
+fatal: unable to access 'https://github.com/jgunthorpe/linux/': The requested URL returned error: 502
+bash: line 5: cd: linux-pal: No such file or directory
+fatal: not a git repository (or any of the parent directories): .git
+CLONE_EXIT git=128 fetch=1 checkout=128

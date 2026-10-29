@@ -1,0 +1,5 @@
+
+4e -> nvme
+grubenv: []
+gpu apps: 0
+recovery reboot scheduled

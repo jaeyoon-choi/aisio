@@ -1,0 +1,15 @@
+
+== CONFIG_LOCALVERSION lines ==
+37:CONFIG_LOCALVERSION="-pal"
+== Makefile version lines ==
+REUSE-IgnoreStart
+# SPDX-License-Identifier: GPL-2.0
+REUSE-IgnoreEnd
+VERSION = 7
+PATCHLEVEL = 0
+SUBLEVEL = 0
+EXTRAVERSION = -rc1
+NAME = Baby Opossum Posse
+== kernelrelease now ==
+7.0.0-rc1+
+== include/config/kernel.release ==

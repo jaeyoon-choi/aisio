@@ -1,0 +1,43 @@
+
+0000:4e:00.0 node=0 group=1 path=/sys/devices/pci0000:4a/0000:4a:02.0/0000:4b:00.0/0000:4c:01.0/0000:4e:00.0
+   rootport=0000:4c:01.0 class=0x010802 driver=nvme
+0000:67:00.0 node=0 group=1 path=/sys/devices/pci0000:64/0000:64:02.0/0000:65:00.0/0000:66:00.0/0000:67:00.0
+   rootport=0000:66:00.0 class=0x010802 driver=nvme
+0000:cc:00.0 node=1 group=1 path=/sys/devices/pci0000:c9/0000:c9:02.0/0000:ca:00.0/0000:cb:00.0/0000:cc:00.0
+   rootport=0000:cb:00.0 class=0x010802 driver=nvme
+0000:e5:00.0 node=1 group=1 path=/sys/devices/pci0000:e2/0000:e2:02.0/0000:e3:00.0/0000:e4:00.0/0000:e5:00.0
+   rootport=0000:e4:00.0 class=0x010802 driver=nvme
+== nvme mounts ==
+== lsblk nvme ==
+nvme22n1  
+nvme25n1  
+nvme30n1  
+nvme0n1   
+nvme1n1   
+nvme28n1  
+nvme13n1  
+nvme31n1  
+nvme4n1   
+nvme8n1   
+nvme11n1  
+nvme29n1  
+nvme10n1  
+nvme17n1  
+nvme21n1  
+nvme16n1  
+nvme20n1  
+nvme18n1  
+nvme15n1  
+nvme26n1  
+nvme24n1  
+nvme6n1   
+nvme3n1   
+nvme14n1  
+nvme7n1   
+nvme12n1  
+nvme2n1   
+nvme5n1   
+nvme19n1  
+nvme23n1  
+nvme9n1   
+nvme27n1  

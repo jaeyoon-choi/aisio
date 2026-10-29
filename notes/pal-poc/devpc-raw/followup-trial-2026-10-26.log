@@ -1,0 +1,360 @@
+# dev PC trial of the follow-up modes, 2026-10-26: SECS=3 WR=0 sh scripts/followup-run.sh 0000:02:00.0 0
+# C2/F2 fail here by design (Raptor Lake P2P read, REPORT.md 7.3).
+driver vfio-pci, group 20 type DMA-FQ, cdev vfio0
+== Mon Oct 26 12:02:09 PM KST 2026 7.0.0-rc1-pal+ bdf=0000:02:00.0 slba=0 secs=3 span=1073741824 xfer_big=131072 wr=0
+== path: /sys/devices/pci0000:00/0000:00:01.1/0000:02:00.0 numa=-1
+####
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 8192 KiB mapped at iova 0x200000
+gpu: dma-buf fd 34 (1024 MiB) mapped at iova 0xa00000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: mdts=7 (512 KiB, 0 = no limit)
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+test LBAs: 0 .. 383 (overwritten)
+C1 write LBA0 from host: OK
+C1 read LBA0 into GPU iova: OK
+C1 compare: MATCH (65536 bytes)
+C2 write LBA16 from GPU iova: status sct=0x0 sc=0x4
+C2 read LBA16 into host: OK
+C2 compare: MISMATCH
+D write LBA from unmapped iova (device read): status sct=0x0 sc=0x4
+D expectation: an error status or timeout, not OK (iova 0x80a00000)
+D2 read LBA0 into unmapped iova (device write, posted): OK
+result: FAIL (2 failure(s))
+rc=1
+#### --xfer 4096
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 8192 KiB mapped at iova 0x200000
+gpu: dma-buf fd 34 (1024 MiB) mapped at iova 0xa00000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: mdts=7 (512 KiB, 0 = no limit)
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+test LBAs: 0 .. 23 (overwritten)
+C1 write LBA0 from host: OK
+C1 read LBA0 into GPU iova: OK
+C1 compare: MATCH (4096 bytes)
+C2 write LBA16 from GPU iova: status sct=0x0 sc=0x4
+C2 read LBA16 into host: OK
+C2 compare: MISMATCH
+D write LBA from unmapped iova (device read): status sct=0x0 sc=0x4
+D expectation: an error status or timeout, not OK (iova 0x80a00000)
+D2 read LBA0 into unmapped iova (device write, posted): OK
+result: FAIL (2 failure(s))
+rc=1
+#### --map-pa 0000:02:00.0
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 8192 KiB mapped at iova 0x200000
+dmabuf_import: 16384 entries, first pa 0x480f600000, contiguous 1024 MiB
+gpu: 512 x 2 MiB mapped with iommu_map_pa at iova 0x4000000000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: mdts=7 (512 KiB, 0 = no limit)
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+test LBAs: 0 .. 383 (overwritten)
+C1 write LBA0 from host: OK
+C1 read LBA0 into GPU iova: OK
+C1 compare: MATCH (65536 bytes)
+C2 write LBA16 from GPU iova: status sct=0x0 sc=0x4
+C2 read LBA16 into host: OK
+C2 compare: MISMATCH
+D write LBA from unmapped iova (device read): status sct=0x0 sc=0x4
+D expectation: an error status or timeout, not OK (iova 0x4080000000)
+D2 read LBA0 into unmapped iova (device write, posted): OK
+result: FAIL (2 failure(s))
+rc=1
+#### --bench rd --qd 1 --xfer 4096 --secs 3 --span 1073741824
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 8192 KiB mapped at iova 0x200000
+gpu: dma-buf fd 34 (1024 MiB) mapped at iova 0xa00000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: mdts=7 (512 KiB, 0 = no limit)
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+bench: read into gpu qd=1 xfer=4096 span=1024 MiB secs=3 LBAs 0..2097151
+bench result: 467213 ok, 0 err, 3.00 s, 155738 IOPS, 637.9 MB/s, lat us p50 6.1 p99 6.6 max 159.0
+result: PASS (0 failure(s))
+rc=0
+#### --bench rd --qd 32 --xfer 131072 --secs 3 --span 1073741824
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 8192 KiB mapped at iova 0x200000
+gpu: dma-buf fd 34 (1024 MiB) mapped at iova 0xa00000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: mdts=7 (512 KiB, 0 = no limit)
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+bench: read into gpu qd=32 xfer=131072 span=1024 MiB secs=3 LBAs 0..2097151
+bench result: 155387 ok, 0 err, 3.00 s, 51793 IOPS, 6788.6 MB/s, lat us p50 618.3 p99 779.8 max 6153.3
+result: PASS (0 failure(s))
+rc=0
+#### --map-pa 0000:02:00.0 --bench rd --qd 1 --xfer 4096 --secs 3 --span 1073741824
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 8192 KiB mapped at iova 0x200000
+dmabuf_import: 16384 entries, first pa 0x480f600000, contiguous 1024 MiB
+gpu: 512 x 2 MiB mapped with iommu_map_pa at iova 0x4000000000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: mdts=7 (512 KiB, 0 = no limit)
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+bench: read into gpu qd=1 xfer=4096 span=1024 MiB secs=3 LBAs 0..2097151
+bench result: 467436 ok, 0 err, 3.00 s, 155812 IOPS, 638.2 MB/s, lat us p50 6.1 p99 6.6 max 163.5
+result: PASS (0 failure(s))
+rc=0
+#### --map-pa 0000:02:00.0 --bench rd --qd 32 --xfer 131072 --secs 3 --span 1073741824
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 8192 KiB mapped at iova 0x200000
+dmabuf_import: 16384 entries, first pa 0x480f600000, contiguous 1024 MiB
+gpu: 512 x 2 MiB mapped with iommu_map_pa at iova 0x4000000000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: mdts=7 (512 KiB, 0 = no limit)
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+bench: read into gpu qd=32 xfer=131072 span=1024 MiB secs=3 LBAs 0..2097151
+bench result: 155374 ok, 0 err, 3.00 s, 51789 IOPS, 6788.2 MB/s, lat us p50 618.3 p99 783.3 max 5489.0
+result: PASS (0 failure(s))
+rc=0
+#### --target host --bench rd --qd 1 --xfer 4096 --secs 3 --span 1073741824
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 8192 KiB mapped at iova 0x200000
+gpu: dma-buf fd 34 (1024 MiB) mapped at iova 0xa00000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: mdts=7 (512 KiB, 0 = no limit)
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+bench: read into host qd=1 xfer=4096 span=1024 MiB secs=3 LBAs 0..2097151
+bench result: 466237 ok, 0 err, 3.00 s, 155412 IOPS, 636.6 MB/s, lat us p50 6.1 p99 6.6 max 65.2
+result: PASS (0 failure(s))
+rc=0
+#### --target host --bench rd --qd 32 --xfer 131072 --secs 3 --span 1073741824
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 8192 KiB mapped at iova 0x200000
+gpu: dma-buf fd 34 (1024 MiB) mapped at iova 0xa00000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: mdts=7 (512 KiB, 0 = no limit)
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+bench: read into host qd=32 xfer=131072 span=1024 MiB secs=3 LBAs 0..2097151
+bench result: 164893 ok, 0 err, 3.00 s, 54959 IOPS, 7203.5 MB/s, lat us p50 580.3 p99 745.5 max 6243.6
+result: PASS (0 failure(s))
+rc=0
+#### --map-loop 1000 --no-negative
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 8192 KiB mapped at iova 0x200000
+gpu: dma-buf fd 34 (1024 MiB) mapped at iova 0xa00000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: mdts=7 (512 KiB, 0 = no limit)
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+map-loop IOMMU_IOAS_MAP_FILE x1000 (1024 MiB): map us p50 4.9 p99 6.0 max 17.4, unmap us p50 4.7 p99 6.2 max 29.2
+test LBAs: 0 .. 383 (overwritten)
+C1 write LBA0 from host: OK
+C1 read LBA0 into GPU iova: OK
+C1 compare: MATCH (65536 bytes)
+C2 write LBA16 from GPU iova: status sct=0x0 sc=0x4
+C2 read LBA16 into host: OK
+C2 compare: MISMATCH
+result: FAIL (2 failure(s))
+rc=1
+#### --map-pa 0000:02:00.0 --map-loop 1000 --no-negative
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 8192 KiB mapped at iova 0x200000
+dmabuf_import: 16384 entries, first pa 0x480f600000, contiguous 1024 MiB
+gpu: 512 x 2 MiB mapped with iommu_map_pa at iova 0x4000000000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: mdts=7 (512 KiB, 0 = no limit)
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+map-loop iommu_map_pa x1000 (1024 MiB): map us p50 82.8 p99 107.8 max 112.4, unmap us p50 3.0 p99 4.5 max 27.4
+test LBAs: 0 .. 383 (overwritten)
+C1 write LBA0 from host: OK
+C1 read LBA0 into GPU iova: OK
+C1 compare: MATCH (65536 bytes)
+C2 write LBA16 from GPU iova: status sct=0x0 sc=0x4
+C2 read LBA16 into host: OK
+C2 compare: MISMATCH
+result: FAIL (2 failure(s))
+rc=1
+== cuda used before: 15 MiB
+#### --lifecycle close --no-negative
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 8192 KiB mapped at iova 0x200000
+gpu: dma-buf fd 34 (1024 MiB) mapped at iova 0xa00000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: mdts=7 (512 KiB, 0 = no limit)
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+dma-buf fd closed, mapping kept
+test LBAs: 0 .. 383 (overwritten)
+C1 write LBA0 from host: OK
+C1 read LBA0 into GPU iova: OK
+C1 compare: MATCH (65536 bytes)
+C2 write LBA16 from GPU iova: status sct=0x0 sc=0x4
+C2 read LBA16 into host: OK
+C2 compare: MISMATCH
+cuda free 23741 MiB after unmap and close
+result: FAIL (2 failure(s))
+rc=1
+#### --map-pa 0000:02:00.0 --lifecycle close --no-negative
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 8192 KiB mapped at iova 0x200000
+dmabuf_import: 16384 entries, first pa 0x480f600000, contiguous 1024 MiB
+gpu: 512 x 2 MiB mapped with iommu_map_pa at iova 0x4000000000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: mdts=7 (512 KiB, 0 = no limit)
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+dma-buf fd closed, mapping kept
+test LBAs: 0 .. 383 (overwritten)
+C1 write LBA0 from host: OK
+C1 read LBA0 into GPU iova: OK
+C1 compare: MATCH (65536 bytes)
+C2 write LBA16 from GPU iova: status sct=0x0 sc=0x4
+C2 read LBA16 into host: OK
+C2 compare: MISMATCH
+cuda free 23741 MiB after unmap and close
+result: FAIL (2 failure(s))
+rc=1
+#### --lifecycle free
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 8192 KiB mapped at iova 0x200000
+gpu: dma-buf fd 34 (1024 MiB) mapped at iova 0xa00000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: mdts=7 (512 KiB, 0 = no limit)
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+test LBAs: 0 .. 255 (overwritten)
+dmabuf_import: 16384 entries, first pa 0x480f600000, contiguous 1024 MiB
+F0 write LBA0 from host: OK
+F: cuda free 22717 MiB before cuMemFree
+F: cuda free 22717 MiB after cuMemFree, mapping still held
+dmabuf_import: 16384 entries, first pa 0x484f600000, contiguous 1024 MiB
+F: old buffer pa 0x480f600000 freed, new buffer pa 0x484f600000
+F1 read LBA0 into the old GPU iova: OK
+F1 new buffer: intact
+F2 write LBA16 from the old GPU iova: status sct=0x0 sc=0x4
+F2 read LBA16 into host: OK
+F2 old iova still holds the F1 data: no
+cuda free 23741 MiB after unmap and close
+result: PASS (0 failure(s))
+rc=0
+#### --map-pa 0000:02:00.0 --lifecycle free
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 8192 KiB mapped at iova 0x200000
+dmabuf_import: 16384 entries, first pa 0x480f600000, contiguous 1024 MiB
+gpu: 512 x 2 MiB mapped with iommu_map_pa at iova 0x4000000000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: mdts=7 (512 KiB, 0 = no limit)
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+test LBAs: 0 .. 255 (overwritten)
+dmabuf_import: 16384 entries, first pa 0x480f600000, contiguous 1024 MiB
+F0 write LBA0 from host: OK
+F: cuda free 22717 MiB before cuMemFree
+F: cuda free 22717 MiB after cuMemFree, mapping still held
+dmabuf_import: 16384 entries, first pa 0x484f600000, contiguous 1024 MiB
+F: old buffer pa 0x480f600000 freed, new buffer pa 0x484f600000
+F1 read LBA0 into the old GPU iova: OK
+F1 new buffer: intact
+F2 write LBA16 from the old GPU iova: status sct=0x0 sc=0x4
+F2 read LBA16 into host: OK
+F2 old iova still holds the F1 data: no
+cuda free 23741 MiB after unmap and close
+result: PASS (0 failure(s))
+rc=0
+#### kill -9 during a read bench
+Killed
+killed rc=137
+#### --no-negative
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 8192 KiB mapped at iova 0x200000
+gpu: dma-buf fd 34 (1024 MiB) mapped at iova 0xa00000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: mdts=7 (512 KiB, 0 = no limit)
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+test LBAs: 0 .. 383 (overwritten)
+C1 write LBA0 from host: OK
+C1 read LBA0 into GPU iova: OK
+C1 compare: MATCH (65536 bytes)
+C2 write LBA16 from GPU iova: status sct=0x0 sc=0x4
+C2 read LBA16 into host: OK
+C2 compare: MISMATCH
+result: FAIL (2 failure(s))
+rc=1
+== cuda used after: 15 MiB
+#### dmesg
+[853810.290831] dmar_fault: 14 callbacks suppressed
+[853810.290840] DMAR: DRHD: handling fault status reg 3
+[853810.290852] DMAR: [DMA Read NO_PASID] Request device [02:00.0] fault addr 0x80a00000 [fault reason 0x06] PTE Read access is not set
+[853810.290863] DMAR: Dump dmar1 table entries for IOVA 0x80a00000
+[853810.290866] DMAR: root entry: 0x000000010746b001
+[853810.290870] DMAR: context entry: hi 0x0000000000001502, low 0x0000000110718001
+[853810.290875] DMAR: pte level: 4, pte value: 0x000000011d602403
+[853810.290879] DMAR: pte level: 3, pte value: 0x0000000000000000
+[853810.290882] DMAR: page table not present at level 2
+[853810.291078] DMAR: DRHD: handling fault status reg 3
+[853810.291082] DMAR: [DMA Write NO_PASID] Request device [02:00.0] fault addr 0x80a00000 [fault reason 0x05] PTE Write access is not set
+[853810.291084] DMAR: Dump dmar1 table entries for IOVA 0x80a00000
+[853810.291084] DMAR: root entry: 0x000000010746b001
+[853810.291085] DMAR: context entry: hi 0x0000000000001502, low 0x0000000110718001
+[853810.291086] DMAR: pte level: 4, pte value: 0x000000011d602403
+[853810.291086] DMAR: pte level: 3, pte value: 0x0000000000000000
+[853810.291087] DMAR: page table not present at level 2
+[853812.122256] DMAR: DRHD: handling fault status reg 3
+[853812.122261] DMAR: [DMA Read NO_PASID] Request device [02:00.0] fault addr 0x80a00000 [fault reason 0x06] PTE Read access is not set
+[853812.122263] DMAR: Dump dmar1 table entries for IOVA 0x80a00000
+[853812.122264] DMAR: root entry: 0x000000010746b001
+[853812.122264] DMAR: context entry: hi 0x0000000000001502, low 0x00000002f35e6001
+[853812.122265] DMAR: pte level: 4, pte value: 0x00000002f3560403
+[853812.122266] DMAR: pte level: 3, pte value: 0x0000000000000000
+[853812.122266] DMAR: page table not present at level 2
+[853812.122324] DMAR: DRHD: handling fault status reg 3
+[853813.678729] NVRM: nvCheckOkFailedNoLog: Check failed: Out of memory [NV_ERR_NO_MEMORY] (0x00000051) returned from _memdescAllocInternal(pMemDesc) @ mem_desc.c:1359
+[853813.678733] NVRM: nvCheckOkFailedNoLog: Check failed: Out of memory [NV_ERR_NO_MEMORY] (0x00000051) returned from rmStatus @ system_mem.c:356
+[853813.678745] NVRM: nvAssertOkFailedNoLog: Assertion failed: Out of memory [NV_ERR_NO_MEMORY] (0x00000051) returned from pRmApi->Alloc(pRmApi, device->session->handle, isSystemMemory ? device->handle : device->subhandle, &physHandle, isSystemMemory ? NV01_MEMORY_SYSTEM : NV01_MEMORY_LOCAL_USER, &memAllocParams, sizeof(memAllocParams)) @ nv_gpu_ops.c:4969
+[853854.682828] NVRM: nvCheckOkFailedNoLog: Check failed: Out of memory [NV_ERR_NO_MEMORY] (0x00000051) returned from _memdescAllocInternal(pMemDesc) @ mem_desc.c:1359
+[853854.682831] NVRM: nvCheckOkFailedNoLog: Check failed: Out of memory [NV_ERR_NO_MEMORY] (0x00000051) returned from rmStatus @ system_mem.c:356
+[853854.682837] NVRM: nvAssertOkFailedNoLog: Assertion failed: Out of memory [NV_ERR_NO_MEMORY] (0x00000051) returned from pRmApi->Alloc(pRmApi, device->session->handle, isSystemMemory ? device->handle : device->subhandle, &physHandle, isSystemMemory ? NV01_MEMORY_SYSTEM : NV01_MEMORY_LOCAL_USER, &memAllocParams, sizeof(memAllocParams)) @ nv_gpu_ops.c:4969
+[853856.733820] NVRM: nvCheckOkFailedNoLog: Check failed: Out of memory [NV_ERR_NO_MEMORY] (0x00000051) returned from _memdescAllocInternal(pMemDesc) @ mem_desc.c:1359
+[853856.733823] NVRM: _kgmmuClientShadowFaultBufferPagesAllocate: Allocation failed with big page size, retrying with default page size
+[853856.777768] NVRM: nvCheckOkFailedNoLog: Check failed: Out of memory [NV_ERR_NO_MEMORY] (0x00000051) returned from _memdescAllocInternal(pMemDesc) @ mem_desc.c:1359
+[853856.777772] NVRM: nvCheckOkFailedNoLog: Check failed: Out of memory [NV_ERR_NO_MEMORY] (0x00000051) returned from rmStatus @ system_mem.c:356
+[853856.777782] NVRM: nvAssertOkFailedNoLog: Assertion failed: Out of memory [NV_ERR_NO_MEMORY] (0x00000051) returned from pRmApi->Alloc(pRmApi, device->session->handle, isSystemMemory ? device->handle : device->subhandle, &physHandle, isSystemMemory ? NV01_MEMORY_SYSTEM : NV01_MEMORY_LOCAL_USER, &memAllocParams, sizeof(memAllocParams)) @ nv_gpu_ops.c:4969
+[853858.951119] NVRM: nvCheckOkFailedNoLog: Check failed: Out of memory [NV_ERR_NO_MEMORY] (0x00000051) returned from _memdescAllocInternal(pMemDesc) @ mem_desc.c:1359
+[853858.951122] NVRM: _kgmmuClientShadowFaultBufferPagesAllocate: Allocation failed with big page size, retrying with default page size
+[853859.015764] NVRM: nvCheckOkFailedNoLog: Check failed: Out of memory [NV_ERR_NO_MEMORY] (0x00000051) returned from _memdescAllocInternal(pMemDesc) @ mem_desc.c:1359
+[853859.015768] NVRM: nvCheckOkFailedNoLog: Check failed: Out of memory [NV_ERR_NO_MEMORY] (0x00000051) returned from rmStatus @ system_mem.c:356
+[853859.015778] NVRM: nvAssertOkFailedNoLog: Assertion failed: Out of memory [NV_ERR_NO_MEMORY] (0x00000051) returned from pRmApi->Alloc(pRmApi, device->session->handle, isSystemMemory ? device->handle : device->subhandle, &physHandle, isSystemMemory ? NV01_MEMORY_SYSTEM : NV01_MEMORY_LOCAL_USER, &memAllocParams, sizeof(memAllocParams)) @ nv_gpu_ops.c:4969
+[853861.264764] NVRM: nvCheckOkFailedNoLog: Check failed: Out of memory [NV_ERR_NO_MEMORY] (0x00000051) returned from _memdescAllocInternal(pMemDesc) @ mem_desc.c:1359
+[853861.264766] NVRM: _kgmmuClientShadowFaultBufferPagesAllocate: Allocation failed with big page size, retrying with default page size
+[853861.304299] NVRM: nvCheckOkFailedNoLog: Check failed: Out of memory [NV_ERR_NO_MEMORY] (0x00000051) returned from _memdescAllocInternal(pMemDesc) @ mem_desc.c:1359
+[853861.304302] NVRM: nvCheckOkFailedNoLog: Check failed: Out of memory [NV_ERR_NO_MEMORY] (0x00000051) returned from rmStatus @ system_mem.c:356
+[853861.304307] NVRM: nvAssertOkFailedNoLog: Assertion failed: Out of memory [NV_ERR_NO_MEMORY] (0x00000051) returned from pRmApi->Alloc(pRmApi, device->session->handle, isSystemMemory ? device->handle : device->subhandle, &physHandle, isSystemMemory ? NV01_MEMORY_SYSTEM : NV01_MEMORY_LOCAL_USER, &memAllocParams, sizeof(memAllocParams)) @ nv_gpu_ops.c:4969
+[853862.900876] NVRM: nvCheckOkFailedNoLog: Check failed: Out of memory [NV_ERR_NO_MEMORY] (0x00000051) returned from _memdescAllocInternal(pMemDesc) @ mem_desc.c:1359
+[853862.900878] NVRM: _kgmmuClientShadowFaultBufferPagesAllocate: Allocation failed with big page size, retrying with default page size
+[853862.928298] NVRM: nvCheckOkFailedNoLog: Check failed: Out of memory [NV_ERR_NO_MEMORY] (0x00000051) returned from _memdescAllocInternal(pMemDesc) @ mem_desc.c:1359
+[853862.928301] NVRM: nvCheckOkFailedNoLog: Check failed: Out of memory [NV_ERR_NO_MEMORY] (0x00000051) returned from rmStatus @ system_mem.c:356
+[853862.928306] NVRM: nvAssertOkFailedNoLog: Assertion failed: Out of memory [NV_ERR_NO_MEMORY] (0x00000051) returned from pRmApi->Alloc(pRmApi, device->session->handle, isSystemMemory ? device->handle : device->subhandle, &physHandle, isSystemMemory ? NV01_MEMORY_SYSTEM : NV01_MEMORY_LOCAL_USER, &memAllocParams, sizeof(memAllocParams)) @ nv_gpu_ops.c:4969
+[853873.607048] NVRM: nvCheckOkFailedNoLog: Check failed: Out of memory [NV_ERR_NO_MEMORY] (0x00000051) returned from _memdescAllocInternal(pMemDesc) @ mem_desc.c:1359
+[853873.607052] NVRM: _kgmmuClientShadowFaultBufferPagesAllocate: Allocation failed with big page size, retrying with default page size
+[853873.653759] NVRM: nvCheckOkFailedNoLog: Check failed: Out of memory [NV_ERR_NO_MEMORY] (0x00000051) returned from _memdescAllocInternal(pMemDesc) @ mem_desc.c:1359
+[853873.653762] NVRM: nvCheckOkFailedNoLog: Check failed: Out of memory [NV_ERR_NO_MEMORY] (0x00000051) returned from rmStatus @ system_mem.c:356
+[853873.653768] NVRM: nvAssertOkFailedNoLog: Assertion failed: Out of memory [NV_ERR_NO_MEMORY] (0x00000051) returned from pRmApi->Alloc(pRmApi, device->session->handle, isSystemMemory ? device->handle : device->subhandle, &physHandle, isSystemMemory ? NV01_MEMORY_SYSTEM : NV01_MEMORY_LOCAL_USER, &memAllocParams, sizeof(memAllocParams)) @ nv_gpu_ops.c:4969
+== done Mon Oct 26 12:03:15 PM KST 2026

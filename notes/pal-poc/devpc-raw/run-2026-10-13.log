@@ -1,0 +1,75 @@
+== Tue Oct 13 06:27:49 PM KST 2026 kernel 7.0.0-rc1-pal+ ==
+## pal_probe
+cuda: dptr=0x74ba2c000000 size=1073741824 dmabuf_fd=34
+iommufd: ioas_id=1
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 attached
+IOMMU_IOAS_MAP_FILE: OK iova=0x200000 length=0x40000000
+IOMMU_IOAS_UNMAP: OK
+## pal_nvme --xfer 4096
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 2048 KiB mapped at iova 0x200000
+gpu: dma-buf fd 34 (1024 MiB) mapped at iova 0x400000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+C1 write LBA0 from host: OK
+C1 read LBA0 into GPU iova: OK
+C1 compare: MATCH (4096 bytes)
+C2 write LBA16 from GPU iova: status sct=0x0 sc=0x4
+C2 read LBA16 into host: OK
+C2 compare: MISMATCH
+D write LBA from unmapped iova (device read): status sct=0x0 sc=0x4
+D expectation: an error status or timeout, not OK (iova 0x80400000)
+D2 read LBA0 into unmapped iova (device write, posted): OK
+result: FAIL (2 failure(s))
+## pal_nvme (64 KiB)
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 2048 KiB mapped at iova 0x200000
+gpu: dma-buf fd 34 (1024 MiB) mapped at iova 0x400000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+C1 write LBA0 from host: OK
+C1 read LBA0 into GPU iova: OK
+C1 compare: MATCH (65536 bytes)
+C2 write LBA16 from GPU iova: status sct=0x0 sc=0x4
+C2 read LBA16 into host: OK
+C2 compare: MISMATCH
+D write LBA from unmapped iova (device read): status sct=0x0 sc=0x4
+D expectation: an error status or timeout, not OK (iova 0x80400000)
+D2 read LBA0 into unmapped iova (device write, posted): OK
+result: FAIL (2 failure(s))
+## pal_nvme --identity --xfer 4096 --no-negative
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 2048 KiB mapped at iova 0x200000
+dmabuf_import: 16384 entries, first pa 0x480e800000, contiguous 1024 MiB
+gpu: dma-buf fd 34 (1024 MiB) mapped at iova 0x480e800000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+C1 write LBA0 from host: OK
+C1 read LBA0 into GPU iova: OK
+C1 compare: MATCH (4096 bytes)
+C2 write LBA16 from GPU iova: status sct=0x0 sc=0x4
+C2 read LBA16 into host: OK
+C2 compare: MISMATCH
+result: FAIL (2 failure(s))
+## pal_nvme --identity (64 KiB) --no-negative
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 2048 KiB mapped at iova 0x200000
+dmabuf_import: 16384 entries, first pa 0x480e800000, contiguous 1024 MiB
+gpu: dma-buf fd 34 (1024 MiB) mapped at iova 0x480e800000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+C1 write LBA0 from host: OK
+C1 read LBA0 into GPU iova: OK
+C1 compare: MATCH (65536 bytes)
+C2 write LBA16 from GPU iova: status sct=0x0 sc=0x4
+C2 read LBA16 into host: OK
+C2 compare: MISMATCH
+result: FAIL (2 failure(s))

@@ -1,0 +1,7 @@
+
+== /data_03 ==
+ls: cannot access '/data_03': No such file or directory
+== /data_03/jaeyoon/kernel ==
+ls: cannot access '/data_03/jaeyoon/kernel/': No such file or directory
+== linux tree ==
+ls: cannot access '/data_03/jaeyoon/kernel/linux': No such file or directory

@@ -1,0 +1,10 @@
+
+kernel: 7.0.0-38-generic
+NVIDIA L4, 580.178.04
+datasets: (not mounted)
+0000:4e:00.0 -> nvme
+0000:67:00.0 -> nvme
+0000:cc:00.0 -> nvme
+grubenv: []
+gpu apps: 0
+GRUB_DEFAULT="Advanced options for Ubuntu>Ubuntu, with Linux 7.0.0-38-generic"
