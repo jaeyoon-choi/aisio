@@ -1,0 +1,140 @@
+diff --git a/nvidia/nv-dmabuf.c b/nvidia/nv-dmabuf.c
+index e49d852..f967744 100644
+--- a/nvidia/nv-dmabuf.c
++++ b/nvidia/nv-dmabuf.c
+@@ -1473,6 +1473,135 @@ static const struct dma_buf_ops nv_dma_buf_ops = {
+ #endif
+ };
+ 
++//
++// BAR1 ranges of a dma-buf that this driver exported, for an out-of-tree
++// guest_memfd provider. The ranges stay valid until the caller passes them
++// to nv_dma_buf_put_bar1_ranges(). The caller holds a dma-buf reference
++// across both calls.
++//
++struct nv_dma_buf_bar1_range
++{
++    NvU64 start;
++    NvU64 size;
++};
++
++int nv_dma_buf_get_bar1_ranges(struct dma_buf *buf,
++                               struct nv_dma_buf_bar1_range **ranges,
++                               unsigned int *count);
++void nv_dma_buf_put_bar1_ranges(struct dma_buf *buf,
++                                struct nv_dma_buf_bar1_range *ranges);
++
++int
++nv_dma_buf_get_bar1_ranges(
++    struct dma_buf *buf,
++    struct nv_dma_buf_bar1_range **ranges,
++    unsigned int *count
++)
++{
++    NV_STATUS status;
++    nv_dma_buf_file_private_t *priv;
++    struct nv_dma_buf_bar1_range *r;
++    unsigned int nranges = 0;
++    unsigned int n = 0;
++    NvU32 i, index;
++    int rc = 0;
++
++    if (buf->ops != &nv_dma_buf_ops)
++    {
++        return -EINVAL;
++    }
++
++    priv = buf->priv;
++
++    mutex_lock(&priv->lock);
++
++    if (priv->num_objects != priv->total_objects)
++    {
++        rc = -EINVAL;
++        goto unlock_priv;
++    }
++
++    // Coherent platforms in DEFAULT mode share struct pages, not BAR1.
++    if (priv->nv->coherent &&
++        (priv->mapping_type == NV_DMABUF_EXPORT_MAPPING_TYPE_DEFAULT))
++    {
++        rc = -EOPNOTSUPP;
++        goto unlock_priv;
++    }
++
++    if (!priv->static_phys_addrs)
++    {
++        status = nv_dma_buf_get_phys_addresses(priv, 0, priv->num_objects);
++        if (status != NV_OK)
++        {
++            rc = -EIO;
++            goto unlock_priv;
++        }
++    }
++
++    for (i = 0; i < priv->num_objects; i++)
++    {
++        nranges += priv->handles[i].memArea.numRanges;
++    }
++
++    r = kvcalloc(nranges, sizeof(*r), GFP_KERNEL);
++    if (r == NULL)
++    {
++        rc = -ENOMEM;
++        goto put_handles;
++    }
++
++    for (i = 0; i < priv->num_objects; i++)
++    {
++        for (index = 0; index < priv->handles[i].memArea.numRanges; index++)
++        {
++            r[n].start = priv->handles[i].memArea.pRanges[index].start;
++            r[n].size  = priv->handles[i].memArea.pRanges[index].size;
++            n++;
++        }
++    }
++
++    mutex_unlock(&priv->lock);
++
++    *ranges = r;
++    *count = nranges;
++
++    return 0;
++
++put_handles:
++    if (!priv->static_phys_addrs)
++    {
++        nv_dma_buf_put_phys_addresses(priv, 0, priv->num_objects);
++    }
++
++unlock_priv:
++    mutex_unlock(&priv->lock);
++
++    return rc;
++}
++EXPORT_SYMBOL(nv_dma_buf_get_bar1_ranges);
++
++void
++nv_dma_buf_put_bar1_ranges(
++    struct dma_buf *buf,
++    struct nv_dma_buf_bar1_range *ranges
++)
++{
++    nv_dma_buf_file_private_t *priv = buf->priv;
++
++    kvfree(ranges);
++
++    mutex_lock(&priv->lock);
++
++    if (!priv->static_phys_addrs)
++    {
++        nv_dma_buf_put_phys_addresses(priv, 0, priv->num_objects);
++    }
++
++    mutex_unlock(&priv->lock);
++}
++EXPORT_SYMBOL(nv_dma_buf_put_bar1_ranges);
++
+ static NV_STATUS
+ nv_dma_buf_create(
+     nv_state_t *nv,

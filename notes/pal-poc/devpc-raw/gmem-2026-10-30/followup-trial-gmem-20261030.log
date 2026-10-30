@@ -1,0 +1,330 @@
+driver vfio-pci, group 20 type DMA-FQ, cdev vfio0
+== Fri Oct 30 11:18:48 AM KST 2026 7.3.0-rc7-gmem+ bdf=0000:02:00.0 slba=2097152 secs=3 span=1073741824 xfer_big=131072 wr=0 order=gmem pa host gpu=gmem
+== path: /sys/devices/pci0000:00/0000:00:01.1/0000:02:00.0 numa=-1
+#### --gmem
+gmem: provider fd 39 (1 BAR1 range(s), first at 0x480f600000), guest_memfd fd 38
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 8192 KiB mapped at iova 0x200000
+gpu: guest_memfd fd 38 (1024 MiB) mapped at iova 0xa00000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: mdts=7 (512 KiB, 0 = no limit)
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+test LBAs: 2097152 .. 2097535 (overwritten)
+C1 write LBA0 from host: OK
+C1 read LBA0 into GPU iova: OK
+C1 compare: MATCH (65536 bytes)
+C2 write LBA16 from GPU iova: status sct=0x0 sc=0x4
+C2 read LBA16 into host: OK
+C2 compare: MISMATCH
+D write LBA from unmapped iova (device read): status sct=0x0 sc=0x4
+D expectation: an error status or timeout, not OK (iova 0x80a00000)
+D2 read LBA0 into unmapped iova (device write, posted): OK
+result: FAIL (2 failure(s))
+rc=1
+#### --gmem --xfer 4096
+gmem: provider fd 39 (1 BAR1 range(s), first at 0x480f600000), guest_memfd fd 38
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 8192 KiB mapped at iova 0x200000
+gpu: guest_memfd fd 38 (1024 MiB) mapped at iova 0xa00000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: mdts=7 (512 KiB, 0 = no limit)
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+test LBAs: 2097152 .. 2097175 (overwritten)
+C1 write LBA0 from host: OK
+C1 read LBA0 into GPU iova: OK
+C1 compare: MATCH (4096 bytes)
+C2 write LBA16 from GPU iova: status sct=0x0 sc=0x4
+C2 read LBA16 into host: OK
+C2 compare: MISMATCH
+D write LBA from unmapped iova (device read): status sct=0x0 sc=0x4
+D expectation: an error status or timeout, not OK (iova 0x80a00000)
+D2 read LBA0 into unmapped iova (device write, posted): OK
+result: FAIL (2 failure(s))
+rc=1
+#### --map-pa 0000:02:00.0
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 8192 KiB mapped at iova 0x200000
+dmabuf_import: 16384 entries, first pa 0x480f600000, contiguous 1024 MiB
+gpu: 512 x 2 MiB mapped with iommu_map_pa at iova 0x4000000000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: mdts=7 (512 KiB, 0 = no limit)
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+test LBAs: 2097152 .. 2097535 (overwritten)
+C1 write LBA0 from host: OK
+C1 read LBA0 into GPU iova: OK
+C1 compare: MATCH (65536 bytes)
+C2 write LBA16 from GPU iova: status sct=0x0 sc=0x4
+C2 read LBA16 into host: OK
+C2 compare: MISMATCH
+D write LBA from unmapped iova (device read): status sct=0x0 sc=0x4
+D expectation: an error status or timeout, not OK (iova 0x4080000000)
+D2 read LBA0 into unmapped iova (device write, posted): OK
+result: FAIL (2 failure(s))
+rc=1
+#### --gmem --bench rd --qd 1 --xfer 4096 --secs 3 --span 1073741824
+gmem: provider fd 39 (1 BAR1 range(s), first at 0x480f600000), guest_memfd fd 38
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 8192 KiB mapped at iova 0x200000
+gpu: guest_memfd fd 38 (1024 MiB) mapped at iova 0xa00000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: mdts=7 (512 KiB, 0 = no limit)
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+bench: read into gpu qd=1 xfer=4096 span=1024 MiB secs=3 LBAs 2097152..4194303
+bench result: 469857 ok, 0 err, 3.00 s, 156619 IOPS, 641.5 MB/s, lat us p50 6.1 p99 6.6 max 155.4
+result: PASS (0 failure(s))
+rc=0
+#### --gmem --bench rd --qd 32 --xfer 131072 --secs 3 --span 1073741824
+gmem: provider fd 39 (1 BAR1 range(s), first at 0x480f600000), guest_memfd fd 38
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 8192 KiB mapped at iova 0x200000
+gpu: guest_memfd fd 38 (1024 MiB) mapped at iova 0xa00000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: mdts=7 (512 KiB, 0 = no limit)
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+bench: read into gpu qd=32 xfer=131072 span=1024 MiB secs=3 LBAs 2097152..4194303
+bench result: 155407 ok, 0 err, 3.00 s, 51800 IOPS, 6789.6 MB/s, lat us p50 619.5 p99 749.4 max 886.5
+result: PASS (0 failure(s))
+rc=0
+#### --map-pa 0000:02:00.0 --bench rd --qd 1 --xfer 4096 --secs 3 --span 1073741824
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 8192 KiB mapped at iova 0x200000
+dmabuf_import: 16384 entries, first pa 0x480f600000, contiguous 1024 MiB
+gpu: 512 x 2 MiB mapped with iommu_map_pa at iova 0x4000000000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: mdts=7 (512 KiB, 0 = no limit)
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+bench: read into gpu qd=1 xfer=4096 span=1024 MiB secs=3 LBAs 2097152..4194303
+bench result: 465137 ok, 0 err, 3.00 s, 155045 IOPS, 635.1 MB/s, lat us p50 6.1 p99 6.5 max 159.2
+result: PASS (0 failure(s))
+rc=0
+#### --map-pa 0000:02:00.0 --bench rd --qd 32 --xfer 131072 --secs 3 --span 1073741824
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 8192 KiB mapped at iova 0x200000
+dmabuf_import: 16384 entries, first pa 0x480f600000, contiguous 1024 MiB
+gpu: 512 x 2 MiB mapped with iommu_map_pa at iova 0x4000000000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: mdts=7 (512 KiB, 0 = no limit)
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+bench: read into gpu qd=32 xfer=131072 span=1024 MiB secs=3 LBAs 2097152..4194303
+bench result: 155465 ok, 0 err, 3.00 s, 51820 IOPS, 6792.1 MB/s, lat us p50 618.4 p99 737.2 max 865.0
+result: PASS (0 failure(s))
+rc=0
+#### --target host --bench rd --qd 1 --xfer 4096 --secs 3 --span 1073741824
+IOMMU_IOAS_MAP_FILE failed: Operation not supported
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 8192 KiB mapped at iova 0x200000
+rc=1
+#### --target host --bench rd --qd 32 --xfer 131072 --secs 3 --span 1073741824
+IOMMU_IOAS_MAP_FILE failed: Operation not supported
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 8192 KiB mapped at iova 0x200000
+rc=1
+#### --gmem --map-loop 1000 --no-negative
+gmem: provider fd 39 (1 BAR1 range(s), first at 0x480f600000), guest_memfd fd 38
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 8192 KiB mapped at iova 0x200000
+gpu: guest_memfd fd 38 (1024 MiB) mapped at iova 0xa00000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: mdts=7 (512 KiB, 0 = no limit)
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+map-loop IOMMU_IOAS_MAP_FILE guest_memfd x1000 (1024 MiB): map us p50 44170.2 p99 45346.4 max 46107.5, unmap us p50 4742.4 p99 4898.9 max 4960.9
+test LBAs: 2097152 .. 2097535 (overwritten)
+C1 write LBA0 from host: OK
+C1 read LBA0 into GPU iova: OK
+C1 compare: MATCH (65536 bytes)
+C2 write LBA16 from GPU iova: status sct=0x0 sc=0x4
+C2 read LBA16 into host: OK
+C2 compare: MISMATCH
+result: FAIL (2 failure(s))
+rc=1
+#### --map-pa 0000:02:00.0 --map-loop 1000 --no-negative
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 8192 KiB mapped at iova 0x200000
+dmabuf_import: 16384 entries, first pa 0x480f600000, contiguous 1024 MiB
+gpu: 512 x 2 MiB mapped with iommu_map_pa at iova 0x4000000000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: mdts=7 (512 KiB, 0 = no limit)
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+map-loop iommu_map_pa x1000 (1024 MiB): map us p50 89.3 p99 98.0 max 210.2, unmap us p50 4.1 p99 4.8 max 7.6
+test LBAs: 2097152 .. 2097535 (overwritten)
+C1 write LBA0 from host: OK
+C1 read LBA0 into GPU iova: OK
+C1 compare: MATCH (65536 bytes)
+C2 write LBA16 from GPU iova: status sct=0x0 sc=0x4
+C2 read LBA16 into host: OK
+C2 compare: MISMATCH
+result: FAIL (2 failure(s))
+rc=1
+== cuda used before: 15 MiB
+#### --gmem --lifecycle close --no-negative
+gmem: provider fd 39 (1 BAR1 range(s), first at 0x480f600000), guest_memfd fd 38
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 8192 KiB mapped at iova 0x200000
+gpu: guest_memfd fd 38 (1024 MiB) mapped at iova 0xa00000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: mdts=7 (512 KiB, 0 = no limit)
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+dma-buf, provider, guest_memfd and VM fds closed, mapping kept
+test LBAs: 2097152 .. 2097535 (overwritten)
+C1 write LBA0 from host: OK
+C1 read LBA0 into GPU iova: OK
+C1 compare: MATCH (65536 bytes)
+C2 write LBA16 from GPU iova: status sct=0x0 sc=0x4
+C2 read LBA16 into host: OK
+C2 compare: MISMATCH
+cuda free 23740 MiB after unmap and close
+result: FAIL (2 failure(s))
+rc=1
+#### --map-pa 0000:02:00.0 --lifecycle close --no-negative
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 8192 KiB mapped at iova 0x200000
+dmabuf_import: 16384 entries, first pa 0x480f600000, contiguous 1024 MiB
+gpu: 512 x 2 MiB mapped with iommu_map_pa at iova 0x4000000000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: mdts=7 (512 KiB, 0 = no limit)
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+dma-buf fd closed, mapping kept
+test LBAs: 2097152 .. 2097535 (overwritten)
+C1 write LBA0 from host: OK
+C1 read LBA0 into GPU iova: OK
+C1 compare: MATCH (65536 bytes)
+C2 write LBA16 from GPU iova: status sct=0x0 sc=0x4
+C2 read LBA16 into host: OK
+C2 compare: MISMATCH
+cuda free 23740 MiB after unmap and close
+result: FAIL (2 failure(s))
+rc=1
+#### --gmem --lifecycle free
+gmem: provider fd 39 (1 BAR1 range(s), first at 0x480f600000), guest_memfd fd 38
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 8192 KiB mapped at iova 0x200000
+gpu: guest_memfd fd 38 (1024 MiB) mapped at iova 0xa00000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: mdts=7 (512 KiB, 0 = no limit)
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+test LBAs: 2097152 .. 2097407 (overwritten)
+dmabuf_import: 16384 entries, first pa 0x480f600000, contiguous 1024 MiB
+F0 write LBA0 from host: OK
+F: cuda free 22716 MiB before cuMemFree
+F: cuda free 22716 MiB after cuMemFree, mapping still held
+dmabuf_import: 16384 entries, first pa 0x484f600000, contiguous 1024 MiB
+F: old buffer pa 0x480f600000 freed, new buffer pa 0x484f600000
+F1 read LBA0 into the old GPU iova: OK
+F1 new buffer: intact
+F2 write LBA16 from the old GPU iova: status sct=0x0 sc=0x4
+F2 read LBA16 into host: OK
+F2 old iova still holds the F1 data: no
+cuda free 23740 MiB after unmap and close
+result: PASS (0 failure(s))
+rc=0
+#### --map-pa 0000:02:00.0 --lifecycle free
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 8192 KiB mapped at iova 0x200000
+dmabuf_import: 16384 entries, first pa 0x480f600000, contiguous 1024 MiB
+gpu: 512 x 2 MiB mapped with iommu_map_pa at iova 0x4000000000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: mdts=7 (512 KiB, 0 = no limit)
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+test LBAs: 2097152 .. 2097407 (overwritten)
+dmabuf_import: 16384 entries, first pa 0x480f600000, contiguous 1024 MiB
+F0 write LBA0 from host: OK
+F: cuda free 22716 MiB before cuMemFree
+F: cuda free 22716 MiB after cuMemFree, mapping still held
+dmabuf_import: 16384 entries, first pa 0x484f600000, contiguous 1024 MiB
+F: old buffer pa 0x480f600000 freed, new buffer pa 0x484f600000
+F1 read LBA0 into the old GPU iova: OK
+F1 new buffer: intact
+F2 write LBA16 from the old GPU iova: status sct=0x0 sc=0x4
+F2 read LBA16 into host: OK
+F2 old iova still holds the F1 data: no
+cuda free 23740 MiB after unmap and close
+result: PASS (0 failure(s))
+rc=0
+#### kill -9 during a read bench
+Killed
+killed rc=137
+#### --gmem --no-negative
+gmem: provider fd 39 (1 BAR1 range(s), first at 0x480f600000), guest_memfd fd 38
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 8192 KiB mapped at iova 0x200000
+gpu: guest_memfd fd 38 (1024 MiB) mapped at iova 0xa00000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: mdts=7 (512 KiB, 0 = no limit)
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+test LBAs: 2097152 .. 2097535 (overwritten)
+C1 write LBA0 from host: OK
+C1 read LBA0 into GPU iova: OK
+C1 compare: MATCH (65536 bytes)
+C2 write LBA16 from GPU iova: status sct=0x0 sc=0x4
+C2 read LBA16 into host: OK
+C2 compare: MISMATCH
+result: FAIL (2 failure(s))
+rc=1
+== cuda used after: 15 MiB
+#### pte --gmem
+0x0000000000a00 |	0x0000000000000000	0x0000000632fa0403	0x0000000632fa1403	0x0000000632fa6403	0x000000480f600803
+0x0000000000a01 |	0x0000000000000000	0x0000000632fa0403	0x0000000632fa1403	0x0000000632fa6403	0x000000480f601803
+gpu leaves: 2 MiB 0, 4 KiB 262144, low bits: 803 x262144, host 4 KiB leaves: 2048
+gpu: guest_memfd fd 38 (1024 MiB) mapped at iova 0xa00000
+bench result: 414482 ok, 0 err, 8.00 s, 51809 IOPS, 6790.7 MB/s, lat us p50 618.3 p99 724.8 max 908.3
+#### pte --map-pa 0000:02:00.0
+0x0000004000000 |	0x0000000000000000	0x0000000963952403	0x0000000632e0a403	0x000000480f600883
+0x0000004000200 |	0x0000000000000000	0x0000000963952403	0x0000000632e0a403	0x000000480f800883
+gpu leaves: 2 MiB 512, 4 KiB 0, low bits: 883 x512, host 4 KiB leaves: 2048
+gpu: 512 x 2 MiB mapped with iommu_map_pa at iova 0x4000000000
+bench result: 414609 ok, 0 err, 8.00 s, 51825 IOPS, 6792.8 MB/s, lat us p50 618.4 p99 737.4 max 962.6
+#### dmesg
+[ 6790.543362] DMAR: DRHD: handling fault status reg 3
+[ 6790.543367] DMAR: [DMA Read NO_PASID] Request device [0000:02:00.0] fault addr 0x80a00000 [fault reason 0x06] PTE Read access is not set
+[ 6790.543369] DMAR: Dump dmar1 table entries for IOVA 0x80a00000
+[ 6790.543370] DMAR: root entry: 0x0000000106f8c001
+[ 6790.543370] DMAR: context entry: hi 0x0000000000001502, low 0x000000055146e001
+[ 6790.543371] DMAR: pte level: 4, pte value: 0x000000035fe9e403
+[ 6790.543371] DMAR: pte level: 3, pte value: 0x0000000000000000
+[ 6790.543372] DMAR: page table not present at level 2
+[ 6790.543611] DMAR: DRHD: handling fault status reg 3
+[ 6790.543613] DMAR: [DMA Write NO_PASID] Request device [0000:02:00.0] fault addr 0x80a00000 [fault reason 0x05] PTE Write access is not set
+[ 6790.543614] DMAR: Dump dmar1 table entries for IOVA 0x80a00000
+[ 6790.543615] DMAR: root entry: 0x0000000106f8c001
+[ 6790.543615] DMAR: context entry: hi 0x0000000000001502, low 0x000000055146e001
+[ 6790.543616] DMAR: pte level: 4, pte value: 0x000000035fe9e403
+[ 6790.543616] DMAR: pte level: 3, pte value: 0x0000000000000000
+[ 6790.543616] DMAR: page table not present at level 2
+[ 6790.543619] DMAR: DRHD: handling fault status reg 3
+[ 6790.543621] DMAR: [DMA Write NO_PASID] Request device [0000:02:00.0] fault addr 0x80a09000 [fault reason 0x05] PTE Write access is not set
+[ 6790.543622] DMAR: Dump dmar1 table entries for IOVA 0x80a09000
+[ 6790.543622] DMAR: root entry: 0x0000000106f8c001
+[ 6790.543622] DMAR: context entry: hi 0x0000000000001502, low 0x000000055146e001
+[ 6790.543623] DMAR: pte level: 4, pte value: 0x000000035fe9e403
+[ 6790.543623] DMAR: pte level: 3, pte value: 0x0000000000000000
+[ 6790.543623] DMAR: page table not present at level 2
+[ 6790.543626] DMAR: DRHD: handling fault status reg 3
+== done Fri Oct 30 11:20:27 AM KST 2026

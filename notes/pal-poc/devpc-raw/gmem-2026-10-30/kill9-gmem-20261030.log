@@ -1,0 +1,22 @@
+== cuda used before: 15 MiB
+== cuda used during: 1269 MiB
+killed rc=137
+== cuda used after kill: 15 MiB
+gmem: provider fd 39 (1 BAR1 range(s), first at 0x480f600000), guest_memfd fd 38
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 8192 KiB mapped at iova 0x200000
+gpu: guest_memfd fd 38 (1024 MiB) mapped at iova 0xa00000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: mdts=7 (512 KiB, 0 = no limit)
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+test LBAs: 2097152 .. 2097535 (overwritten)
+C1 write LBA0 from host: OK
+C1 read LBA0 into GPU iova: OK
+C1 compare: MATCH (65536 bytes)
+C2 write LBA16 from GPU iova: status sct=0x0 sc=0x4
+C2 read LBA16 into host: OK
+C2 compare: MISMATCH
+result: FAIL (2 failure(s))
+== cuda used after: 15 MiB

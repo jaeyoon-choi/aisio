@@ -1,0 +1,6 @@
+## pte-gmem.txt
+  host: leaves 2048, sizes {'4K': 2048}, low bits {'0x803': 2048}, first pfn 0x200 -> 0x0000000523204803, last pfn 0x9ff -> 0x00000004a58d3803
+  gpu at 0xa00000: leaves 262144, sizes {'4K': 262144}, low bits {'0x803': 262144}, first pfn 0xa00 -> 0x000000480f600803, last pfn 0x409ff -> 0x000000484f5ff803
+## pte-mappa.txt
+  host: leaves 2048, sizes {'4K': 2048}, low bits {'0x803': 2048}, first pfn 0x200 -> 0x000000056cdfb803, last pfn 0x9ff -> 0x00000005532af803
+  gpu at 256 GiB: leaves 512, sizes {'2M': 512}, low bits {'0x883': 512}, first pfn 0x4000000 -> 0x000000480f600883, last pfn 0x403fe00 -> 0x000000484f400883

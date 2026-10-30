@@ -1,0 +1,12 @@
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 8192 KiB mapped at iova 0x200000
+dmabuf_import: 16384 entries, first pa 0x480f600000, contiguous 1024 MiB
+gpu: 512 x 2 MiB mapped with iommu_map_pa at iova 0x4000000000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: mdts=7 (512 KiB, 0 = no limit)
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+bench: read into gpu qd=32 xfer=131072 span=1024 MiB secs=8 LBAs 2097152..4194303
+bench result: 414472 ok, 0 err, 8.00 s, 51808 IOPS, 6790.6 MB/s, lat us p50 618.1 p99 720.3 max 932.0
+result: PASS (0 failure(s))

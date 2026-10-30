@@ -1,0 +1,133 @@
++ cd /data/gmem-poc
++ SLBA=2097152
++ date
+Fri Oct 30 10:43:51 AM KST 2026
++ uname -a
+Linux jaeyoon-pc 7.3.0-rc7-gmem+ #1 SMP PREEMPT_DYNAMIC Thu Oct 29 17:14:47 KST 2026 x86_64 x86_64 x86_64 GNU/Linux
++ nvidia-smi --query-gpu=name,driver_version --format=csv,noheader
+NVIDIA RTX PRO 4000 Blackwell, 580.178.04
++ ./bin/pal_nvme --gmem --slba 2097152 --xfer 65536
+gmem: provider fd 39 (1 BAR1 range(s), first at 0x480f600000), guest_memfd fd 38
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 8192 KiB mapped at iova 0x200000
+gpu: guest_memfd fd 38 (1024 MiB) mapped at iova 0xa00000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: mdts=7 (512 KiB, 0 = no limit)
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+test LBAs: 2097152 .. 2097535 (overwritten)
+C1 write LBA0 from host: OK
+C1 read LBA0 into GPU iova: OK
+C1 compare: MATCH (65536 bytes)
+C2 write LBA16 from GPU iova: status sct=0x0 sc=0x4
+C2 read LBA16 into host: OK
+C2 compare: MISMATCH
+D write LBA from unmapped iova (device read): status sct=0x0 sc=0x4
+D expectation: an error status or timeout, not OK (iova 0x80a00000)
+D2 read LBA0 into unmapped iova (device write, posted): OK
+result: FAIL (2 failure(s))
++ ./bin/pal_nvme --gmem --slba 2097152 --xfer 4096 --no-negative
+gmem: provider fd 39 (1 BAR1 range(s), first at 0x480f600000), guest_memfd fd 38
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 8192 KiB mapped at iova 0x200000
+gpu: guest_memfd fd 38 (1024 MiB) mapped at iova 0xa00000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: mdts=7 (512 KiB, 0 = no limit)
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+test LBAs: 2097152 .. 2097175 (overwritten)
+C1 write LBA0 from host: OK
+C1 read LBA0 into GPU iova: OK
+C1 compare: MATCH (4096 bytes)
+C2 write LBA16 from GPU iova: status sct=0x0 sc=0x4
+C2 read LBA16 into host: OK
+C2 compare: MISMATCH
+result: FAIL (2 failure(s))
++ ./bin/pal_nvme --gmem --slba 2097152 --no-negative --map-loop 100
+gmem: provider fd 39 (1 BAR1 range(s), first at 0x480f600000), guest_memfd fd 38
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 8192 KiB mapped at iova 0x200000
+gpu: guest_memfd fd 38 (1024 MiB) mapped at iova 0xa00000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: mdts=7 (512 KiB, 0 = no limit)
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+map-loop IOMMU_IOAS_MAP_FILE guest_memfd x100 (1024 MiB): map us p50 43307.3 p99 44654.7 max 44654.7, unmap us p50 4649.8 p99 5445.0 max 5445.0
+test LBAs: 2097152 .. 2097535 (overwritten)
+C1 write LBA0 from host: OK
+C1 read LBA0 into GPU iova: OK
+C1 compare: MATCH (65536 bytes)
+C2 write LBA16 from GPU iova: status sct=0x0 sc=0x4
+C2 read LBA16 into host: OK
+C2 compare: MISMATCH
+result: FAIL (2 failure(s))
++ ./bin/pal_nvme --map-pa 0000:02:00.0 --slba 2097152 --no-negative --map-loop 100
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 8192 KiB mapped at iova 0x200000
+dmabuf_import: 16384 entries, first pa 0x480f600000, contiguous 1024 MiB
+gpu: 512 x 2 MiB mapped with iommu_map_pa at iova 0x4000000000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: mdts=7 (512 KiB, 0 = no limit)
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+map-loop iommu_map_pa x100 (1024 MiB): map us p50 91.0 p99 98.7 max 98.7, unmap us p50 4.3 p99 4.6 max 4.6
+test LBAs: 2097152 .. 2097535 (overwritten)
+C1 write LBA0 from host: OK
+C1 read LBA0 into GPU iova: OK
+C1 compare: MATCH (65536 bytes)
+C2 write LBA16 from GPU iova: status sct=0x0 sc=0x4
+C2 read LBA16 into host: OK
+C2 compare: MISMATCH
+result: FAIL (2 failure(s))
++ ./bin/pal_nvme --gmem --slba 2097152 --no-negative --lifecycle close
+gmem: provider fd 39 (1 BAR1 range(s), first at 0x480f600000), guest_memfd fd 38
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 8192 KiB mapped at iova 0x200000
+gpu: guest_memfd fd 38 (1024 MiB) mapped at iova 0xa00000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: mdts=7 (512 KiB, 0 = no limit)
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+dma-buf, provider, guest_memfd and VM fds closed, mapping kept
+test LBAs: 2097152 .. 2097535 (overwritten)
+C1 write LBA0 from host: OK
+C1 read LBA0 into GPU iova: OK
+C1 compare: MATCH (65536 bytes)
+C2 write LBA16 from GPU iova: status sct=0x0 sc=0x4
+C2 read LBA16 into host: OK
+C2 compare: MISMATCH
+cuda free 23740 MiB after unmap and close
+result: FAIL (2 failure(s))
++ ./bin/pal_nvme --gmem --slba 2097152 --no-negative --lifecycle free
+gmem: provider fd 39 (1 BAR1 range(s), first at 0x480f600000), guest_memfd fd 38
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 8192 KiB mapped at iova 0x200000
+gpu: guest_memfd fd 38 (1024 MiB) mapped at iova 0xa00000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: mdts=7 (512 KiB, 0 = no limit)
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+test LBAs: 2097152 .. 2097407 (overwritten)
+dmabuf_import: 16384 entries, first pa 0x480f600000, contiguous 1024 MiB
+F0 write LBA0 from host: OK
+F: cuda free 22716 MiB before cuMemFree
+F: cuda free 22716 MiB after cuMemFree, mapping still held
+dmabuf_import: 16384 entries, first pa 0x484f600000, contiguous 1024 MiB
+F: old buffer pa 0x480f600000 freed, new buffer pa 0x484f600000
+F1 read LBA0 into the old GPU iova: OK
+F1 new buffer: intact
+F2 write LBA16 from the old GPU iova: status sct=0x0 sc=0x4
+F2 read LBA16 into host: OK
+F2 old iova still holds the F1 data: no
+cuda free 23740 MiB after unmap and close
+result: PASS (0 failure(s))
++ dmesg
++ grep -iE dmar|iommufd|guest_memfd|gpu_gmem|nvrm
++ tail -40
+dmesg: read kernel buffer failed: Operation not permitted

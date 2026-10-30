@@ -1,0 +1,12 @@
+gmem: provider fd 39 (1 BAR1 range(s), first at 0x480f600000), guest_memfd fd 38
+vfio: /dev/vfio/devices/vfio0 devid=2 hwpt=3 bar0=16 KiB
+host: 8192 KiB mapped at iova 0x200000
+gpu: guest_memfd fd 38 (1024 MiB) mapped at iova 0xa00000
+nvme: CAP mqes=16384 dstrd=0 timeout=20000 ms VS=0x10300
+nvme: controller enabled
+nvme: mdts=7 (512 KiB, 0 = no limit)
+nvme: ns1 lba_size=512 nsze=1953525168
+nvme: io queue pair 1 created (depth 64)
+bench: read into gpu qd=32 xfer=131072 span=1024 MiB secs=8 LBAs 2097152..4194303
+bench result: 413656 ok, 0 err, 8.00 s, 51706 IOPS, 6777.2 MB/s, lat us p50 619.4 p99 715.8 max 880.0
+result: PASS (0 failure(s))

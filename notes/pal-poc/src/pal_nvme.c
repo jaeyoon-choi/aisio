@@ -25,6 +25,9 @@
  *                  while the mapping is held, then check what DMA still hits
  *   --gpu-iova A   put the GPU mapping at IOVA A (2 MiB aligned, clear of the
  *                  host buffer at the bottom) for either path
+ *   --gmem         wrap the dma-buf in a gpu_gmem_provider file, back a
+ *                  guest_memfd of an empty KVM VM with it, and map the
+ *                  guest_memfd with IOMMU_IOAS_MAP_FILE (guest_memfd export RFC)
  *
  * The test overwrites three transfers starting at --slba (default 0). The
  * LBA numbers in the output labels are fixed text, the real range is in the
@@ -32,6 +35,8 @@
  *
  * Build: gcc -O2 -Wall -I/data/linux-pal/usr/include -I/usr/local/cuda/include
  *            -o pal_nvme pal_nvme.c -lcuda
+ * For --gmem, use the uapi headers of the guest_memfd export kernel and add
+ * -I<dir of gpu_gmem_provider.h> -DPAL_NVME_GMEM.
  */
 #include <errno.h>
 #include <fcntl.h>
@@ -47,6 +52,11 @@
 
 #include <linux/iommufd.h>
 #include <linux/vfio.h>
+#ifdef PAL_NVME_GMEM
+#include <linux/kvm.h>
+
+#include "gpu_gmem_provider.h"
+#endif
 
 #include <cuda.h>
 
@@ -126,7 +136,15 @@ struct ctx {
 	uint64_t pa_handle;
 	uint64_t *pa_list;       /* 2 MiB page addresses of the CUDA buffer */
 	uint32_t pa_n;
+	int gmem;                /* --gmem: map a guest_memfd backed by the dma-buf */
+	int kvm_fd, vm_fd, prov_fd, gmem_fd;
 };
+
+/* The file that IOMMU_IOAS_MAP_FILE maps for the GPU buffer. */
+static int gpu_map_fd(struct ctx *c)
+{
+	return c->gmem ? c->gmem_fd : c->dmabuf_fd;
+}
 
 static const char *cu_err(CUresult r)
 {
@@ -398,11 +416,79 @@ static int remap_gpu(struct ctx *c)
 	struct iommu_ioas_map_file m = {
 		.size = sizeof(m),
 		.flags = IOMMU_IOAS_MAP_READABLE | IOMMU_IOAS_MAP_WRITEABLE | IOMMU_IOAS_MAP_FIXED_IOVA,
-		.ioas_id = c->ioas_id, .fd = c->dmabuf_fd, .length = c->gpu_size,
+		.ioas_id = c->ioas_id, .fd = gpu_map_fd(c), .length = c->gpu_size,
 		.iova = c->gpu_iova,
 	};
 	return IOCTL(c->iommufd, IOMMU_IOAS_MAP_FILE, &m);
 }
+
+#ifdef PAL_NVME_GMEM
+/* An empty VM exists only because guest_memfd is created through a VM fd. */
+static int gmem_setup(struct ctx *c)
+{
+	struct ggp_new_file nf = { .dmabuf_fd = c->dmabuf_fd };
+
+	c->kvm_fd = open("/dev/kvm", O_RDWR | O_CLOEXEC);
+	if (c->kvm_fd < 0) {
+		perror("open /dev/kvm");
+		return -1;
+	}
+	c->vm_fd = ioctl(c->kvm_fd, KVM_CREATE_VM, 0);
+	if (c->vm_fd < 0) {
+		perror("KVM_CREATE_VM");
+		return -1;
+	}
+	int ggp = open("/dev/gpu_gmem_provider", O_RDWR | O_CLOEXEC);
+	if (ggp < 0) {
+		perror("open /dev/gpu_gmem_provider");
+		return -1;
+	}
+	if (IOCTL(ggp, GGP_NEW_FILE, &nf))
+		return -1;
+	close(ggp);
+	c->prov_fd = nf.fd;
+	if (nf.size != c->gpu_size) {
+		fprintf(stderr, "provider size %llu != buffer size %zu\n",
+			(unsigned long long)nf.size, c->gpu_size);
+		return -1;
+	}
+
+	struct kvm_create_guest_memfd g = {
+		.size = nf.size,
+		.flags = GUEST_MEMFD_FLAG_INIT_SHARED | GUEST_MEMFD_FLAG_USE_RESOURCE |
+			 GUEST_MEMFD_FLAG_PFN_MODE,
+		.resource_fd = c->prov_fd,
+	};
+	c->gmem_fd = ioctl(c->vm_fd, KVM_CREATE_GUEST_MEMFD, &g);
+	if (c->gmem_fd < 0) {
+		perror("KVM_CREATE_GUEST_MEMFD");
+		return -1;
+	}
+	printf("gmem: provider fd %d (%u BAR1 range(s), first at 0x%llx), guest_memfd fd %d\n",
+	       c->prov_fd, nf.nr_ranges, (unsigned long long)nf.first_phys, c->gmem_fd);
+	return 0;
+}
+
+/* Close every user fd behind the mapping; iommufd keeps the guest_memfd. */
+static void gmem_close_fds(struct ctx *c)
+{
+	close(c->gmem_fd);
+	close(c->prov_fd);
+	close(c->vm_fd);
+	close(c->kvm_fd);
+	c->gmem_fd = c->prov_fd = c->vm_fd = c->kvm_fd = -1;
+}
+#else
+static int gmem_setup(struct ctx *c)
+{
+	fprintf(stderr, "--gmem needs a build with -DPAL_NVME_GMEM\n");
+	return -1;
+}
+
+static void gmem_close_fds(struct ctx *c)
+{
+}
+#endif
 
 static int map_gpu(struct ctx *c)
 {
@@ -419,7 +505,7 @@ static int map_gpu(struct ctx *c)
 		.size = sizeof(m),
 		.flags = IOMMU_IOAS_MAP_READABLE | IOMMU_IOAS_MAP_WRITEABLE,
 		.ioas_id = c->ioas_id,
-		.fd = c->dmabuf_fd,
+		.fd = gpu_map_fd(c),
 		.start = 0,
 		.length = c->gpu_size,
 	};
@@ -433,7 +519,8 @@ static int map_gpu(struct ctx *c)
 	if (IOCTL(c->iommufd, IOMMU_IOAS_MAP_FILE, &m))
 		return -1;
 	c->gpu_iova = m.iova;
-	printf("gpu: dma-buf fd %d (%zu MiB) mapped at iova 0x%llx\n", c->dmabuf_fd,
+	printf("gpu: %s fd %d (%zu MiB) mapped at iova 0x%llx\n",
+	       c->gmem ? "guest_memfd" : "dma-buf", gpu_map_fd(c),
 	       c->gpu_size >> 20, (unsigned long long)c->gpu_iova);
 	return 0;
 }
@@ -781,7 +868,8 @@ static int map_loop(struct ctx *c, int n)
 	qsort(um, n, sizeof(*um), cmp_i64);
 	qsort(mp, n, sizeof(*mp), cmp_i64);
 	printf("map-loop %s x%d (%zu MiB): map us p50 %.1f p99 %.1f max %.1f, unmap us p50 %.1f p99 %.1f max %.1f\n",
-	       c->pa_bdf ? "iommu_map_pa" : "IOMMU_IOAS_MAP_FILE", n, c->gpu_size >> 20,
+	       c->pa_bdf ? "iommu_map_pa" : c->gmem ? "IOMMU_IOAS_MAP_FILE guest_memfd" :
+	       "IOMMU_IOAS_MAP_FILE", n, c->gpu_size >> 20,
 	       mp[n / 2] / 1e3, mp[n * 99 / 100] / 1e3, mp[n - 1] / 1e3,
 	       um[n / 2] / 1e3, um[n * 99 / 100] / 1e3, um[n - 1] / 1e3);
 	free(um);
@@ -890,6 +978,7 @@ int main(int argc, char **argv)
 		{ "map-loop", required_argument, NULL, 'L' },
 		{ "lifecycle", required_argument, NULL, 'F' },
 		{ "gpu-iova", required_argument, NULL, 'G' },
+		{ "gmem", no_argument, NULL, 'M' },
 		{ 0 }
 	};
 
@@ -904,6 +993,7 @@ int main(int argc, char **argv)
 		case 'L': loops = atoi(optarg); break;
 		case 'F': lifecycle = optarg; break;
 		case 'G': GPU_IOVA = strtoull(optarg, NULL, 0); break;
+		case 'M': c.gmem = 1; break;
 		case 'i': c.identity = 1; break;
 		case 'u': c.uio_bdf = optarg; break;
 		case 'l': SLBA_BASE = strtoull(optarg, NULL, 0); break;
@@ -928,6 +1018,7 @@ int main(int argc, char **argv)
 	CU_CHECK(cuMemsetD8(c.gpu, 0, c.gpu_size));
 
 	if ((c.pa_bdf && (c.uio_bdf || c.identity)) || (GPU_IOVA && (c.identity || c.uio_bdf)) ||
+	    (c.gmem && (c.pa_bdf || c.uio_bdf || c.identity)) ||
 	    GPU_IOVA % PA_PAGE ||
 	    ((bench_dir >= 0 || loops || lifecycle) && c.uio_bdf) ||
 	    (lifecycle && strcmp(lifecycle, "close") && strcmp(lifecycle, "free"))) {
@@ -950,7 +1041,8 @@ int main(int argc, char **argv)
 	if (IOCTL(c.iommufd, IOMMU_IOAS_ALLOC, &ia))
 		return 1;
 	c.ioas_id = ia.out_ioas_id;
-	if (vfio_setup(&c, vfio_path) || map_host(&c) || map_gpu(&c))
+	if ((c.gmem && gmem_setup(&c)) || vfio_setup(&c, vfio_path) || map_host(&c) ||
+	    map_gpu(&c))
 		return 1;
 ctrl:
 	if (ctrl_init(&c))
@@ -974,7 +1066,10 @@ ctrl:
 		/* iommufd (or iommu_map_pa) holds its own reference on the dma-buf */
 		close(c.dmabuf_fd);
 		c.dmabuf_fd = -1;
-		printf("dma-buf fd closed, mapping kept\n");
+		if (c.gmem)
+			gmem_close_fds(&c);
+		printf("%s closed, mapping kept\n",
+		       c.gmem ? "dma-buf, provider, guest_memfd and VM fds" : "dma-buf fd");
 	}
 	printf("test LBAs: %llu .. %llu (overwritten)\n", (unsigned long long)SLBA_BASE,
 	       (unsigned long long)(SLBA_BASE + 3 * XFER / c.lba_size - 1));
@@ -1040,6 +1135,8 @@ teardown:
 	IOCTL(c.iommufd, IOMMU_IOAS_UNMAP, &u);
 	if (c.pa_fd > 0)
 		close(c.pa_fd);
+	if (c.gmem && c.gmem_fd >= 0)
+		gmem_close_fds(&c);
 	close(c.vfio_fd);
 	close(c.iommufd);
 done:
