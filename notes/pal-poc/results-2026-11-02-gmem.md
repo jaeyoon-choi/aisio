@@ -2,9 +2,31 @@
 
 `MANUAL-gmem.md` 3차 작업. 개발 PC 결과는 `results-2026-10-30-gmem.md`에 있다. 이 문서는 sid에서 같은 경로를 측정한 결과다.
 
-방법: kvm.git `7e60162b16f9` 위에 Ackerley RFC v2와 Griffoul RFC를 쌓은 트리(`6766bffb9fc2`, tree `a6af7e15843c`)를 `7.3.0-rc7-gmem+`로 빌드해 설치하고 한 번 부팅했다. 장치는 기준 장치 `0000:4e:00.0` 하나, `SLBA=0`, `SPAN=1073741824`(1 GiB)를 썼다. `0000:4d:00.0`(데이터셋 장치)은 어떤 명령에도 넣지 않았다. 서버: Ice Lake-SP, NUMA 0, 경로 `4a:02.0/4b/4c:01.0/4e`, IOMMU 그룹 31 `DMA-FQ`, `intel_iommu=on`.
+## 요약
 
-## 6절 단계 J — 정합성
+이 시험은 개발 PC에서 확인하지 못한 두 가지, 곧 NVMe가 GPU 메모리를 읽는 방향(C2)과 해제된 버퍼를 옛 IOVA가 계속 가리키는지(F2)를 sid에서 측정했다. 4 KiB IOPTE가 처리량에 주는 영향도 함께 쟀다. 커널, NVIDIA 패치, 브리지 모듈, 시험 도구는 개발 PC와 같은 것을 썼다.
+
+guest_memfd export 경로는 sid에서 양방향 모두 동작했다. C1과 C2는 64 KiB와 4 KiB 전송에서 데이터가 일치했고, 매핑하지 않은 IOVA로 보낸 DMA는 DMAR fault와 함께 막혔다. 같은 IOVA에 둔 경로끼리 비교하면 읽기 처리량은 `iommu_map_pa`, host 대상과 같은 6495 MB/s였다. 따라서 4 KiB 리프 262,144개는 이 조건에서 처리량을 낮추지 않았다.
+
+남은 비용은 매핑 시간이다. 1 GiB 매핑에 9.04 ms, 해제에 7.10 ms가 들어 `iommu_map_pa`(34.6 µs, 2.4 µs)보다 각각 약 260배, 약 3,000배 느렸다. RFC의 iommufd 코드가 4 KiB마다 `iommu_map()`을 부르기 때문이며, Griffoul이 준비 중이라고 밝힌 큰 IOPTE 지원이 들어오면 줄어들 것으로 추정한다.
+
+수명 시험에서는 `cuMemFree` 뒤에도 매핑이 풀릴 때까지 CUDA 여유 메모리가 늘지 않았고, 옛 IOVA는 해제된 버퍼를 계속 가리켰다(F2). 다른 할당이 그 메모리를 받지는 않았지만, 응용이 해제한 버퍼를 장치가 계속 읽고 쓸 수 있다. `iommu_map_pa` 경로도 같았다.
+
+| 항목 | 결과 |
+| --- | --- |
+| C1, C2 (64K, 4K) | 모두 MATCH |
+| D (미매핑 IOVA) | `sc=0x4`, DMAR fault |
+| rd 128K qd32, 같은 IOVA | guest_memfd 6495.3, `iommu_map_pa` 6495.6, host 6495.5 MB/s |
+| wr 128K qd32 | 세 대상 모두 6424.7~6424.8 MB/s |
+| 1 GiB 매핑 / 해제 p50 | 9,040 µs / 7,097 µs (`iommu_map_pa` 34.6 / 2.4 µs) |
+| PTE | 4 KiB x 262,144, `0x803` (`iommu_map_pa` 2 MiB x 512, `0x883`) |
+| 수명 | fd 닫기, `cuMemFree`, kill -9 모두 정상 정리. F2는 yes |
+
+## 측정 조건
+
+kvm.git `7e60162b16f9` 위에 Ackerley RFC v2와 Griffoul RFC를 쌓은 트리(`6766bffb9fc2`, tree `a6af7e15843c`)를 `7.3.0-rc7-gmem+`로 빌드해 설치하고 한 번 부팅했다. 장치는 기준 장치 `0000:4e:00.0` 하나, `SLBA=0`, `SPAN=1073741824`(1 GiB)를 썼다. `0000:4d:00.0`(데이터셋 장치)은 어떤 명령에도 넣지 않았다. 서버: Ice Lake-SP, NUMA 0, 경로 `4a:02.0/4b/4c:01.0/4e`, IOMMU 그룹 31 `DMA-FQ`, `intel_iommu=on`.
+
+## 단계 J: 정합성 (매뉴얼 6절)
 
 `GPU=gmem ./followup-run.sh 0000:4e:00.0 0 c`. BAR1 구간은 1개, 첫 주소 `0x20a031e00000`이고, guest_memfd 1024 MiB를 IOVA `0xa00000`에 매핑했다.
 
@@ -13,12 +35,12 @@
 | `--gmem` C1 (64K, 4K) | MATCH | MATCH (가정) | MATCH / MATCH |
 | `--gmem` C2 (64K, 4K) | `sc=0x4` (플랫폼 제한) | MATCH (가정) | MATCH / MATCH |
 | `--gmem` D | `sc=0x4`, DMAR fault | 같음 (가정) | `sc=0x4` + DMAR fault |
-| `--gmem` D2 | OK | — | OK |
+| `--gmem` D2 | OK | 없음 | OK |
 | `--map-pa` C1, C2 | C1 MATCH, C2 `sc=0x4` | MATCH | MATCH, MATCH |
 
 세 실행 모두 `result: PASS (0 failure(s))`다. D의 DMAR fault는 의도한 미매핑 IOVA `0x80a00000`에 대한 3건뿐이다(Read `reason 0x06` 2건, Write `0x05` 1건). AER, NVRM, BUG, WARNING 줄은 없다.
 
-## 7절 단계 K — 성능
+## 단계 K: 성능 (매뉴얼 7절)
 
 `SECS=10 SPAN=1073741824 GPU=gmem ORDER="gmem pa host" ./followup-run.sh 0000:4e:00.0 0 "bench iova map pte"`. 25회 측정 모두 `0 err`, `result: PASS`.
 
@@ -54,9 +76,9 @@ gpu leaves: 2 MiB 0, 4 KiB 262144, low bits: 803 x262144, host 4 KiB leaves: 204
 gpu leaves: 2 MiB 512, 4 KiB 0, low bits: 883 x512, host 4 KiB leaves: 2048
 ```
 
-guest_memfd 경로는 4 KiB 리프 262,144개(`0x803`, P+W+SNP), `iommu_map_pa`는 2 MiB 리프 512개(`0x883`)다. 차이는 PS 비트 하나이며 개발 PC와 같다.
+guest_memfd 경로는 4 KiB 리프 262,144개(`0x803`, R+W+SNP), `iommu_map_pa`는 2 MiB 리프 512개(`0x883`)다. 차이는 PS 비트 하나이며 개발 PC와 같다.
 
-## 8절 단계 L — 수명
+## 단계 L: 수명 (매뉴얼 8절)
 
 | 시험 | 확인하는 것 | 개발 PC 실측 | sid 예상 | sid 실측 |
 | --- | --- | --- | --- | --- |
@@ -75,11 +97,11 @@ guest_memfd 경로는 4 KiB 리프 262,144개(`0x803`, P+W+SNP), `iommu_map_pa`�
 - **측정**: 매핑 비용은 `iommu_map()` 호출 횟수에 비례한다. 262,144회에 9.04 ms, `iommu_map_pa`는 512회에 34.6 µs로 약 260배다. unmap도 7.10 ms 대 2.4 µs다.
 - **측정**: 128K 쓰기는 세 경로가 6424.8 MB/s로 같다.
 - **측정**: `cuMemFree`는 매핑이 살아 있는 동안 메모리를 반환하지 않는다. 매핑이 해제되면 22,369 MiB로 돌아온다.
-- **측정**: F1이 intact이므로 해제된 버퍼의 페이지를 새 할당이 재사용해도 살아 있는 매핑이 새 버퍼를 오염시키지 않는다(새 버퍼가 다른 물리주소를 받았다).
+- **측정**: F1은 intact다. 옛 IOVA로 쓴 데이터가 새 버퍼에 닿지 않았고, 새 버퍼는 옛 버퍼(`0x20a031e00000`)와 다른 물리주소(`0x20a071e00000`)를 받았다.
 - **측정**: F2는 yes다. 매핑이 여전히 해제된 버퍼의 물리 페이지를 가리킨다. 개발 PC에서 C2 방향이 안 돼 확인하지 못한 항목이다.
 - **측정**: `kill -9` 뒤에도 장치 복귀, 메모리 회계, 모듈 참조가 정상이다. 개발 PC는 15 MiB로 복귀했지만 sid는 디스플레이가 없어 기준선이 0 MiB다.
-- **추정**: F2가 yes라는 것은 그 페이지가 나중에 다른 용도로 재할당되면 살아 있는 매핑이 그 메모리를 계속 DMA할 수 있다는 뜻이다. 이번 시험에서는 새 버퍼가 다른 물리주소를 받아 실제 오염이 관측되지 않았고, 매뉴얼도 yes를 예상값으로 둔다. 이 상태를 "안전"으로 일반화할 수는 없다.
-- **추정**: 매뉴얼 예상 "약 17 ms"보다 매핑 비용 실측이 1.9배 빠르다(9.04 ms). `iommu_map()` 호출당 비용이 개발 PC보다 낮은 것으로 보이나 원인은 확인하지 않았다.
+- **추정**: `cuMemFree` 직후에도 여유 메모리가 21,345 MiB로 줄지 않았고 매핑을 푼 뒤에야 22,369 MiB로 돌아왔다(측정). 따라서 NVIDIA는 매핑이 남아 있는 동안 그 메모리를 다른 할당에 내주지 않는 것으로 본다. F2가 yes라는 것은 다른 할당을 덮어쓸 위험이 아니라, 응용이 해제했다고 생각한 버퍼에 장치의 DMA가 매핑이 풀릴 때까지 계속 닿는다는 뜻이다.
+- **추정**: 매뉴얼 예상 "약 17 ms"보다 매핑 비용 실측이 1.9배 빠르다(9.04 ms). 호출 하나로 나누면 4 KiB `iommu_map()`이 34.5 ns, `iommu_map_pa`의 2 MiB `iommu_map()`이 67.6 ns다. 개발 PC에서는 두 값이 168 ns와 174 ns로 비슷했으므로, sid에서는 작은 페이지 호출이 상대적으로 싸다. 원인은 확인하지 않았다.
 - **추정**: 낮은 IOVA 기대값 6588 대비 6495(-1.4%), 256 GiB 기대 6419 대비 6330(-1.4%)으로 전 항목이 같은 비율로 낮다. 2차 측정과 날짜·상태가 달라 생긴 차이로 보며 경로 간 상대 비교에는 영향이 없다.
 - **추정**: wr 4K qd1만 host가 745.6으로 gmem/map-pa(714.4)보다 4.4% 높다. 원인은 분리하지 않았다.
 
@@ -108,4 +130,4 @@ prerequisite `v7.3-rc7`을 GitHub이 아니라 git.kernel.org에서 받았다. �
 
 ## 로그
 
-`~/pal-poc-sid/logs/` — `g-precheck.txt`, `g-source.txt`, `g-kernel-config.txt`, `g-build.txt`, `g-install.txt`, `g-boot.txt`, `g-postboot.txt`, `g-J-4e.txt`, `g-K-4e.txt`, `g-L-4e.txt`, `g-recover.txt`, `g-verify.txt`.
+sia의 `~/pal-poc-sid/logs/`에 있고, 같은 파일을 `sid-raw/gmem-2026-11-02/`에 옮겼다: `g-precheck.txt`, `g-source.txt`, `g-kernel-config.txt`, `g-build.txt`, `g-install.txt`, `g-boot.txt`, `g-postboot.txt`, `g-J-4e.txt`, `g-K-4e.txt`, `g-L-4e.txt`, `g-recover.txt`, `g-verify.txt`.
