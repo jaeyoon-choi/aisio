@@ -15,7 +15,7 @@ NVMe가 CUDA로 할당한 GPU VRAM에 직접 DMA하려면, 그 VRAM의 물리주
 
 NVIDIA 같은 다른 exporter의 dma-buf도 받게 하려는 작업은 Linux 커널 메일링리스트에 올라온 패치 시리즈로 진행 중이며, 아직 머지된 것은 없다. 2026-11-01에 나온 v7.4-rc1에도 들어가지 않았고 v7.4의 머지 윈도가 닫혔으므로, 가장 이른 시점은 v7.5다. NVIDIA의 Jason Gunthorpe(iommufd 메인테이너)가 2026-02-18에 RFC로 올린 dma-buf mapping types 시리즈는 dma-buf에 주소 교환 형식(mapping type)을 협상하는 체계를 넣는다. 같은 NVIDIA의 Alistair Popple이 2026-10-26에 이 시리즈를 처음 정식 패치로 다시 올렸다. 다만 이 패치에서는 물리주소 목록 type(PAL)과 iommufd 연결이 빠졌고, iommufd 연결은 이후 "iommufd importer type"으로 따로 올라올 예정이다.
 
-Amazon의 Fred Griffoul은 2026-10-06에 dma-buf를 거치지 않고 mm에 같은 규약을 두는 mm memory provider 시리즈를 RFC로 올렸다. 그러나 2026-10-27에 올린 후속 RFC에서는 mm 인터페이스를 빼고 VM 메모리(guest_memfd)만 iommufd로 매핑하는 방향으로 바꿨다. 따라서 NVIDIA 같은 VM 밖의 드라이버에 해당하는 경로로 게시된 것은 mapping types 시리즈만 남았다(추정). NVIDIA용 전용 연결을 하나 더 두는 방법은 iommufd 메인테이너가 거부했으므로 채택될 가능성이 낮다(추정). 시리즈의 목록과 경과는 §5에 있다.
+Amazon의 Fred Griffoul은 2026-10-06에 dma-buf를 거치지 않고 mm에 같은 규약을 두는 mm memory provider 시리즈를 RFC로 올렸다. 그러나 2026-10-27에 올린 후속 RFC에서는 mm 인터페이스를 빼고 VM 메모리(guest_memfd)만 iommufd로 매핑하는 방향으로 바꿨다. 따라서 NVIDIA 같은 VM 밖의 드라이버를 위한 인터페이스로 게시된 것은 mapping types 시리즈만 남았다(추정). 다만 본 팀의 PoC는 NVIDIA 메모리를 guest_memfd로 감싸는 브리지 모듈을 써서, CUDA 메모리도 guest_memfd export 경로로 NVMe의 IOMMU에 매핑할 수 있음을 측정 서버에서 확인했다(§5.3). NVIDIA용 전용 연결을 하나 더 두는 방법은 iommufd 메인테이너가 거부했으므로 채택될 가능성이 낮다(추정). 시리즈의 목록과 경과는 §5에 있다.
 
 iommufd 밖에서는 2026-10-27에 io_uring의 dma-buf 지원이 v7.4 머지 윈도에 들어가, NVMe를 커널 드라이버로 구동하면 dma-buf로 GPU 메모리에 직접 DMA할 수 있게 되었다. 이 경로는 vfio 기반 사용자 공간 드라이버에는 해당하지 않으며, NVIDIA dma-buf로 동작하는지는 확인하지 못했다. 같은 dma-buf를 NVMe passthrough 명령(`io_uring_cmd`)에도 쓰게 하는 Anuj Gupta(Samsung)의 [시리즈](https://lore.kernel.org/all/20261030014540.3065403-1-anuj1072538@gmail.com/)는 v3까지 나와 다섯 편 모두 Reviewed-by를 받았고, 머지되지는 않았다. 이 시리즈가 머지되고 xNVMe가 dma-buf 고정 버퍼 등록을 지원하면, aisio의 커널 경로에서 xNVMe가 NVMe 명령 단위로 GPU 메모리에 P2P DMA할 수 있을 것으로 추정한다(§3).
 
@@ -235,7 +235,7 @@ Griffoul은 RFC v3 대신 guest_memfd export RFC를 올리고, 표지 메일에�
 
 같은 시기에 Arm의 Aneesh Kumar는 vfio-pci BAR를 guest_memfd provider로 쓰는 RFC(v1 10-10, v2 10-17)를 올렸다. 이 시리즈는 장치 MMIO를 VM에 연결하는 용도이고, v2는 provider가 붙어 있는 동안 vfio-pci의 dma-buf export를 막았다. 11-01의 v3는 Ackerley v2 위로 다시 올린 공통 틀만 담았고, VFIO provider와 iommufd 연결은 Arm의 공개 브랜치에만 두었다.
 
-이 전환으로 VM 밖의 드라이버가 자기 메모리를 iommufd에 매핑하게 하는 경로는 게시된 시리즈에서 사라졌다. CUDA 할당은 guest_memfd가 아니므로, 이 시리즈는 NVMe가 CUDA 메모리에 DMA하는 용도에는 해당하지 않는다고 추정한다.
+이 전환으로 VM 밖의 드라이버가 자기 메모리를 iommufd에 매핑하게 하는 인터페이스는 게시된 시리즈에서 사라졌다. 그러나 CUDA 메모리를 이 경로로 매핑하는 것 자체는 가능하다. 본 팀의 PoC는 NVIDIA dma-buf의 BAR1 구간을 PFN mode provider로 내보내는 브리지 모듈과, vCPU 없이 VM 객체만 만든 KVM VM으로 CUDA 메모리를 guest_memfd로 감싼 뒤 `IOMMU_IOAS_MAP_FILE`로 매핑했다. 측정 서버에서 C1과 C2가 모두 데이터 일치했고, 처리량은 같은 IOVA에 둔 `iommu_map_pa`와 같았다([PoC 결과](https://github.com/jaeyoon-choi/aisio/blob/poc/iommufd-pal/notes/pal-poc/results-2026-11-02-gmem.md)). 다만 RFC의 시연용 iommufd 코드가 4 KiB IOPTE를 만들어 1 GiB 매핑에 9.04 ms가 들었고(`iommu_map_pa`는 34.6 µs), 브리지 모듈과 NVIDIA 쪽 수정은 트리 밖 코드다. VM 메모리를 위한 인터페이스를 VM 없는 응용이 이렇게 쓰는 방식을 업스트림이 받아들일지는 확인하지 못했다.
 
 #### 경과
 
@@ -294,7 +294,7 @@ NVIDIA 쪽에서 보면 현행 vfio 경로는 vfio-pci가 내보낸 dma-buf만 �
 
 1. **mapping type 체계의 linux-next 진입.** linux-next에서 `dma_buf_mapping_match`나 `match_mapping`을 찾는다. König이 새 attach 함수에 반대했으므로 `dma_buf_mapping_attach`는 v2에서 이름이 바뀔 수 있다. 들어갔다면 iommufd importer type이 기반으로 삼을 체계가 갖춰졌다.
 2. **iommufd importer type 시리즈 게시.** lore에서 Popple이나 Gunthorpe의 dma-buf, iommufd 시리즈를 찾는다. 게시되면 dma-buf 경로의 iommufd 연결 방식이 정해지는 단계이므로 PoC 패치의 재이식을 검토한다.
-3. **guest_memfd 쪽 iommufd 시리즈의 범위.** Griffoul이 예고한 별도 iommufd 시리즈가 guest_memfd 파일만 받는지, 드라이버가 내는 다른 파일도 받는지 본다. guest_memfd만 받으면 NVIDIA에 해당하는 경로는 dma-buf 쪽만 남는다.
+3. **guest_memfd 쪽 iommufd 시리즈의 범위.** Griffoul이 예고한 별도 iommufd 시리즈가 guest_memfd 파일만 받는지, 드라이버가 내는 다른 파일도 받는지 본다. guest_memfd만 받으면 NVIDIA 메모리를 매핑하는 길은 dma-buf 쪽 규약과, PoC처럼 NVIDIA 메모리를 guest_memfd provider로 내보내는 방법 두 가지다.
 4. **NVIDIA 드라이버의 대응.** open-gpu-kernel-modules 릴리스의 `nv-dmabuf.c`에 새 mapping type의 exporter 코드가 들어가는지 본다.
 5. **iommufd UAPI 주석의 변경.** `include/uapi/linux/iommufd.h`의 `IOMMU_IOAS_MAP_FILE` 주석에서 "not a generic dma-buf import path"가 사라지면 iommufd가 일반 dma-buf를 받게 되었다고 판단한다.
 6. **dma-buf backed NVMe passthrough 머지.** Anuj Gupta 시리즈가 block 또는 nvme 트리에 들어가는지 본다. 들어가면 xNVMe에 dma-buf 고정 버퍼 등록을 더해, aisio의 커널 경로에서 xNVMe `io_uring_cmd` 백엔드로 GPU 메모리 P2P를 시험할 수 있다.
