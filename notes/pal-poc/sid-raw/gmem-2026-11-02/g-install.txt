@@ -1,0 +1,35 @@
+
+K=7.3.0-rc7-gmem+
+update-initramfs: Generating /boot/initrd.img-7.3.0-rc7-gmem+
+dracut[E]: Module 'overlayroot' depends on module 'overlayfs', which can't be installed
+Sourcing file `/etc/default/grub'
+Sourcing file `/etc/default/grub.d/kdump-tools.cfg'
+Generating grub configuration file ...
+Found linux image: /boot/vmlinuz-7.3.0-rc7-gmem+
+Found initrd image: /boot/initrd.img-7.3.0-rc7-gmem+
+Found linux image: /boot/vmlinuz-7.0.0-rc1-pal+
+Found initrd image: /boot/initrd.img-7.0.0-rc1-pal+
+Found linux image: /boot/vmlinuz-7.0.0-38-generic
+Found initrd image: /boot/initrd.img-7.0.0-38-generic
+Found linux image: /boot/vmlinuz-7.0.0-34-generic
+Found initrd image: /boot/initrd.img-7.0.0-34-generic
+Warning: os-prober will not be executed to detect other bootable partitions.
+Systems on them will not be added to the GRUB boot configuration.
+Check GRUB_DISABLE_OS_PROBER documentation entry.
+Adding boot menu entry for UEFI Firmware Settings ...
+done
+== grub.cfg entry count ==
+10
+== GRUB_DEFAULT ==
+GRUB_DEFAULT="Advanced options for Ubuntu>Ubuntu, with Linux 7.0.0-38-generic"
+== initramfs lvm entries ==
+13
+== grub menu title ==
+189-submenu 'Advanced options for Ubuntu' $menuentry_id_option 'gnulinux-advanced-fe4c1301-ceca-491f-a85c-4733d87cd8de' {
+190:	menuentry 'Ubuntu, with Linux 7.3.0-rc7-gmem+' --class ubuntu --class gnu-linux --class gnu --class os $menuentry_id_option 'gnulinux-7.3.0-rc7-gmem+-advanced-fe4c1301-ceca-491f-a85c-4733d87cd8de' {
+210:	menuentry 'Ubuntu, with Linux 7.3.0-rc7-gmem+ (recovery mode)' --class ubuntu --class gnu-linux --class gnu --class os $menuentry_id_option 'gnulinux-7.3.0-rc7-gmem+-recovery-fe4c1301-ceca-491f-a85c-4733d87cd8de' {
+== boot files ==
+10617275 /boot/System.map-7.3.0-rc7-gmem+
+192358 /boot/config-7.3.0-rc7-gmem+
+69997532 /boot/initrd.img-7.3.0-rc7-gmem+
+15176192 /boot/vmlinuz-7.3.0-rc7-gmem+

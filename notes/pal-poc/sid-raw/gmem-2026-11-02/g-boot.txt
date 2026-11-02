@@ -1,0 +1,12 @@
+
+== before ==
+7.0.0-38-generic
+
+WARNING: Detected GRUB environment block on lvm device
+Advanced options for Ubuntu>Ubuntu, with Linux 7.3.0-rc7-gmem+ will remain the default boot entry until manually cleared with:
+    grub-editenv /boot/grub/grubenv unset next_entry
+
+grub-reboot rc=0
+== after ==
+next_entry=Advanced options for Ubuntu>Ubuntu, with Linux 7.3.0-rc7-gmem+
+reboot scheduled

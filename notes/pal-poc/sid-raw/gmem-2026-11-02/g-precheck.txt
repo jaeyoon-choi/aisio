@@ -1,0 +1,33 @@
+
+7.0.0-38-generic
+System.map-7.0.0-rc1-pal+
+config-7.0.0-rc1-pal+
+initrd.img-7.0.0-rc1-pal+
+vmlinuz-7.0.0-rc1-pal+
+GRUB_DEFAULT="Advanced options for Ubuntu>Ubuntu, with Linux 7.0.0-38-generic"
+/root/pal-poc/sid-cuda13-compat.h
+
+/root/pal-poc:
+followup
+linux-pal
+logs
+nvidia-pal
+sid-bundle
+sid-cuda13-compat.h
+upcie-pal
+/usr/src/nvidia-580.178.04
+/usr/src/upcie-experimental-0.9.0
+vmx 192
+crw-rw---- 1 root kvm 10, 232 Oct 27 02:58 /dev/kvm
+kvm_intel             552960  0
+kvm                  1527808  1 kvm_intel
+git version 2.53.0
+bison
+flex
+libdw-dev:amd64
+libelf-dev:amd64
+libssl-dev:amd64
+Filesystem             Size  Used Avail Use% Mounted on
+/dev/mapper/vg0-lv--0  439G   41G  376G  10% /
+/dev/mapper/vg0-lv--0  439G   41G  376G  10% /
+pid, process_name

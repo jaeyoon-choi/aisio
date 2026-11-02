@@ -1,0 +1,37 @@
+
+== warnings in kernel build ==
+drivers/net/ethernet/mellanox/mlx5/core/en_fs.c:1325:1: warning: the frame size of 1096 bytes is larger than 1024 bytes [-Wframe-larger-than=]
+drivers/net/ethernet/mellanox/mlx5/core/en_fs.c:1335:1: warning: the frame size of 1088 bytes is larger than 1024 bytes [-Wframe-larger-than=]
+drivers/infiniband/core/nldev.c:1863:1: warning: the frame size of 1056 bytes is larger than 1024 bytes [-Wframe-larger-than=]
+drivers/infiniband/core/nldev.c:1232:1: warning: the frame size of 1088 bytes is larger than 1024 bytes [-Wframe-larger-than=]
+drivers/infiniband/core/nldev.c:1753:1: warning: the frame size of 1056 bytes is larger than 1024 bytes [-Wframe-larger-than=]
+drivers/infiniband/core/nldev.c:2936:1: warning: the frame size of 1032 bytes is larger than 1024 bytes [-Wframe-larger-than=]
+drivers/infiniband/core/nldev.c:1992:1: warning: the frame size of 1040 bytes is larger than 1024 bytes [-Wframe-larger-than=]
+drivers/net/ethernet/mellanox/mlx5/core/lag/port_sel.c:547:1: warning: the frame size of 1120 bytes is larger than 1024 bytes [-Wframe-larger-than=]
+drivers/net/ethernet/mellanox/mlx5/core/lag/port_sel.c:531:1: warning: the frame size of 1112 bytes is larger than 1024 bytes [-Wframe-larger-than=]
+drivers/net/ethernet/mellanox/mlx5/core/en_rep.c:999:1: warning: the frame size of 1096 bytes is larger than 1024 bytes [-Wframe-larger-than=]
+drivers/net/ethernet/mellanox/mlx5/core/en_tc.c:891:1: warning: the frame size of 1280 bytes is larger than 1024 bytes [-Wframe-larger-than=]
+drivers/gpu/drm/amd/amdgpu/../display/dc/link/accessories/link_dp_cts.c:161:1: warning: the frame size of 1048 bytes is larger than 1024 bytes [-Wframe-larger-than=]
+== nvidia patch dry-run ==
+checking file nvidia/nv-dmabuf.c
+patching file nvidia/nv-dmabuf.c
+== nvidia build ==
+-rw-r--r-- 1 root root  5573776 Oct 30 06:35 nvidia-drm.ko
+-rw-r--r-- 1 root root  3540752 Oct 30 06:35 nvidia-modeset.ko
+-rw-r--r-- 1 root root 62361272 Oct 30 06:35 nvidia-uvm.ko
+-rw-r--r-- 1 root root 35681744 Oct 30 06:35 nvidia.ko
+7.3.0-rc7-gmem+ SMP preempt mod_unload modversions 
+0x43b67d62	nv_dma_buf_get_bar1_ranges	nvidia	EXPORT_SYMBOL	
+0x0980c400	nv_dma_buf_put_bar1_ranges	nvidia	EXPORT_SYMBOL	
+== upcie patch+build ==
+patching file dmabuf_import/dmabuf_import.c
+-rw-r--r-- 1 root root 482056 Oct 30 06:35 dmabuf_import/dmabuf_import.ko
+-rw-r--r-- 1 root root 450384 Oct 30 06:35 iommu_map_pa/iommu_map_pa.ko
+== bridge module ==
+-rw-r--r-- 1 root root 398952 Oct 30 06:35 gpu_gmem_provider.ko
+== pal_nvme ==
+In file included from <command-line>:
+/root/pal-poc/sid-cuda13-compat.h:7:37: warning: ‘/*’ within comment [-Wcomment]
+    7 |    Injected with gcc -include so src/*.c stay byte-for-byte unmodified. */
+71576559a1f2be8aafeffbf2cd3d02bf  pal_nvme.c
+-rwxr-xr-x 1 root root 42944 Oct 30 06:35 pal_nvme

@@ -1,0 +1,25 @@
+
+== kernel ==
+7.0.0-38-generic
+== grubenv ==
+(end)
+== nvidia ==
+NVIDIA L4, 580.178.04
+== gpu apps ==
+0
+== test devices ==
+0000:4e:00.0 -> nvme
+0000:67:00.0 -> nvme
+0000:cc:00.0 -> nvme
+0000:4d:00.0 -> nvme
+== datasets ==
+not mounted
+== modules ==
+dmabuf_import          20480  0
+iommu_map_pa           16384  0
+== sda errors this boot ==
+0
+6
+== boot files kept ==
+4
+/root/pal-poc/gmem

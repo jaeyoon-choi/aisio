@@ -1,0 +1,21 @@
+
+== md5 ==
+22de567520896c8e1e1e6c00b8887939  linux-gmem-on-v7.3-rc7.bundle
+71576559a1f2be8aafeffbf2cd3d02bf  pal_nvme.c
+d15392de01ed761087b7ded1d3403f21  followup-run.sh
+== fetch v7.3-rc7 (git.kernel.org) ==
+From https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux
+ * [new tag]             v7.3-rc7   -> v7.3-rc7
+== bundle verify ==
+The bundle contains this ref:
+6766bffb9fc2acbd8d4f0eb177562accb3a752dc refs/heads/gmem-export-poc-v7.3-rc7
+The bundle requires this ref:
+24a19b953e2a3d0ea5a8c4951a0ab8f32720c907 
+The bundle uses this hash algorithm: sha1
+../linux-gmem-on-v7.3-rc7.bundle is okay
+== fetch bundle ==
+From ../linux-gmem-on-v7.3-rc7.bundle
+ * [new branch]          gmem-export-poc-v7.3-rc7 -> gmem
+== HEAD / tree ==
+6766bffb9fc2acbd8d4f0eb177562accb3a752dc
+a6af7e15843c6a6c29d07c408b034f1b5d119a68

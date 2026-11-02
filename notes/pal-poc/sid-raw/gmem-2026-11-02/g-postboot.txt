@@ -1,0 +1,29 @@
+
+7.3.0-rc7-gmem+
+grubenv: []
+== devices ==
+crw------- 1 root root 10, 266 Nov  2 05:27 /dev/gpu_gmem_provider
+crw-rw---- 1 root kvm  10, 232 Nov  2 05:24 /dev/kvm
+== modules ==
+gpu_gmem_provider 0
+nvidia_uvm 4
+kvm_intel 0
+kvm 1
+nvidia_drm 0
+nvidia_modeset 1
+nvidia 13
+== gpu ==
+NVIDIA L4, 580.178.04
+== compute apps ==
+0
+== cmdline ==
+BOOT_IMAGE=/boot/vmlinuz-7.3.0-rc7-gmem+ root=/dev/mapper/vg0-lv--0 ro intel_iommu=on crashkernel=2G-4G:320M,4G-32G:512M,32G-64G:1024M,64G-128G:2048M,128G-:4096M
+== dmesg errors ==
+[  142.474800] ata1.00: status: { DRDY }
+[  142.476035] ata1.00: failed command: READ FPDMA QUEUED
+[  142.477369] ata1.00: cmd 60/08:a8:f0:31:57/00:00:1b:00:00/40 tag 21 ncq dma 4096 in
+                        res 40/00:00:00:00:00/00:00:00:00:00/00 Emask 0x4 (timeout)
+[  142.479658] ata1.00: status: { DRDY }
+[  142.800724] I/O error, dev sda, sector 467642368 op 0x0:(READ) flags 0x80700 phys_seg 64 prio class 2
+[  142.801559] I/O error, dev sda, sector 467650560 op 0x0:(READ) flags 0x80700 phys_seg 64 prio class 2
+[  142.802323] I/O error, dev sda, sector 458699248 op 0x0:(READ) flags 0x80700 phys_seg 1 prio class 2

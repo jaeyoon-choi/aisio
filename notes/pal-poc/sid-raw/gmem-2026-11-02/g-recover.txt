@@ -1,0 +1,8 @@
+
+== pre-reboot ==
+7.3.0-rc7-gmem+
+grubenv: []
+4e driver: nvme
+datasets: none
+gpu apps: 0
+reboot scheduled
