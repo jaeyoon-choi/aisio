@@ -2,31 +2,31 @@
 
 이 문서는 업스트림의 최신 패치를 주기적으로 확인해 갱신할 예정이다. 영문판은 [iommufd-gpu-memory.en.md](iommufd-gpu-memory.en.md)다.
 
-- 작성일: 2026-10-13, 개정일: 2026-10-29
-- 기준 트리: Linux mainline v7.3 (2026-10-18)과 v7.4 머지 윈도 진행분(c339f4010dea, 2026-10-28), iommufd for-next (04bcf8461334), linux-next 20261028
-- 메일링리스트: dri-devel, linux-mm, iommu, kvm, io-uring, linux-nvme, linux-block, linux-pci 아카이브의 2026-10-28 23시(UTC)까지 메일
+- 작성일: 2026-10-13, 개정일: 2026-11-02
+- 기준 트리: Linux mainline v7.4-rc1 (6628e7d4c6b2, 2026-11-01), iommufd for-next (04bcf8461334), linux-next 20261030
+- 메일링리스트: dri-devel, linux-mm, iommu, kvm, io-uring, linux-nvme, linux-block, linux-pci 아카이브의 2026-11-02 04시(UTC)까지 메일
 - 관련 코드: upcie-experimental 0.9.0 (`iommu_map_pa`, `dmabuf_import`, 최신 릴리스는 0.10.4), NVIDIA 드라이버 580.178.04 (측정 서버 버전, 최신 릴리스는 615.78.08)
 
 ## 요약
 
-NVMe가 CUDA로 할당한 GPU VRAM에 직접 DMA하려면, 그 VRAM의 물리주소(GPU BAR1 주소)를 NVMe의 IOMMU 페이지 테이블에 매핑해야 한다. 지금은 upcie의 커널 모듈 `iommu_map_pa`가 iommufd를 거치지 않고 이 매핑을 직접 만든다. 이 보고서는 업스트림 iommufd의 `IOMMU_IOAS_MAP_FILE`이 CUDA dma-buf를 받아 이 매핑을 만들 수 있는지, 즉 `iommu_map_pa`를 없앨 수 있는지를 2026-10-29 기준으로 정리한다.
+NVMe가 CUDA로 할당한 GPU VRAM에 직접 DMA하려면, 그 VRAM의 물리주소(GPU BAR1 주소)를 NVMe의 IOMMU 페이지 테이블에 매핑해야 한다. 지금은 upcie의 커널 모듈 `iommu_map_pa`가 iommufd를 거치지 않고 이 매핑을 직접 만든다. 이 보고서는 업스트림 iommufd의 `IOMMU_IOAS_MAP_FILE`이 CUDA dma-buf를 받아 이 매핑을 만들 수 있는지, 즉 `iommu_map_pa`를 없앨 수 있는지를 2026-11-02 기준으로 정리한다.
 
 현재 업스트림 iommufd는 NVIDIA dma-buf를 매핑하지 못하므로 `iommu_map_pa`를 당분간 유지해야 한다. iommufd는 v6.19부터 `IOMMU_IOAS_MAP_FILE`로 dma-buf를 받지만, 물리주소를 vfio-pci의 전용 함수 `vfio_pci_dma_buf_iommufd_map()`에서만 얻기 때문에 vfio-pci가 내보낸 단일 구간 dma-buf만 매핑한다. Xeon Ice Lake-SP 2소켓과 NVIDIA L4를 갖춘 측정 서버에서, 수정하지 않은 배포판 커널(7.0.0-34-generic)에 NVIDIA dma-buf를 넣으면 `errno=95`(`EOPNOTSUPP`)로 거부되었다.
 
-NVIDIA 같은 다른 exporter의 dma-buf도 받게 하려는 작업은 Linux 커널 메일링리스트에 올라온 패치 시리즈로 진행 중이며, 아직 머지된 것은 없다. NVIDIA의 Jason Gunthorpe(iommufd 메인테이너)가 2026-02-18에 RFC로 올린 dma-buf mapping types 시리즈는 dma-buf에 주소 교환 형식(mapping type)을 협상하는 체계를 넣는다. 같은 NVIDIA의 Alistair Popple이 2026-10-26에 이 시리즈를 처음 정식 패치로 다시 올렸다. 다만 이 패치에서는 물리주소 목록 type(PAL)과 iommufd 연결이 빠졌고, iommufd 연결은 이후 "iommufd importer type"으로 따로 올라올 예정이다.
+NVIDIA 같은 다른 exporter의 dma-buf도 받게 하려는 작업은 Linux 커널 메일링리스트에 올라온 패치 시리즈로 진행 중이며, 아직 머지된 것은 없다. 2026-11-01에 나온 v7.4-rc1에도 들어가지 않았고 v7.4의 머지 윈도가 닫혔으므로, 가장 이른 시점은 v7.5다. NVIDIA의 Jason Gunthorpe(iommufd 메인테이너)가 2026-02-18에 RFC로 올린 dma-buf mapping types 시리즈는 dma-buf에 주소 교환 형식(mapping type)을 협상하는 체계를 넣는다. 같은 NVIDIA의 Alistair Popple이 2026-10-26에 이 시리즈를 처음 정식 패치로 다시 올렸다. 다만 이 패치에서는 물리주소 목록 type(PAL)과 iommufd 연결이 빠졌고, iommufd 연결은 이후 "iommufd importer type"으로 따로 올라올 예정이다.
 
 Amazon의 Fred Griffoul은 2026-10-06에 dma-buf를 거치지 않고 mm에 같은 규약을 두는 mm memory provider 시리즈를 RFC로 올렸다. 그러나 2026-10-27에 올린 후속 RFC에서는 mm 인터페이스를 빼고 VM 메모리(guest_memfd)만 iommufd로 매핑하는 방향으로 바꿨다. 따라서 NVIDIA 같은 VM 밖의 드라이버에 해당하는 경로로 게시된 것은 mapping types 시리즈만 남았다(추정). NVIDIA용 전용 연결을 하나 더 두는 방법은 iommufd 메인테이너가 거부했으므로 채택될 가능성이 낮다(추정). 시리즈의 목록과 경과는 §5에 있다.
 
-iommufd 밖에서는 2026-10-27에 io_uring의 dma-buf 지원이 v7.4 머지 윈도에 들어가, NVMe를 커널 드라이버로 구동하면 dma-buf로 GPU 메모리에 직접 DMA할 수 있게 되었다. 이 경로는 vfio 기반 사용자 공간 드라이버에는 해당하지 않으며, NVIDIA dma-buf로 동작하는지는 확인하지 못했다. 같은 dma-buf를 NVMe passthrough 명령(`io_uring_cmd`)에도 쓰게 하는 Anuj Gupta(Samsung)의 [시리즈](https://lore.kernel.org/all/20261022144501.2478417-1-anuj1072538@gmail.com/)가 리뷰 중이다. 이 시리즈가 머지되고 xNVMe가 dma-buf 고정 버퍼 등록을 지원하면, aisio의 커널 경로에서 xNVMe가 NVMe 명령 단위로 GPU 메모리에 P2P DMA할 수 있을 것으로 추정한다(§3).
+iommufd 밖에서는 2026-10-27에 io_uring의 dma-buf 지원이 v7.4 머지 윈도에 들어가, NVMe를 커널 드라이버로 구동하면 dma-buf로 GPU 메모리에 직접 DMA할 수 있게 되었다. 이 경로는 vfio 기반 사용자 공간 드라이버에는 해당하지 않으며, NVIDIA dma-buf로 동작하는지는 확인하지 못했다. 같은 dma-buf를 NVMe passthrough 명령(`io_uring_cmd`)에도 쓰게 하는 Anuj Gupta(Samsung)의 [시리즈](https://lore.kernel.org/all/20261030014540.3065403-1-anuj1072538@gmail.com/)는 v3까지 나와 다섯 편 모두 Reviewed-by를 받았고, 머지되지는 않았다. 이 시리즈가 머지되고 xNVMe가 dma-buf 고정 버퍼 등록을 지원하면, aisio의 커널 경로에서 xNVMe가 NVMe 명령 단위로 GPU 메모리에 P2P DMA할 수 있을 것으로 추정한다(§3).
 
 | 항목 | 상태 | 근거 |
 | --- | --- | --- |
 | [iommufd의 dma-buf 매핑](#4-제약-요인) | VFIO PCI dma-buf의 단일 MMIO 구간만 | UAPI 주석([298ab7e6f163](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=298ab7e6f163)), [`pages.c`](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iommu/iommufd/pages.c?h=v7.3) |
 | [NVIDIA dma-buf](#4-제약-요인) | 거부(`-EOPNOTSUPP`) | [`vfio_pci_dmabuf.c`](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/vfio/pci/vfio_pci_dmabuf.c?h=v7.3)의 exporter 검사, 측정 서버 실측 `errno=95`([PoC 보고서 §6.2](https://github.com/jaeyoon-choi/aisio/blob/poc/iommufd-pal/notes/pal-poc/REPORT.md#62-단계별-결과)) |
-| [일반 exporter 개방](#51-시리즈-목록) | 머지되지 않음 | [v7.4 머지 윈도](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/log/?id=c339f4010dea), [iommufd for-next](https://git.kernel.org/pub/scm/linux/kernel/git/jgg/iommufd.git/log/?id=04bcf8461334), [linux-next 20261028](https://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git/tag/?h=next-20261028)에 관련 심볼(`dma_buf_mapping_match`, PAL, provider) 없음 |
+| [일반 exporter 개방](#51-시리즈-목록) | 머지되지 않음 | [v7.4-rc1](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tag/?h=v7.4-rc1), [iommufd for-next](https://git.kernel.org/pub/scm/linux/kernel/git/jgg/iommufd.git/log/?id=04bcf8461334), [linux-next 20261030](https://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git/tag/?h=next-20261030)에 관련 심볼(`dma_buf_mapping_match`, PAL, provider) 없음 |
 | [PAL type](#52-dma-buf-mapping-types와-pal) | [정식 시리즈](https://lore.kernel.org/all/20261026053623.202642-1-apopple@nvidia.com/)(2026-10-26)에서 제외 | iommufd 연결은 [4월 절충안](https://lore.kernel.org/all/20260422150000.GK3199414@nvidia.com/)을 따르는 importer type으로 미룸(§5.2) |
 | [mm provider](#53-mm-memory-provider와-guest_memfd-export) | 중단. guest_memfd export로 대체 | [후속 RFC](https://lore.kernel.org/all/20261027154649.91571-1-griffoul@gmail.com/) 표지 메일 "this series drops the mm interface" |
-| [io_uring dma-buf (iommufd 밖)](#3-머지된-패치) | v7.4 머지 윈도에 머지 | [ed02f4f7ad9b](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=ed02f4f7ad9b). passthrough 확장은 [리뷰 중](https://lore.kernel.org/all/20261022144501.2478417-1-anuj1072538@gmail.com/) |
+| [io_uring dma-buf (iommufd 밖)](#3-머지된-패치) | v7.4-rc1에 머지 | [ed02f4f7ad9b](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=ed02f4f7ad9b). passthrough 확장은 [v3](https://lore.kernel.org/all/20261030014540.3065403-1-anuj1072538@gmail.com/)까지 전 편 Reviewed-by, 머지되지 않음 |
 | [NVIDIA 전용 연결](#55-nvidia-드라이버에-미치는-영향) | 가능성 낮음(추정) | iommufd 메인테이너의 [2026-10-01](https://lore.kernel.org/all/20261001171501.GD3019323@ziepe.ca/), [2026-10-12](https://lore.kernel.org/all/20261012144616.GF14213@ziepe.ca/) 메일 |
 
 어느 설계가 채택되든 iommufd는 `iommu_map_pa`와 마찬가지로 BAR1 물리주소를 `IOMMU_MMIO`로 등록한다. PoC에서 PAL 경로는 측정 서버의 NVMe 한 대, 큐 하나, 순차 I/O 조건에서 호스트 메모리 대상과 같은 처리량을 냈다.
@@ -72,7 +72,7 @@ type1은 PFNMAP VMA를 `follow_fault_pfn()`으로 pin 없이 매핑하지만 수
 
 ## 3. 머지된 패치
 
-iommufd의 dma-buf 지원은 v6.13부터 v7.4 머지 윈도까지 이어진 변경으로 지금 모양이 되었다. v6.19의 dma-buf 지원은 Gunthorpe와 Romanovsky(NVIDIA)의 시리즈([v1](https://lore.kernel.org/all/0-v1-64bed2430cdb+31b-iommufd_dmabuf_jgg@nvidia.com/) 2025-10-27, [v2](https://lore.kernel.org/all/0-v2-b2c110338e3f+5c2-iommufd_dmabuf_jgg@nvidia.com/) 2025-11-21)로 들어왔다. 표의 저자는 각 커밋의 Author이고, 괄호 안의 소속은 저자 이메일이나 Signed-off-by 주소의 도메인으로 추정했다.
+iommufd의 dma-buf 지원은 v6.13부터 v7.4-rc1까지 이어진 변경으로 지금 모양이 되었다. v6.19의 dma-buf 지원은 Gunthorpe와 Romanovsky(NVIDIA)의 시리즈([v1](https://lore.kernel.org/all/0-v1-64bed2430cdb+31b-iommufd_dmabuf_jgg@nvidia.com/) 2025-10-27, [v2](https://lore.kernel.org/all/0-v2-b2c110338e3f+5c2-iommufd_dmabuf_jgg@nvidia.com/) 2025-11-21)로 들어왔다. 표의 저자는 각 커밋의 Author이고, 괄호 안의 소속은 저자 이메일이나 Signed-off-by 주소의 도메인으로 추정했다.
 
 | 릴리스 | 커밋 | 저자 | 내용 |
 | --- | --- | --- | --- |
@@ -97,7 +97,7 @@ iommufd의 dma-buf 지원은 v6.13부터 v7.4 머지 윈도까지 이어진 변�
 |  | [e745cd2c749e](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=e745cd2c749e) | Ankit Soni (AMD) | 해제 경로에서 `dma_buf_unpin()`을 `dma_resv` 락 안에서 부름(selftest 경고로 발견). PoC 커널에는 없음 |
 |  | [f2d70dbd3dce](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=f2d70dbd3dce) | Jason Gunthorpe (NVIDIA) | dma-buf detach가 끝난 뒤에 pages 내용을 정리(커널 메일링리스트의 AI 리뷰 봇 Sashiko의 지적). PoC 커널에는 없음 |
 | v7.3 (2026-10-18) | [b344ca94e8cc](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=b344ca94e8cc), [06dd5e1ae8ce](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=06dd5e1ae8ce) | David Hu (Google) | `dma_buf_phys_vec_to_sgt()`의 길이 overflow 수정과 sgl 분할 변경. vfio-pci와 RDMA exporter가 SGT를 만들 때 쓰는 헬퍼이며 iommufd 경로는 쓰지 않음 |
-| v7.4 머지 윈도 (c339f4010dea 기준) | [769f2cd9226c](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=769f2cd9226c) | Andrea Parri | 도메인을 나중에 붙이거나 영역을 복사할 때도 dma-buf PFN을 `IOMMU_MMIO`로 매핑. 도메인 하나에 한 번 매핑하는 `iommu_map_pa`와 PoC의 사용 방식은 해당하지 않음 |
+| v7.4-rc1 (2026-11-01) | [769f2cd9226c](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=769f2cd9226c) | Andrea Parri | 도메인을 나중에 붙이거나 영역을 복사할 때도 dma-buf PFN을 `IOMMU_MMIO`로 매핑. 도메인 하나에 한 번 매핑하는 `iommu_map_pa`와 PoC의 사용 방식은 해당하지 않음 |
 |  | [0d3120db2cbe](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=0d3120db2cbe) | Pavel Begunkov | dma-buf 파일 I/O 기반(`dma_buf_io_ctx`, `dma_buf_io_map`). iommufd와 무관한 io_uring 경로 |
 |  | [ce5e386c1108](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=ce5e386c1108) | Pavel Begunkov | 커널 nvme-pci 드라이버가 dma-buf를 dynamic importer(`allow_peer2peer`)로 받아 그 DMA 주소로 명령을 만듦 |
 |  | [839231d19393](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=839231d19393) | Pavel Begunkov | raw 블록 장치에서 dma-buf I/O 지원. O_DIRECT만 허용 |
@@ -105,11 +105,11 @@ iommufd의 dma-buf 지원은 v6.13부터 v7.4 머지 윈도까지 이어진 변�
 |  | [62e4bf5b25d4](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=62e4bf5b25d4) | Pavel Begunkov | io_uring이 dma-buf fd를 블록 장치용 고정 버퍼로 등록. `IORING_OP_READ_FIXED`, `WRITE_FIXED`로 사용 |
 |  | [bcbd808652e1](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=bcbd808652e1) | Keith Busch | 4 GiB 이상인 dma-buf 거부 (bvec 오프셋이 32비트) |
 
-v6.19에서 iommufd는 회계와 수명주기를 갖춘 dma-buf 매핑을 갖게 되었고, v7.1에서 revoke와 pin 흐름이 일반 dma-buf 방식으로 정리되었다. 남은 전용 부분은 물리주소 목록을 얻는 vfio-pci 함수 하나이고, `pages.c`의 주석도 이 연결을 "Future work for a phys based private interconnect will remove this"라고 적는다. v7.3과 v7.4 머지 윈도는 iommufd가 받는 dma-buf의 범위를 넓히지 않았다. v7.3의 dma-buf 수정 두 건은 vfio-pci와 RDMA exporter가 쓰는 SGT 헬퍼를 고친 것이다. PoC가 쓴 PAL 브랜치는 v7.1의 변경까지 포함하고, v7.2의 해제 경로 수정 두 건은 포함하지 않는다.
+v6.19에서 iommufd는 회계와 수명주기를 갖춘 dma-buf 매핑을 갖게 되었고, v7.1에서 revoke와 pin 흐름이 일반 dma-buf 방식으로 정리되었다. 남은 전용 부분은 물리주소 목록을 얻는 vfio-pci 함수 하나이고, `pages.c`의 주석도 이 연결을 "Future work for a phys based private interconnect will remove this"라고 적는다. v7.3과 v7.4-rc1은 iommufd가 받는 dma-buf의 범위를 넓히지 않았다. v7.3의 dma-buf 수정 두 건은 vfio-pci와 RDMA exporter가 쓰는 SGT 헬퍼를 고친 것이다. PoC가 쓴 PAL 브랜치는 v7.1의 변경까지 포함하고, v7.2의 해제 경로 수정 두 건은 포함하지 않는다.
 
-iommufd 밖에서는 2026-10-27에 io_uring의 dma-buf 지원(머지 커밋 [ed02f4f7ad9b](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=ed02f4f7ad9b))이 v7.4 머지 윈도에 들어갔다. 사용자 공간이 dma-buf fd와 NVMe 블록 장치를 io_uring에 등록하면, 커널 nvme-pci 드라이버가 그 dma-buf에 attach하고 exporter가 돌려준 DMA 주소로 직접 읽고 쓴다. NVMe의 IOMMU 매핑은 exporter가 NVMe 장치를 대상으로 DMA API를 불러 만들므로, 이 경로에는 vfio, iommufd, `iommu_map_pa`가 모두 필요 없다. 대신 NVMe를 커널 드라이버로 구동해야 하므로 vfio 기반 사용자 공간 드라이버에는 해당하지 않는다. dma-buf 하나는 4 GiB 미만이어야 하고, raw 블록 장치에 O_DIRECT로만 쓸 수 있으며, integrity checksum(PI)을 쓰는 장치에서는 거부된다(`block/fops.c`). PI 제한을 완화하는 [패치](https://lore.kernel.org/all/20261028181412.1919506-1-kbader@redhat.com/)(2026-10-28)와 파일 시스템(xfs, iomap)으로 넓히는 [RFC](https://lore.kernel.org/all/20261016091919.971295-1-anuj1072538@gmail.com/)(2026-10-16)가 올라와 있다. NVIDIA dma-buf가 이 경로에서 동작하는지는 확인하지 못했다. NVIDIA 드라이버에는 IOMMU가 켜진 환경에서 importer에 DMA 주소 대신 BAR1 물리주소를 돌려준다는 보고([Issue #1324](https://github.com/NVIDIA/open-gpu-kernel-modules/issues/1324), 2026-08-27, 드라이버 595.84, 답 없음)가 있으므로, IOMMU를 켠 환경에서는 동작하지 않을 수 있다(추정). 같은 날 KylinOS의 Li Wang이 올린 fgds RFC v2(커널 misc 드라이버로 GPU dma-buf와 파일 사이의 direct I/O를 하는 시리즈)에 König은 이 io_uring 작업을 들어 NAK했고([메일](https://lore.kernel.org/all/fa64ae97-72a0-4c0f-9988-18500936a8a8@amd.com/)), 저자는 Pavel Begunkov에게 자기 방식의 이유를 설명하고 커뮤니티의 진행을 지켜보겠다고 답했다.
+iommufd 밖에서는 2026-10-27에 io_uring의 dma-buf 지원(머지 커밋 [ed02f4f7ad9b](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=ed02f4f7ad9b))이 v7.4 머지 윈도에 들어갔다. 사용자 공간이 dma-buf fd와 NVMe 블록 장치를 io_uring에 등록하면, 커널 nvme-pci 드라이버가 그 dma-buf에 attach하고 exporter가 돌려준 DMA 주소로 직접 읽고 쓴다. NVMe의 IOMMU 매핑은 exporter가 NVMe 장치를 대상으로 DMA API를 불러 만들므로, 이 경로에는 vfio, iommufd, `iommu_map_pa`가 모두 필요 없다. 대신 NVMe를 커널 드라이버로 구동해야 하므로 vfio 기반 사용자 공간 드라이버에는 해당하지 않는다. dma-buf 하나는 4 GiB 미만이어야 하고, raw 블록 장치에 O_DIRECT로만 쓸 수 있으며, integrity checksum(PI)을 쓰는 장치에서는 거부된다(`block/fops.c`). PI 제한을 완화하는 [패치](https://lore.kernel.org/all/20261028181412.1919506-1-kbader@redhat.com/)(2026-10-28, [v2](https://lore.kernel.org/all/20261029155821.2983229-1-kbader@redhat.com/)에 Begunkov가 Reviewed-by, 머지되지 않음)와 파일 시스템(xfs, iomap)으로 넓히는 [RFC](https://lore.kernel.org/all/20261016091919.971295-1-anuj1072538@gmail.com/)(2026-10-16)가 올라와 있다. NVIDIA dma-buf가 이 경로에서 동작하는지는 확인하지 못했다. NVIDIA 드라이버에는 IOMMU가 켜진 환경에서 importer에 DMA 주소 대신 BAR1 물리주소를 돌려준다는 보고([Issue #1324](https://github.com/NVIDIA/open-gpu-kernel-modules/issues/1324), 2026-08-27, 드라이버 595.84, 답 없음)가 있으므로, IOMMU를 켠 환경에서는 동작하지 않을 수 있다(추정). 같은 날 KylinOS의 Li Wang이 올린 fgds RFC v2(커널 misc 드라이버로 GPU dma-buf와 파일 사이의 direct I/O를 하는 시리즈)에 König은 이 io_uring 작업을 들어 NAK했고([메일](https://lore.kernel.org/all/fa64ae97-72a0-4c0f-9988-18500936a8a8@amd.com/)), 저자는 Pavel Begunkov에게 자기 방식의 이유를 설명하고 커뮤니티의 진행을 지켜보겠다고 답했다.
 
-Anuj Gupta(Samsung)의 [dma-buf backed NVMe passthrough 시리즈](https://lore.kernel.org/all/20261022144501.2478417-1-anuj1072538@gmail.com/)(v2 5편, 2026-10-22)는 같은 dma-buf 고정 버퍼를 NVMe 문자 장치(`/dev/ngXnY`)의 `io_uring_cmd` passthrough 명령에도 쓰게 한다. 머지된 경로가 블록 계층의 읽기와 쓰기만 다루는 것과 달리, passthrough에서는 사용자 공간이 만든 NVMe 명령이 그대로 장치로 간다. Christoph Hellwig가 2026-10-28에 block과 nvme 패치(4/5, 5/5)에 Reviewed-by를 주었고, 머지되지는 않았다.
+Anuj Gupta(Samsung)의 [dma-buf backed NVMe passthrough 시리즈](https://lore.kernel.org/all/20261030014540.3065403-1-anuj1072538@gmail.com/)(v3 5편, 2026-10-30)는 같은 dma-buf 고정 버퍼를 NVMe 문자 장치(`/dev/ngXnY`)의 `io_uring_cmd` passthrough 명령에도 쓰게 한다. 머지된 경로가 블록 계층의 읽기와 쓰기만 다루는 것과 달리, passthrough에서는 사용자 공간이 만든 NVMe 명령이 그대로 장치로 간다. v2에 Christoph Hellwig가 2026-10-28에 block과 nvme 패치(4/5, 5/5)에, Pavel Begunkov가 10-29에 io_uring과 nvme 패치(1/5, 2/5, 3/5, 5/5)에 Reviewed-by를 주어 다섯 편 모두 리뷰를 받았다. v3는 Begunkov의 요청대로 dma-buf를 지원하지 않는 컨트롤러에서 `-EOPNOTSUPP`를 돌려주도록 고친 버전이다. 머지되지는 않았고, v7.4의 머지 윈도가 닫혔으므로 머지되더라도 v7.5 이후다.
 
 이 두 작업은 aisio에 영향이 크다고 판단한다(추정). aisio의 구조 문서(`docs/src/architecture.md`)는 커널 nvme 드라이버와 io_uring, dma-buf를 쓰는 CPU 주도 P2P 경로를 세 구조 가운데 하나로 둔다. v7.4의 머지로 이 경로의 블록 읽기와 쓰기는 패치 없는 업스트림 커널에서 가능해진다. passthrough 시리즈까지 머지되면 xNVMe의 `io_uring_cmd` 백엔드가 uPCIe 백엔드와 같은 NVMe 명령 단위로 GPU 메모리에 P2P DMA할 수 있으므로, aisio가 강조하는 구성(같은 xNVMe API로 커널 경로와 사용자 공간 경로를 바꿔 쓰는 구성)을 업스트림 커널만으로 갖출 수 있다. 그러려면 xNVMe 쪽에도 작업이 필요하다. 로컬 xNVMe(2026-09-22)의 io_uring 백엔드는 io_uring 고정 버퍼를 등록하지 않으며(`register_buffers` 옵션은 있지만 백엔드가 쓰지 않음), passthrough 시리즈는 고정 버퍼를 dma-buf로 쓰겠다고 명시한 호출만 받는다. 다만 vfio와 iommufd를 쓰지 않는 경로이므로 이 문서의 주제인 `iommu_map_pa` 대체와는 별개이고, 4 GiB 미만 제한, PI 장치 거부, NVIDIA dma-buf 동작 여부라는 조건이 남는다.
 
@@ -127,7 +127,7 @@ Anuj Gupta(Samsung)의 [dma-buf backed NVMe passthrough 시리즈](https://lore.
 
 ## 5. 리뷰 중인 패치
 
-§4의 요인을 풀려는 작업은 아직 머지되지 않았고 메일링리스트에서 리뷰 중이다. 이 절에서는 그 시리즈와 관련 시리즈를 2026-10-29 기준으로 정리한다.
+§4의 요인을 풀려는 작업은 아직 머지되지 않았고 메일링리스트에서 리뷰 중이다. 이 절에서는 그 시리즈와 관련 시리즈를 2026-11-02 기준으로 정리한다.
 
 ### 5.1 시리즈 목록
 
@@ -139,7 +139,7 @@ iommufd가 NVIDIA dma-buf를 받으려면, vfio-pci가 아닌 exporter의 물리
 | --- | --- | --- | --- |
 | DMA-buf mapping types | Gunthorpe, Popple (NVIDIA) | [PATCH 00/26](https://lore.kernel.org/all/20261026053623.202642-1-apopple@nvidia.com/) (2026-10-26) | 리뷰 중, v2 예고. 기존 scatterlist를 SGT type으로 옮김. [RFC v1](https://lore.kernel.org/all/0-v1-b5cab63049c0+191af-dmabuf_map_type_jgg@nvidia.com/)(2026-02-18)의 PAL type과 iommufd 연결은 빠짐 |
 | mm memory provider | Fred Griffoul (Amazon) | [RFC v2 00/11](https://lore.kernel.org/all/20261014093733.90312-1-griffoul@gmail.com/) (2026-10-14) | 중단. guest_memfd export로 대체 |
-| guest_memfd export | Fred Griffoul (Amazon) | [RFC 00/14](https://lore.kernel.org/all/20261027154649.91571-1-griffoul@gmail.com/) (2026-10-27) | 사람의 리뷰 없음(Sashiko AI 리뷰만 있음). VM 메모리만 다룸 |
+| guest_memfd export | Fred Griffoul (Amazon) | [RFC 00/14](https://lore.kernel.org/all/20261027154649.91571-1-griffoul@gmail.com/) (2026-10-27) | 리뷰 중. Ackerley Tng가 2026-10-29에 첫 리뷰. Griffoul은 큰 IOPTE를 위한 iommupt 변경을 준비 중이라고 답함. VM 메모리만 다룸 |
 | guest_memfd를 dma-buf로 받치기 (`get_phys()`) | Fred Griffoul | [RFC 0/6](https://lore.kernel.org/all/20261005095552.52748-1-griffoul@gmail.com/) (2026-10-05) | König NAK, 당일 철회 |
 | iommufd PAL 해제 경로 수정 | Karl Mehltretter | [RFC 0/6](https://lore.kernel.org/all/cover.1792477872.git.kmehltretter@gmail.com/) (2026-10-20) | PAL 제외로 patch 1~3의 대상 코드가 없어짐, patch 4~5는 v7.2와 중복 |
 
@@ -154,13 +154,13 @@ Mehltretter의 수정은 PoC 커널과 같은 PAL 브랜치에서 iommufd 해제
 | 시리즈 | 제안자 | 최신 버전 (날짜) | 이 문서와의 관계 |
 | --- | --- | --- | --- |
 | guest_memfd PFNMAP provider | David Woodhouse (Amazon) | [RFC v2 00/11](https://lore.kernel.org/all/20260720111259.122911-1-dwmw2@infradead.org/) (2026-07-20) | guest_memfd 백엔드를 교체 가능하게 함. mm provider v2의 patch 1이 이 시리즈의 `kvm_gmem_ops` 패치를 기반으로 씀 |
-| guest_memfd alternative providers | Ackerley Tng (Google) | [RFC v2 00/50](https://lore.kernel.org/all/20261022-gmem-alternative-providers-v2-0-5dd1dc6c660a@google.com/) (2026-10-22) | 리뷰 중. guest_memfd export RFC의 기반. RFC v1은 [2026-09-26](https://lore.kernel.org/all/20260925-gmem-tmpfs-backend-v1-0-d36159822d18@google.com/) |
-| guest_memfd 장치 MMIO | Aneesh Kumar K.V (Arm) | [RFC v2 00/13](https://lore.kernel.org/all/20261017073149.1303738-1-aneesh.kumar@kernel.org/) (2026-10-17) | vfio-pci BAR를 guest_memfd provider로 VM에 연결하고, provider가 붙은 동안 dma-buf export를 막음. RFC v1은 [2026-10-10](https://lore.kernel.org/all/20261010072504.536230-1-aneesh.kumar@kernel.org/) |
+| guest_memfd alternative providers | Ackerley Tng (Google) | [RFC v2 00/50](https://lore.kernel.org/all/20261022-gmem-alternative-providers-v2-0-5dd1dc6c660a@google.com/) (2026-10-22) | 리뷰 중. guest_memfd export RFC와 장치 메모리 provider RFC v3의 기반. RFC v1은 [2026-09-26](https://lore.kernel.org/all/20260925-gmem-tmpfs-backend-v1-0-d36159822d18@google.com/) |
+| guest_memfd 장치 메모리 provider | Aneesh Kumar K.V (Arm) | [RFC v3 00/13](https://lore.kernel.org/all/20261101071928.2462549-1-aneesh.kumar@kernel.org/) (2026-11-01) | vfio-pci BAR 같은 장치 메모리를 guest_memfd provider로 VM에 연결하는 공통 틀. v3에서 Ackerley v2 위로 다시 올렸고, VFIO provider와 iommufd 연결은 메일링리스트에 올리지 않고 Arm 브랜치에만 둠. RFC v1은 [2026-10-10](https://lore.kernel.org/all/20261010072504.536230-1-aneesh.kumar@kernel.org/), v2는 [2026-10-17](https://lore.kernel.org/all/20261017073149.1303738-1-aneesh.kumar@kernel.org/) |
 | iommufd의 guest_memfd 매핑 | Alexey Kardashevskiy (AMD) | [RFC](https://lore.kernel.org/all/20260225075211.3353194-1-aik@amd.com/) (2026-02-25) | guest_memfd를 `IOMMU_IOAS_MAP_FILE`로 매핑하려던 앞선 시도. 후속 버전 없음 |
 | 호스트 브리지 MMIO 창 조회 | Guanghui Feng (Alibaba) | [v6 0/3](https://lore.kernel.org/all/20261028090453.2392991-1-guanghuifeng@linux.alibaba.com/) (2026-10-28) | xNVMe가 GPU IOVA 창을 고를 때 피할 범위를 조회하고 예약 |
 | P2PDMA TLP 종류별 라우팅 | Leon Romanovsky (NVIDIA) | [v11 00/19](https://lore.kernel.org/all/20261013-fix-p2p-acs-v4-0-v11-0-72cf8c96e617@nvidia.com/) (2026-10-13) | ACS와 스위치 아래의 P2P 경로 판단. Helgaas가 [rc1 이후](https://lore.kernel.org/all/20261019191845.GA2219127@bhelgaas/)로 미룸 |
 | vfio-pci dma-buf mmap | Matt Evans | [v8 0/9](https://lore.kernel.org/all/20261006193643.76330-1-matt@ozlabs.org/) (2026-10-06) | vfio-pci dma-buf의 mmap과 사용자 요청 revoke. Williamson이 [리뷰](https://lore.kernel.org/all/20261013171347.54e856c7@shazbot.org/)했고 v7.4에 없음 |
-| dma-buf backed NVMe passthrough | Anuj Gupta (Samsung) | [v2 0/5](https://lore.kernel.org/all/20261022144501.2478417-1-anuj1072538@gmail.com/) (2026-10-22) | aisio의 커널 경로에 영향(§3). Hellwig가 2026-10-28에 Reviewed-by |
+| dma-buf backed NVMe passthrough | Anuj Gupta (Samsung) | [v3 0/5](https://lore.kernel.org/all/20261030014540.3065403-1-anuj1072538@gmail.com/) (2026-10-30) | aisio의 커널 경로에 영향(§3). 다섯 편 모두 Reviewed-by(Hellwig, Begunkov), 머지되지 않음 |
 
 guest_memfd 시리즈들은 VM 메모리를 iommufd로 매핑하는 기반이며, iommufd가 받는 dma-buf의 범위는 바꾸지 않는다. vfio-pci dma-buf mmap과 NVMe passthrough 시리즈도 dma-buf를 쓰는 범위를 넓히지만 iommufd의 제약은 바꾸지 않는다.
 
@@ -231,7 +231,9 @@ Griffoul은 RFC v3 대신 guest_memfd export RFC를 올리고, 표지 메일에�
 
 새 시리즈의 iommufd 부분은 인터페이스를 시험하는 시연용이다. 실제 지원은 Gunthorpe가 v2에 요구한 generic_pt 작업(큰 IOPTE의 분할과 병합)을 갖춘 별도 iommufd 시리즈로 올릴 예정이다.
 
-같은 시기에 Arm의 Aneesh Kumar는 vfio-pci BAR를 guest_memfd provider로 쓰는 RFC(v1 10-10, v2 10-17)를 올렸다. 이 시리즈는 장치 MMIO를 VM에 연결하는 용도이고, provider가 붙어 있는 동안 vfio-pci의 dma-buf export를 막는다.
+2026-10-29에 Ackerley Tng가 이 시리즈를 처음 리뷰했다. Ackerley는 KVM과 사용자 공간 매핑의 큰 블록(order > 0)을 다음 시리즈로 미루자고 했고 Griffoul도 동의했다. 다만 Griffoul은 export 조회가 provider의 블록 크기를 계속 돌려주게 두겠다고 답하면서, 그 이유를 "large IOPTEs matter for device performance"라고 설명했다. 큰 IOPTE를 제자리에서 자르고 합치는 iommupt 변경도 준비 중이라고 밝혔다.
+
+같은 시기에 Arm의 Aneesh Kumar는 vfio-pci BAR를 guest_memfd provider로 쓰는 RFC(v1 10-10, v2 10-17)를 올렸다. 이 시리즈는 장치 MMIO를 VM에 연결하는 용도이고, v2는 provider가 붙어 있는 동안 vfio-pci의 dma-buf export를 막았다. 11-01의 v3는 Ackerley v2 위로 다시 올린 공통 틀만 담았고, VFIO provider와 iommufd 연결은 Arm의 공개 브랜치에만 두었다.
 
 이 전환으로 VM 밖의 드라이버가 자기 메모리를 iommufd에 매핑하게 하는 경로는 게시된 시리즈에서 사라졌다. CUDA 할당은 guest_memfd가 아니므로, 이 시리즈는 NVMe가 CUDA 메모리에 DMA하는 용도에는 해당하지 않는다고 추정한다.
 
@@ -254,6 +256,8 @@ Griffoul은 RFC v3 대신 guest_memfd export RFC를 올리고, 표지 메일에�
 | 2026-10-21 | Samiullah Khawaja(Google)의 hole 추적 질문에 Gunthorpe가 iommupt와 hole 대응 unmap을 조건으로 제시 | [메일](https://lore.kernel.org/all/20261021234647.GA3381610@ziepe.ca/) |
 | 2026-10-22 | Ackerley Tng, guest_memfd alternative providers RFC v2 50편. guest_memfd 안에 provider 연산을 둠 | [메일](https://lore.kernel.org/all/20261022-gmem-alternative-providers-v2-0-5dd1dc6c660a@google.com/) |
 | 2026-10-27 | Griffoul, guest_memfd export RFC 14편. mm 인터페이스를 빼고 iommufd가 guest_memfd 파일을 매핑 | [메일](https://lore.kernel.org/all/20261027154649.91571-1-griffoul@gmail.com/) |
+| 2026-10-29 | Ackerley Tng, guest_memfd export RFC 첫 리뷰(01, 11, 13편). Griffoul, export 조회에 블록 크기를 남기고 큰 IOPTE용 iommupt 변경을 준비 중이라고 답함 | [Ackerley](https://lore.kernel.org/all/CAEvNRgGvxtgT=x3sLcasLZzCrtX+qEkHjPgs2yFRY0HRJvodag@mail.gmail.com/), [Griffoul](https://lore.kernel.org/all/CAF2vKzP7mKAsbDFfj-ndoYSxxZYbNzVO7uysb-XtKytR4zuC7w@mail.gmail.com/) |
+| 2026-11-01 | Aneesh Kumar, guest_memfd 장치 메모리 provider RFC v3 13편. Ackerley v2 위로 다시 올림 | [메일](https://lore.kernel.org/all/20261101071928.2462549-1-aneesh.kumar@kernel.org/) |
 
 ### 5.4 설계 비교
 
@@ -264,7 +268,7 @@ Griffoul은 RFC v3 대신 guest_memfd export RFC를 올리고, 표지 메일에�
 | pin / revoke | pin + revoke | 없음 | pin + revoke | revoke만 |
 | IOVA 회계와 락 | iommufd | 우회 | iommufd | iommufd |
 | NVIDIA가 할 일 | 불가 | 없음 | 새 type의 exporter 구현 | provider 파일 구현 |
-| 상태 (2026-10-29) | 머지됨 | 동작, 안전하지 않음 | 체계는 정식 시리즈, iommufd 연결은 게시되지 않음 | 중단(2026-10-27, guest_memfd export로 대체) |
+| 상태 (2026-11-02) | 머지됨 | 동작, 안전하지 않음 | 체계는 정식 시리즈, iommufd 연결은 게시되지 않음 | 중단(2026-10-27, guest_memfd export로 대체) |
 
 네 방식 모두 GPU BAR1의 물리주소를 `IOMMU_MMIO` 속성으로 NVMe의 IOMMU 도메인에 넣는다. 다만 엔트리 크기는 설계에 따라 다르고(아래 마지막 문단), 그 밖의 차이는 물리주소를 누가 보증하고 매핑의 수명을 누가 관리하는가에 있다.
 
@@ -284,7 +288,7 @@ NVIDIA 쪽에서 보면 현행 vfio 경로는 vfio-pci가 내보낸 dma-buf만 �
 
 **위험.** `iommu_map_pa`는 도메인이 바뀌거나 IOVA가 겹치면 잘못된 매핑이나 use-after-free를 일으킬 수 있다. 지금은 실험과 검증에만 쓰므로 그 영향도 실험 환경 안에 머문다.
 
-**할 일.** 업스트림이 정해질 때까지는 `iommu_map_pa`를 계속 쓴다. 그동안 이 모듈을 안전하게 쓰기 위한 제약(도메인 변경 금지, IOVA 창 예약, 매핑 제거 순서)을 운영 절차에 옮겨 적어, 실험 중에 도메인을 바꾸거나 IOVA 창을 겹쳐 쓰는 일을 막는다. IOVA 창 예약은 upcie의 `dmamem_iommu_map_pa_reserve_window()`로 할 수 있다. iommufd importer type 시리즈가 게시되면 PoC의 NVIDIA 패치를 그 규약으로 옮길 수 있는지 검토하고, 그 시리즈가 iommufd for-next에 들어가면 실제로 다시 이식해 PoC의 정합성, 처리량, 수명 시험을 다시 실행한다. `iommu_map_pa`를 실제로 바꾸는 전환은 아래 "전환 시점"의 조건이 갖춰진 뒤에 한다. Guanghui Feng의 `IOMMU_GET_RECOMMENDED_RESERVATIONS`와 `IOMMU_IOAS_RESERVE_IOVAS`가 머지되면, xNVMe가 그 범위를 조회해 예약한 뒤 GPU IOVA 창을 고르게 한다. io_uring dma-buf 경로(§3)는 NVMe를 커널 드라이버로 구동하는 대안이므로, v7.4-rc1이 나오면 xNVMe의 io_uring 백엔드에서 CUDA dma-buf를 등록해 IOMMU를 켠 환경에서 동작하는지 시험할지 검토한다. passthrough 시리즈가 머지되면 xNVMe의 io_uring 백엔드에 dma-buf 고정 버퍼 등록을 더한 뒤 `io_uring_cmd` 백엔드로도 같은 시험을 한다.
+**할 일.** 업스트림이 정해질 때까지는 `iommu_map_pa`를 계속 쓴다. 그동안 이 모듈을 안전하게 쓰기 위한 제약(도메인 변경 금지, IOVA 창 예약, 매핑 제거 순서)을 운영 절차에 옮겨 적어, 실험 중에 도메인을 바꾸거나 IOVA 창을 겹쳐 쓰는 일을 막는다. IOVA 창 예약은 upcie의 `dmamem_iommu_map_pa_reserve_window()`로 할 수 있다. iommufd importer type 시리즈가 게시되면 PoC의 NVIDIA 패치를 그 규약으로 옮길 수 있는지 검토하고, 그 시리즈가 iommufd for-next에 들어가면 실제로 다시 이식해 PoC의 정합성, 처리량, 수명 시험을 다시 실행한다. `iommu_map_pa`를 실제로 바꾸는 전환은 아래 "전환 시점"의 조건이 갖춰진 뒤에 한다. Guanghui Feng의 `IOMMU_GET_RECOMMENDED_RESERVATIONS`와 `IOMMU_IOAS_RESERVE_IOVAS`가 머지되면, xNVMe가 그 범위를 조회해 예약한 뒤 GPU IOVA 창을 고르게 한다. io_uring dma-buf 경로(§3)는 NVMe를 커널 드라이버로 구동하는 대안이므로, 2026-11-01에 나온 v7.4-rc1로 xNVMe의 io_uring 백엔드에서 CUDA dma-buf를 등록해 IOMMU를 켠 환경에서 동작하는지 시험할지 검토한다. passthrough 시리즈가 머지되면 xNVMe의 io_uring 백엔드에 dma-buf 고정 버퍼 등록을 더한 뒤 `io_uring_cmd` 백엔드로도 같은 시험을 한다.
 
 **지켜볼 신호.** 분기마다 아래 항목을 확인한다. 1과 2는 dma-buf 쪽, 3은 mm과 guest_memfd 쪽, 4는 NVIDIA, 5는 iommufd 자체, 6은 iommufd 밖 커널 경로의 변화다.
 
@@ -310,4 +314,4 @@ NVIDIA 쪽에서 보면 현행 vfio 경로는 vfio-pci가 내보낸 dma-buf만 �
 | NVIDIA dma-buf가 io_uring dma-buf 경로(커널 nvme-pci importer)에서 동작하는지, IOMMU를 켠 환경에서 DMA 주소를 제대로 돌려주는지 | v7.4-rc1 커널에서 CUDA dma-buf를 io_uring에 등록해 raw NVMe 블록 장치로 읽고 쓰고, 데이터와 IOMMU fault 로그를 확인한다 |
 | iommufd importer type이 out-of-tree exporter를 받는 형태가 될지, revoke 때 IOMMU 매핑을 지우는 주체가 dma-buf core인지 | 시리즈가 게시되면 exporter 쪽 계약과 invalidate 경로를 읽는다 |
 
-머지되지 않은 시리즈는 이후 버전에서 내용이 바뀔 수 있다. 인용은 2026년 10월 29일 시점이다.
+머지되지 않은 시리즈는 이후 버전에서 내용이 바뀔 수 있다. 인용은 2026년 11월 2일 시점이다.
