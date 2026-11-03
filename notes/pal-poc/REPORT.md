@@ -513,7 +513,7 @@ Intel 데이터시트가 이 동작을 설명한다. 13세대 Core 프로세서 
 | 자료 | 위치 |
 |---|---|
 | 이식 패치 (NVIDIA, upcie, SNP 실험 커널) | `notes/pal-poc/patches/` |
-| NVIDIA 이식 브랜치 | [`jaeyoon-choi/open-gpu-kernel-modules` `poc/iommufd-pal-exporter`](https://github.com/jaeyoon-choi/open-gpu-kernel-modules/tree/poc/iommufd-pal-exporter) (위 NVIDIA 패치와 같은 내용) |
+| NVIDIA 이식 브랜치 | [`jaeyoon-choi/open-gpu-kernel-modules` `poc/iommufd-pal-exporter`](https://github.com/jaeyoon-choi/open-gpu-kernel-modules/tree/poc/iommufd-pal-exporter) (첫 커밋 `842bfc5`는 위 NVIDIA 패치와 같은 내용이고, 이후 커밋 `53b72b1`이 PAL 제시를 discrete GPU로 제한한다. 측정에 쓴 것은 첫 커밋이며 시험 장비 L4에서는 동작이 같다) |
 | upcie 브랜치 (`dmabuf_import` 대응, 시험 도구) | [`jaeyoon-choi/upcie` `poc/iommufd-gpu`](https://github.com/jaeyoon-choi/upcie/tree/poc/iommufd-gpu) |
 | 시험 도구 소스 | `notes/pal-poc/src/` |
 | 실행 스크립트 | `notes/pal-poc/scripts/` |

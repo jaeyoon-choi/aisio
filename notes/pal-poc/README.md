@@ -4,13 +4,13 @@ CUDA 메모리를 `iommu_map_pa` 대신 iommufd의 `IOMMU_IOAS_MAP_FILE`로 NVMe
 
 ## 코드 위치
 
-수정한 코드는 원래 속한 저장소의 fork에 브랜치로 두었다. 이 폴더의 `src/`, `scripts/`, `patches/`는 측정 당시의 사본이고, 매뉴얼이 이 경로를 가리키므로 그대로 둔다. 이후 코드를 고칠 때는 아래 브랜치를 쓴다.
+수정한 코드는 원래 속한 저장소의 fork에 브랜치로 두었다. 이 폴더의 `src/`, `scripts/`, `patches/`는 측정 당시의 사본이고, 매뉴얼이 이 경로를 가리키므로 그대로 둔다. 이후 코드를 고칠 때는 아래 브랜치를 쓴다. NVIDIA 브랜치의 두 번째 커밋은 측정 뒤에 더한 것이고, coherent 플랫폼에서만 동작이 달라지므로 시험 장비(L4, discrete GPU)의 결과에는 영향이 없다.
 
 | 대상 | 위치 | 내용 |
 | --- | --- | --- |
-| NVIDIA 드라이버 (PAL) | [`jaeyoon-choi/open-gpu-kernel-modules` `poc/iommufd-pal-exporter`](https://github.com/jaeyoon-choi/open-gpu-kernel-modules/tree/poc/iommufd-pal-exporter) | 태그 `580.178.04` 위 커밋 하나. `patches/nvidia-580.178.04-pal-port.patch`와 같다 |
-| NVIDIA 드라이버 (guest_memfd export) | [`jaeyoon-choi/open-gpu-kernel-modules` `poc/gmem-bar1-ranges`](https://github.com/jaeyoon-choi/open-gpu-kernel-modules/tree/poc/gmem-bar1-ranges) | 태그 `580.178.04` 위 커밋 하나. `patches/nvidia-580.178.04-bar1-ranges.patch`와 같다 |
-| 브리지 모듈, 시험 도구, `dmabuf_import` 대응 | [`jaeyoon-choi/upcie` `poc/iommufd-gpu`](https://github.com/jaeyoon-choi/upcie/tree/poc/iommufd-gpu) | v0.10.4 위 커밋 세 개. `experimental/gpu_gmem_provider/`, `experimental/iommufd_gpu_poc/` |
+| NVIDIA 드라이버 (PAL) | [`jaeyoon-choi/open-gpu-kernel-modules` `poc/iommufd-pal-exporter`](https://github.com/jaeyoon-choi/open-gpu-kernel-modules/tree/poc/iommufd-pal-exporter) | 태그 `580.178.04` 위 커밋 두 개. `842bfc5`는 `patches/nvidia-580.178.04-pal-port.patch`와 같고, `53b72b1`은 PAL 제시를 discrete GPU로 제한한다 |
+| NVIDIA 드라이버 (guest_memfd export) | [`jaeyoon-choi/open-gpu-kernel-modules` `poc/gmem-bar1-ranges`](https://github.com/jaeyoon-choi/open-gpu-kernel-modules/tree/poc/gmem-bar1-ranges) | 태그 `580.178.04` 위 커밋 두 개. `3e96e76`은 `patches/nvidia-580.178.04-bar1-ranges.patch`와 같고, `9867f28`은 coherent 플랫폼을 거부한다 |
+| 브리지 모듈, 시험 도구, `dmabuf_import` 대응 | [`jaeyoon-choi/upcie` `poc/iommufd-gpu`](https://github.com/jaeyoon-choi/upcie/tree/poc/iommufd-gpu) | v0.10.4 기반. `experimental/gpu_gmem_provider/`, `experimental/iommufd_gpu_poc/` |
 
 Linux 커널은 직접 고친 코드가 없어 fork하지 않았다. 빌드한 트리는 다음과 같다.
 
