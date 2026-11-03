@@ -513,6 +513,8 @@ Intel 데이터시트가 이 동작을 설명한다. 13세대 Core 프로세서 
 | 자료 | 위치 |
 |---|---|
 | 이식 패치 (NVIDIA, upcie, SNP 실험 커널) | `notes/pal-poc/patches/` |
+| NVIDIA 이식 브랜치 | [`jaeyoon-choi/open-gpu-kernel-modules` `poc/iommufd-pal-exporter`](https://github.com/jaeyoon-choi/open-gpu-kernel-modules/tree/poc/iommufd-pal-exporter) (위 NVIDIA 패치와 같은 내용) |
+| upcie 브랜치 (`dmabuf_import` 대응, 시험 도구) | [`jaeyoon-choi/upcie` `poc/iommufd-gpu`](https://github.com/jaeyoon-choi/upcie/tree/poc/iommufd-gpu) |
 | 시험 도구 소스 | `notes/pal-poc/src/` |
 | 실행 스크립트 | `notes/pal-poc/scripts/` |
 | sid 실행 매뉴얼 | `notes/pal-poc/MANUAL.md` |
