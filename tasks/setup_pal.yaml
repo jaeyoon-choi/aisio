@@ -35,11 +35,11 @@ doc: |
   target normally boots. The trees and builds need about 40 GiB under
   pal.workdir.
 
-  The check runs the PoC tools, not xNVMe. On this kernel xNVMe's upcie-cuda
-  backend already asks iommufd to map its CUDA heap first, since the
-  controller is under a VFIO cdev. The heap also needs uPCIe's dmabuf_import
-  module, which does not build on this kernel, so AiSIO's workloads still run
-  on the distro kernel.
+  The check runs the PoC tools, not xNVMe. xNVMe asks iommufd first only when
+  a process opens the controller itself. HOMI, which AiSIO's benchmarks run
+  through, maps client memory with iommu_map_pa. Both also need uPCIe's
+  dmabuf_import, which does not build on this kernel, so AiSIO's workloads
+  still run on the distro kernel.
 
     cijoe --monitor \
       -c configs/transport.toml \
