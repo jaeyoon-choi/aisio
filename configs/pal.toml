@@ -29,7 +29,8 @@ version = "580.178.04"
 remote = "https://github.com/jaeyoon-choi/open-gpu-kernel-modules"
 commit = "d7ae70a0a98ff86e4b1c86bd3b79c17b39d77514"
 
-# TEMPORARY: the PoC tools, pal_probe and pal_nvme, on a uPCIe branch
+# TEMPORARY: the PoC tools, pal_probe and pal_nvme, on a uPCIe branch that
+# also has the fix that builds dmabuf_import on the kernel above
 [pal.tools]
 remote = "https://github.com/jaeyoon-choi/upcie"
 commit = "9cb2f101653500a93d8827c146ce7a69ce35bc5a"

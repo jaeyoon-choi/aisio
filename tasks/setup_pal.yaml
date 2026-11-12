@@ -13,14 +13,14 @@ doc: |
   proof-of-concept port of the NVIDIA open kernel modules exports GPU memory
   in it. This task builds both on the target from the commits that
   'configs/pal.toml' pins, boots the kernel once, and checks with the PoC
-  tools that an NVMe controller writes and reads GPU memory mapped that way
-  (see scripts/pal_check.py).
+  tools and with xnvmeperf that an NVMe controller moves data to and from GPU
+  memory mapped that way (see scripts/pal_check.py).
 
   The task changes the target:
 
   * It installs the build packages, and the kernel under /boot and
-    /lib/modules/<release>, with the NVIDIA modules in that release's 'extra'
-    directory.
+    /lib/modules/<release>, with the NVIDIA modules and dmabuf_import in that
+    release's 'extra' directory.
   * It regenerates the GRUB config and boots the new kernel once, with
     grub-reboot. The default entry stays, so the next reboot returns to the
     distro kernel.
@@ -29,17 +29,19 @@ doc: |
 
   The target needs the stack that 'setup_nvstack.yaml' installs, with the
   NVIDIA driver at pal.nvidia.version, as the PoC port is a patch on that
-  release. Secure Boot must be off, because nothing is signed, and the IOMMU
-  must translate. The kernel starts from the running kernel's config, cut to
-  the loaded modules with localmodconfig, so run the task on the kernel the
-  target normally boots. The trees and builds need about 40 GiB under
-  pal.workdir.
+  release, and xNVMe with CUDA from 'setup_aisio.yaml'. Secure Boot must be
+  off, because nothing is signed, and the IOMMU must translate. The kernel
+  starts from the running kernel's config, cut to the loaded modules with
+  localmodconfig, so run the task on the kernel the target normally boots.
+  The trees and builds need about 40 GiB under pal.workdir.
 
-  The check runs the PoC tools, not xNVMe. xNVMe asks iommufd first only when
-  a process opens the controller itself. HOMI, which AiSIO's benchmarks run
-  through, maps client memory with iommu_map_pa. Both also need uPCIe's
-  dmabuf_import, which does not build on this kernel, so AiSIO's workloads
-  still run on the distro kernel.
+  xnvmeperf opens the controller itself, and xNVMe then maps the CUDA heap
+  with IOMMU_IOAS_MAP_FILE first and falls back to iommu_map_pa. The check
+  unloads iommu_map_pa, so the reads complete only when the heap is mapped
+  through PAL. The heap also needs uPCIe's dmabuf_import, and the released
+  module does not build on this kernel, so the task builds it from the tools
+  commit. HOMI, which AiSIO's benchmarks run through, maps client memory with
+  iommu_map_pa only, so those still run on the distro kernel.
 
     cijoe --monitor \
       -c configs/transport.toml \
@@ -62,6 +64,8 @@ steps:
       nvidia-smi --query-gpu=driver_version --format=csv,noheader | grep -qx "{{ config.pal.nvidia.version }}" || { echo "the NVIDIA driver is not {{ config.pal.nvidia.version }}"; exit 1; }
       test -f /usr/src/nvidia-{{ config.pal.nvidia.version }}/Makefile
       test -f /usr/local/cuda/include/cuda.h
+      xnvme library-info | grep -q 'XNVME_BE_UPCIE_CUDA_ENABLED' || { echo "xNVMe is not built with CUDA"; exit 1; }
+      command -v xnvmeperf
       mkdir -p {{ config.pal.workdir }}
       test "$(df --output=avail -BG {{ config.pal.workdir }} | tail -1 | tr -dc 0-9)" -ge 40 || { echo "less than 40 GiB free under {{ config.pal.workdir }}"; exit 1; }
 
@@ -126,6 +130,12 @@ steps:
       cd {{ config.pal.workdir }}/upcie; git checkout -q --detach FETCH_HEAD
       cd {{ config.pal.workdir }}/upcie/experimental/iommufd_gpu_poc; make pal KHDR={{ config.pal.workdir }}/linux/usr/include CUDA13=1
 
+  # The tools commit has the fix that builds dmabuf_import on this kernel
+  - name: dmabuf_import_build
+    run: |
+      cd {{ config.pal.workdir }}/upcie/experimental/dmabuf_import/module; make -s KDIR={{ config.pal.workdir }}/linux
+      modinfo -F vermagic {{ config.pal.workdir }}/upcie/experimental/dmabuf_import/module/dmabuf_import.ko | grep -q "^$(cat {{ config.pal.workdir }}/kernelrelease) "
+
   # Not 'make install': its DKMS hook fails on this kernel and then skips the
   # initramfs and GRUB updates
   - name: install
@@ -133,6 +143,7 @@ steps:
       cd {{ config.pal.workdir }}/linux; make -s modules_install
       mkdir -p /lib/modules/$(cat {{ config.pal.workdir }}/kernelrelease)/extra
       cd {{ config.pal.workdir }}/nvidia; cp nvidia.ko nvidia-uvm.ko nvidia-modeset.ko nvidia-drm.ko /lib/modules/$(cat ../kernelrelease)/extra/
+      cp {{ config.pal.workdir }}/upcie/experimental/dmabuf_import/module/dmabuf_import.ko /lib/modules/$(cat {{ config.pal.workdir }}/kernelrelease)/extra/
       depmod -a $(cat {{ config.pal.workdir }}/kernelrelease)
       cd {{ config.pal.workdir }}/linux; cp arch/x86/boot/bzImage /boot/vmlinuz-$(cat ../kernelrelease)
       cd {{ config.pal.workdir }}/linux; cp System.map /boot/System.map-$(cat ../kernelrelease)
@@ -164,8 +175,10 @@ steps:
   - name: check_boot
     run: |
       test "$(uname -r)" = "$(cat {{ config.pal.workdir }}/kernelrelease)" || { echo "booted $(uname -r), not the PAL kernel"; exit 1; }
-      modprobe -a nvidia nvidia-uvm vfio-pci
+      modprobe -a nvidia nvidia-uvm vfio-pci dmabuf_import
       test "$(modinfo -n nvidia)" = "/lib/modules/$(uname -r)/extra/nvidia.ko"
+      test "$(modinfo -n dmabuf_import)" = "/lib/modules/$(uname -r)/extra/dmabuf_import.ko"
+      test -e /dev/dmabuf_import
       nvidia-smi --query-gpu=name,pci.bus_id,driver_version --format=csv,noheader
 
   - name: drive_guard
