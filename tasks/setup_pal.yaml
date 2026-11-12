@@ -1,0 +1,179 @@
+# SPDX-FileCopyrightText: Samsung Electronics Co., Ltd
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
+doc: |
+  Boot the PAL kernel and map GPU memory for an NVMe through iommufd
+  ==================================================================
+
+  AiSIO maps GPU memory into a drive's IOMMU domain with uPCIe's iommu_map_pa
+  module, because upstream iommufd refuses the dma-buf that the NVIDIA driver
+  exports. Jason Gunthorpe's PAL (Physical Address List) RFC adds a dma-buf
+  mapping type that iommufd's IOMMU_IOAS_MAP_FILE accepts, and a
+  proof-of-concept port of the NVIDIA open kernel modules exports GPU memory
+  in it. This task builds both on the target from the commits that
+  'configs/pal.toml' pins, boots the kernel once, and checks with the PoC
+  tools that an NVMe controller writes and reads GPU memory mapped that way
+  (see scripts/pal_check.py).
+
+  The task changes the target:
+
+  * It installs the build packages, and the kernel under /boot and
+    /lib/modules/<release>, with the NVIDIA modules in that release's 'extra'
+    directory.
+  * It regenerates the GRUB config and boots the new kernel once, with
+    grub-reboot. The default entry stays, so the next reboot returns to the
+    distro kernel.
+  * It WRITES three transfers from pal.slba on the NVMe controller at
+    pal.pci_addr. scripts/drive_guard.py refuses a controller the system uses.
+
+  The target needs the stack that 'setup_nvstack.yaml' installs, with the
+  NVIDIA driver at pal.nvidia.version, as the PoC port is a patch on that
+  release. Secure Boot must be off, because nothing is signed, and the IOMMU
+  must translate. The kernel starts from the running kernel's config, cut to
+  the loaded modules with localmodconfig, so run the task on the kernel the
+  target normally boots. The trees and builds need about 40 GiB under
+  pal.workdir.
+
+  xNVMe and HOMI do not use this path. They map GPU memory with iommu_map_pa,
+  and uPCIe's modules do not build on this kernel, so AiSIO's workloads still
+  run on the distro kernel.
+
+    cijoe --monitor \
+      -c configs/transport.toml \
+      -c configs/pal.toml \
+      -c <a config of your own naming pal.pci_addr> \
+      tasks/setup_pal.yaml
+
+  To check again after a reboot into the distro kernel, name the steps:
+
+    cijoe ... tasks/setup_pal.yaml boot_once wait_down wait_up check_boot drive_guard check_pal
+
+steps:
+  - name: precheck
+    run: |
+      echo "{{ config.pal.pci_addr }}" | grep -qE '^[0-9a-f]{4}:[0-9a-f]{2}:[0-9a-f]{2}\.[0-7]$' || { echo "pal.pci_addr names no NVMe controller"; exit 1; }
+      test "$(cat /sys/bus/pci/devices/{{ config.pal.pci_addr }}/class)" = 0x010802 || { echo "{{ config.pal.pci_addr }} is not an NVMe controller"; exit 1; }
+      ! mokutil --sb-state 2>/dev/null | grep -q 'SecureBoot enabled' || { echo "Secure Boot is on"; exit 1; }
+      ls /sys/class/iommu | grep -q . || { echo "no IOMMU is enabled"; exit 1; }
+      ! grep -qw iommu=pt /proc/cmdline || { echo "the IOMMU is in passthrough mode"; exit 1; }
+      nvidia-smi --query-gpu=driver_version --format=csv,noheader | grep -qx "{{ config.pal.nvidia.version }}" || { echo "the NVIDIA driver is not {{ config.pal.nvidia.version }}"; exit 1; }
+      test -f /usr/src/nvidia-{{ config.pal.nvidia.version }}/Makefile
+      test -f /usr/local/cuda/include/cuda.h
+      mkdir -p {{ config.pal.workdir }}
+      test "$(df --output=avail -BG {{ config.pal.workdir }} | tail -1 | tr -dc 0-9)" -ge 40 || { echo "less than 40 GiB free under {{ config.pal.workdir }}"; exit 1; }
+
+  # Fails before the long build, as well as before the check after the reboot
+  - name: guard
+    uses: drive_guard
+    with:
+      devices: ["{{ config.pal.pci_addr }}"]
+
+  - name: packages
+    run: |
+      apt-get -qy update
+      DEBIAN_FRONTEND=noninteractive apt-get -qy install bc bison build-essential cpio flex git kmod libelf-dev libssl-dev patch rsync wget zstd
+
+  - name: kernel_fetch
+    run: |
+      rm -rf {{ config.pal.workdir }}/linux
+      git init -q {{ config.pal.workdir }}/linux
+      cd {{ config.pal.workdir }}/linux; git fetch -q --depth 1 {{ config.pal.kernel.remote }} {{ config.pal.kernel.commit }}
+      cd {{ config.pal.workdir }}/linux; git checkout -q --detach FETCH_HEAD
+
+  # localmodconfig keeps what is loaded, so the modules the new kernel needs
+  # and the target may not have loaded go in first: vfio-pci for the check,
+  # dm_mod for a root on LVM. The distro's certificate files are not in the
+  # tree, and BTF needs pahole, so both are left out.
+  - name: kernel_config
+    run: |
+      modprobe -a vfio-pci dm_mod
+      cd {{ config.pal.workdir }}/linux; cp /boot/config-$(uname -r) .config
+      cd {{ config.pal.workdir }}/linux; make olddefconfig
+      cd {{ config.pal.workdir }}/linux; yes '' | make localmodconfig
+      cd {{ config.pal.workdir }}/linux; ./scripts/config --set-str LOCALVERSION "{{ config.pal.kernel.localversion }}" --set-str SYSTEM_TRUSTED_KEYS "" --set-str SYSTEM_REVOCATION_KEYS "" -e IOMMUFD -m VFIO -m VFIO_PCI -m VFIO_PCI_CORE -e VFIO_DEVICE_CDEV -e PCI_P2PDMA -e DMA_SHARED_BUFFER -e DEBUG_INFO_NONE -d DEBUG_INFO_BTF
+      cd {{ config.pal.workdir }}/linux; make olddefconfig
+      cd {{ config.pal.workdir }}/linux; for c in IOMMUFD VFIO_DEVICE_CDEV VFIO_PCI_DMABUF PCI_P2PDMA; do grep -qx "CONFIG_$c=y" .config || { echo "CONFIG_$c is not y"; exit 1; }; done
+      cd {{ config.pal.workdir }}/linux; make -s kernelrelease | tee {{ config.pal.workdir }}/kernelrelease
+
+  # The headers are the UAPI the PoC tools build against
+  - name: kernel_build
+    run: |
+      cd {{ config.pal.workdir }}/linux; make -s -j$(nproc)
+      cd {{ config.pal.workdir }}/linux; make -s headers_install
+
+  # A patched copy of the driver's source, built by hand, as DKMS would build
+  # the unpatched one. nvidia-peermem needs MLNX_OFED, which the stack does not
+  # install. The conftest result shows that the PAL exporter is built in.
+  - name: nvidia_build
+    run: |
+      rm -rf {{ config.pal.workdir }}/nvidia
+      cp -r /usr/src/nvidia-{{ config.pal.nvidia.version }} {{ config.pal.workdir }}/nvidia
+      wget -qO {{ config.pal.workdir }}/nvidia-pal.patch {{ config.pal.nvidia.remote }}/commit/{{ config.pal.nvidia.commit }}.patch
+      cd {{ config.pal.workdir }}/nvidia; patch -p2 --dry-run < ../nvidia-pal.patch
+      cd {{ config.pal.workdir }}/nvidia; patch -s -p2 < ../nvidia-pal.patch
+      cd {{ config.pal.workdir }}/nvidia; make -s -j$(nproc) SYSSRC={{ config.pal.workdir }}/linux NV_EXCLUDE_KERNEL_MODULES=nvidia-peermem modules
+      grep -rqx '#define NV_DMA_BUF_OPS_HAS_MATCH_MAPPING' {{ config.pal.workdir }}/nvidia/conftest
+      modinfo -F vermagic {{ config.pal.workdir }}/nvidia/nvidia.ko | grep -q "^$(cat {{ config.pal.workdir }}/kernelrelease) "
+
+  - name: tools_build
+    run: |
+      rm -rf {{ config.pal.workdir }}/upcie
+      git init -q {{ config.pal.workdir }}/upcie
+      cd {{ config.pal.workdir }}/upcie; git fetch -q --depth 1 {{ config.pal.tools.remote }} {{ config.pal.tools.commit }}
+      cd {{ config.pal.workdir }}/upcie; git checkout -q --detach FETCH_HEAD
+      cd {{ config.pal.workdir }}/upcie/experimental/iommufd_gpu_poc; make pal KHDR={{ config.pal.workdir }}/linux/usr/include CUDA13=1
+
+  # Not 'make install': its DKMS hook fails on this kernel and then skips the
+  # initramfs and GRUB updates
+  - name: install
+    run: |
+      cd {{ config.pal.workdir }}/linux; make -s modules_install
+      mkdir -p /lib/modules/$(cat {{ config.pal.workdir }}/kernelrelease)/extra
+      cd {{ config.pal.workdir }}/nvidia; cp nvidia.ko nvidia-uvm.ko nvidia-modeset.ko nvidia-drm.ko /lib/modules/$(cat ../kernelrelease)/extra/
+      depmod -a $(cat {{ config.pal.workdir }}/kernelrelease)
+      cd {{ config.pal.workdir }}/linux; cp arch/x86/boot/bzImage /boot/vmlinuz-$(cat ../kernelrelease)
+      cd {{ config.pal.workdir }}/linux; cp System.map /boot/System.map-$(cat ../kernelrelease)
+      cd {{ config.pal.workdir }}/linux; cp .config /boot/config-$(cat ../kernelrelease)
+      rm -f /boot/initrd.img-$(cat {{ config.pal.workdir }}/kernelrelease)
+      update-initramfs -c -k $(cat {{ config.pal.workdir }}/kernelrelease)
+      update-grub
+      grep -q "gnulinux-$(cat {{ config.pal.workdir }}/kernelrelease)-advanced-" /boot/grub/grub.cfg
+
+  # By menu entry id, under the 'Advanced options' submenu, for this boot only
+  - name: boot_once
+    run: |
+      grub-reboot "$(grep -o -m1 'gnulinux-advanced-[0-9a-f-]*' /boot/grub/grub.cfg)>$(grep -o -m1 "gnulinux-$(cat {{ config.pal.workdir }}/kernelrelease)-advanced-[0-9a-f-]*" /boot/grub/grub.cfg)"
+      grep '^next_entry=' /boot/grub/grubenv
+      systemd-run --on-active=2 systemctl reboot
+
+  - name: wait_down
+    uses: core.wait_for_transport
+    with:
+      state: down
+      timeout: 90
+
+  - name: wait_up
+    uses: core.wait_for_transport
+    with:
+      state: up
+      timeout: 600
+
+  - name: check_boot
+    run: |
+      test "$(uname -r)" = "$(cat {{ config.pal.workdir }}/kernelrelease)" || { echo "booted $(uname -r), not the PAL kernel"; exit 1; }
+      modprobe -a nvidia nvidia-uvm vfio-pci
+      test "$(modinfo -n nvidia)" = "/lib/modules/$(uname -r)/extra/nvidia.ko"
+      nvidia-smi --query-gpu=name,pci.bus_id,driver_version --format=csv,noheader
+
+  - name: drive_guard
+    uses: drive_guard
+    with:
+      devices: ["{{ config.pal.pci_addr }}"]
+
+  - name: check_pal
+    uses: pal_check
+    with:
+      pci_addr: "{{ config.pal.pci_addr }}"
+      slba: "{{ config.pal.slba }}"
+      tools: "{{ config.pal.workdir }}/upcie/experimental/iommufd_gpu_poc/build"
